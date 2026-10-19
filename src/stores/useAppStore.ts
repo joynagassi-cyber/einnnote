@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AppSettings, AccentColor, ThemeMode } from "../types";
+import { initThemeStyles, updateAccent } from "../styles/theme";
 
 interface AppState {
   settings: AppSettings;
@@ -35,7 +36,10 @@ function applyThemeToDOM(settings: AppSettings) {
   html.setAttribute("data-theme", theme);
   html.setAttribute("data-accent", settings.accent);
   html.setAttribute("data-high-contrast", String(settings.contrast));
+  updateAccent(settings.accent, theme === "dark");
 }
+
+initThemeStyles();
 
 export const useAppStore = create<AppState>((set, get) => ({
   settings: defaultSettings,
