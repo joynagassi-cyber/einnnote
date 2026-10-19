@@ -32,6 +32,7 @@ interface MMEdge {
   id: string;
   source: string;
   target: string;
+  style: "straight" | "step" | "smoothstep" | "bezier";
 }
 
 const SHAPES: { id: Shape; icon: typeof Circle }[] = [
@@ -39,6 +40,15 @@ const SHAPES: { id: Shape; icon: typeof Circle }[] = [
   { id: "rect", icon: Square },
   { id: "square", icon: Square },
   { id: "diamond", icon: Diamond },
+];
+
+type EdgeStyle = "straight" | "step" | "smoothstep" | "bezier";
+
+const EDGE_STYLES: { id: EdgeStyle; label: string }[] = [
+  { id: "straight", label: "Droite" },
+  { id: "step", label: "Step" },
+  { id: "smoothstep", label: "Smooth Step" },
+  { id: "bezier", label: "Bézier" },
 ];
 
 export default function MindMapPage() {
@@ -54,6 +64,7 @@ export default function MindMapPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [showShapePicker, setShowShapePicker] = useState(false);
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const { settings } = useAppStore();
 
   const note = id ? getNote(id) : null;
@@ -86,7 +97,7 @@ export default function MindMapPage() {
     const newNode: MMNode = { id, x, y, shape: "rect", text: "Nouveau" };
     setNodes((prev) => [...prev, newNode]);
     if (parent) {
-      setEdges((prev) => [...prev, { id: `me-${Date.now()}`, source: parent, target: id }]);
+      setEdges((prev) => [...prev, { id: `me-${Date.now()}`, source: parent, target: id, style: "straight" }]);
     }
     setEditingId(id);
     setEditText("Nouveau");
@@ -140,22 +151,60 @@ export default function MindMapPage() {
         <div className={cn("w-full h-screen relative overflow-auto", settings.canvasBg !== "blank" ? `canvas-${settings.canvasBg}` : "")}>
           <div className="relative min-w-full min-h-full" style={{ minHeight: "800px", minWidth: "800px" }}>
             {/* Edges (SVG) */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
               {edges.map((e) => {
                 const src = nodes.find((n) => n.id === e.source);
                 const tgt = nodes.find((n) => n.id === e.target);
                 if (!src || !tgt) return null;
+                const sx = src.x + 60;
+                const sy = src.y + 24;
+                const tx = tgt.x + 60;
+                const ty = tgt.y + 24;
+                const isSel = selectedEdge === e.id;
+
+                let path: string;
+                switch (e.style) {
+                  case "straight":
+                    path = `M${sx},${sy} L${tx},${ty}`;
+                    break;
+                  case "step": {
+                    const mx = (sx + tx) / 2;
+                    path = `M${sx},${sy} L${mx},${sy} L${mx},${ty} L${tx},${ty}`;
+                    break;
+                  }
+                  case "smoothstep": {
+                    const mx = (sx + tx) / 2;
+                    path = `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+                    break;
+                  }
+                  case "bezier": {
+                    const dx = tx - sx;
+                    const dy = ty - sy;
+                    path = `M${sx},${sy} C${sx + dx * 0.4},${sy + dy * 0.1} ${tx - dx * 0.4},${ty - dy * 0.1} ${tx},${ty}`;
+                    break;
+                  }
+                  default:
+                    path = `M${sx},${sy} L${tx},${ty}`;
+                }
+
                 return (
-                  <line
-                    key={e.id}
-                    x1={src.x + 60}
-                    y1={src.y + 24}
-                    x2={tgt.x + 60}
-                    y2={tgt.y + 24}
-                    stroke="var(--line)"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  />
+                  <g key={e.id}>
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke={isSel ? "hsl(var(--accent))" : "var(--line)"}
+                      strokeWidth={isSel ? 3 : 2}
+                      strokeLinecap="round"
+                      className="cursor-pointer"
+                      onClick={(ev) => { ev.stopPropagation(); setSelectedEdge(e.id); }}
+                    />
+                    {isSel && (
+                      <>
+                        <circle cx={sx} cy={sy} r={4} fill="hsl(var(--accent))" />
+                        <circle cx={tx} cy={ty} r={4} fill="hsl(var(--accent))" />
+                      </>
+                    )}
+                  </g>
                 );
               })}
             </svg>
@@ -272,6 +321,30 @@ export default function MindMapPage() {
           >
             <Diamond weight="fill" className="w-4 h-4" /> Changer forme
           </button>
+        )}
+
+        {/* Edge style picker */}
+        {selectedEdge && (
+          <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-lg">
+            <span className="font-inter text-xs font-medium text-[var(--muted)] mr-1">Style :</span>
+            {EDGE_STYLES.map(({ id: sid, label }) => (
+              <button
+                key={sid}
+                onClick={() => {
+                  setEdges((prev) => prev.map((e) => (e.id === selectedEdge ? { ...e, style: sid } : e)));
+                  setSelectedEdge(null);
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-inter transition-colors focus:outline-none",
+                  edges.find((e) => e.id === selectedEdge)?.style === sid
+                    ? "bg-[hsl(var(--accent))] text-white"
+                    : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--ink)]"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         )}
       </PageShell>
       <AppLayoutMobile />
