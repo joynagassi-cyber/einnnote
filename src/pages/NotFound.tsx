@@ -1,27 +1,23 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Screen } from "@/components/Layout";
+import { Compass } from "@phosphor-icons/react";
 
-const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error(
-      "404 Error: User attempted to access non-existent route:",
-      location.pathname,
-    );
-  }, [location.pathname]);
-
+export default function NotFound() {
+  const navigate = useNavigate();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
+    <Screen className="px-5">
+      <div className="flex flex-1 flex-col items-center justify-center pb-20 text-center">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-card bg-accent-soft text-accent">
+          <Compass size={28} weight="duotone" />
+        </div>
+        <h1 className="font-serif text-[24px] font-semibold">Page introuvable</h1>
+        <p className="mt-2 max-w-[32ch] text-[15px] leading-[22px] text-muted">
+          Cette adresse ne correspond à aucun écran. Rien n’a été perdu.
+        </p>
+        <button type="button" className="btn-primary mt-6" onClick={() => navigate("/")}>
+          Retour à la bibliothèque
+        </button>
       </div>
-    </div>
+    </Screen>
   );
-};
-
-export default NotFound;
+}

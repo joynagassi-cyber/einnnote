@@ -1,127 +1,132 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppStore } from "@/stores/useAppStore";
-import { mockLessons } from "@/data/mocks";
-import { PageShell } from "@/components/ui/PageShell";
-import { AppLayoutMobile, DesktopSidebar } from "@/components/layout/AppLayout";
-import {
-  CheckCircle,
-  Clock,
-  GraduationCap,
-  Trophy,
-  CaretRight,
-} from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+import { CaretRight, CheckCircle, Clock } from "@phosphor-icons/react";
+import { Screen } from "@/components/Layout";
+import { seedLessons } from "@/data/seed";
+import { useContentStore } from "@/stores/useContentStore";
+import { METHODS } from "@/lib/methods";
 
-type Lesson = {
-  id: string;
-  title: string;
-  description: string;
-  duration: number;
-  completed: boolean;
-  category: "tutorial" | "course";
-};
-
-export default function LearnPage() {
+export default function Learn() {
   const navigate = useNavigate();
-  const { settings } = useAppStore();
-  const [lessons, setLessons] = useState<Lesson[]>(mockLessons);
+  const progress = useContentStore((s) => s.progress);
 
-  const completedCount = lessons.filter((l) => l.completed).length;
-  const totalMinutes = lessons.filter((l) => l.completed).reduce((s, l) => s + l.duration, 0);
+  const done = (lessonId: string) =>
+    progress.find((p) => p.lessonId === lessonId)?.doneAt !== undefined;
 
-  const toggleLesson = (id: string) => {
-    setLessons((prev) =>
-      prev.map((l) =>
-        l.id === id
-          ? { ...l, completed: !l.completed, doneAt: !l.completed ? new Date().toISOString() : undefined }
-          : l
-      )
-    );
-  };
+  const tutorials = seedLessons.filter((l) => l.track === 1);
+  const course = seedLessons.filter((l) => l.track === 2);
+  const total = seedLessons.length;
+  const finished = seedLessons.filter((lesson) => done(lesson.id)).length;
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)]">
-      <DesktopSidebar />
-      <PageShell>
-        <div className="mb-6">
-          <h1 className="font-literata text-2xl font-bold text-[var(--ink)]">Apprendre</h1>
-          <p className="font-inter text-sm text-[var(--muted)] mt-1">
-            {completedCount} leçon{completedCount !== 1 ? "s" : ""} complétée{completedCount !== 1 ? "s" : ""} · {totalMinutes} min
-          </p>
-        </div>
+    <Screen withNav className="screen-wide px-5 lg:px-8">
+      <header className="pb-4 pt-7">
+        <h1 className="font-serif text-[30px] font-semibold leading-tight">
+          Apprendre
+        </h1>
+        <p className="mt-1 text-[15px] leading-[22px] text-muted">
+          Leçons de 2 à 4 minutes, toujours terminées par un geste réel.
+        </p>
+      </header>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[
-            { icon: CheckCircle, label: "Terminées", value: `${completedCount}/${lessons.length}` },
-            { icon: Clock, label: "Temps", value: `${totalMinutes} min` },
-            { icon: Trophy, label: "Niveau", value: completedCount >= 4 ? "Expert" : completedCount >= 2 ? "Intermédiaire" : "Débutant" },
-          ].map(({ icon: I, label, value }) => (
-            <div key={label} className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] text-center">
-              <I weight="fill" className="w-6 h-6 text-[hsl(var(--accent))] mx-auto mb-2" />
-              <div className="font-literata font-bold text-[var(--ink)] text-lg">{value}</div>
-              <div className="font-inter text-xs text-[var(--muted)]">{label}</div>
-            </div>
-          ))}
+      <section className="rounded-card border border-line bg-surface p-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[14px] font-semibold text-muted">
+            Votre parcours
+          </span>
+          <span className="text-[14px] font-semibold">
+            {finished} / {total}
+          </span>
         </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
+          <div
+            className="h-full rounded-full bg-accent transition-[width] duration-300"
+            style={{ width: `${(finished / total) * 100}%` }}
+          />
+        </div>
+      </section>
 
-        {/* Lessons list */}
-        <div className="space-y-3">
-          {lessons.map((lesson) => (
-            <div
-              key={lesson.id}
-              className={cn(
-                "flex items-center gap-4 p-4 rounded-2xl bg-[var(--surface)] border transition-all",
-                lesson.completed ? "border-green-200 dark:border-green-900/30" : "border-[var(--line)] hover:border-[hsl(var(--accent))]/40"
-              )}
-            >
+      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
+        Tutoriels par outil
+      </h2>
+      <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2">
+        {tutorials.map((lesson) => {
+          const Icon = lesson.method ? METHODS[lesson.method].icon : CheckCircle;
+          const isDone = done(lesson.id);
+          return (
+            <li key={lesson.id}>
               <button
-                onClick={() => toggleLesson(lesson.id)}
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
-                  lesson.completed
-                    ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-[var(--surface-2)] text-[var(--muted)] hover:bg-[hsl(var(--accent-soft))] hover:text-[hsl(var(--accent))]"
-                )}
-                aria-label={lesson.completed ? "Marquer comme non complété" : "Marquer comme complété"}
+                type="button"
+                onClick={() => navigate(`/learn/${lesson.id}`)}
+                className="row"
               >
-                <CheckCircle weight="fill" className="w-5 h-5" />
-              </button>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded-full font-inter font-medium",
-                    lesson.category === "tutorial"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                      : "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                  )}>
-                    {lesson.category === "tutorial" ? "Tutoriel" : "Cours"}
+                <span
+                  className={
+                    isDone ? "tile bg-accent-soft text-accent" : "tile"
+                  }
+                  aria-hidden="true"
+                >
+                  {isDone ? (
+                    <CheckCircle size={22} weight="duotone" />
+                  ) : (
+                    <Icon size={22} />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-serif text-[16px] font-semibold leading-snug">
+                    {lesson.title}
                   </span>
-                  <span className="font-inter text-xs text-[var(--muted)]">{lesson.duration} min</span>
-                </div>
-                <h3 className={cn(
-                  "font-literata font-semibold text-[var(--ink)]",
-                  lesson.completed && "line-through opacity-60"
-                )}>
-                  {lesson.title}
-                </h3>
-                <p className="font-inter text-sm text-[var(--muted)] mt-0.5 line-clamp-1">{lesson.description}</p>
-              </div>
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[14px] text-muted">
+                    <Clock size={14} aria-hidden="true" />
+                    {lesson.minutes} min · {lesson.steps.length} cartes
+                  </span>
+                </span>
+                <CaretRight size={16} className="text-muted" aria-hidden="true" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
 
-              <CaretRight weight="light" className="w-5 h-5 text-[var(--muted)] flex-shrink-0" />
-            </div>
-          ))}
-        </div>
-
-        {lessons.length === 0 && (
-          <div className="text-center py-12 text-[var(--muted)] font-inter">
-            Aucune leçon disponible.
-          </div>
-        )}
-      </PageShell>
-      <AppLayoutMobile />
-    </div>
+      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
+        Cours · Lire pour retenir
+      </h2>
+      <ul className="mb-6 flex flex-col gap-2 pb-4 lg:grid lg:grid-cols-2">
+        {course.map((lesson) => {
+          const isDone = done(lesson.id);
+          return (
+            <li key={lesson.id}>
+              <button
+                type="button"
+                onClick={() => navigate(`/learn/${lesson.id}`)}
+                className="row"
+              >
+                <span
+                  className={
+                    isDone
+                      ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect bg-accent-soft text-accent"
+                      : "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect border border-line text-[15px] font-semibold text-muted"
+                  }
+                >
+                  {isDone ? (
+                    <CheckCircle size={22} weight="duotone" />
+                  ) : (
+                    lesson.index
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-serif text-[16px] font-semibold leading-snug">
+                    {lesson.title}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[14px] text-muted">
+                    {lesson.subtitle}
+                  </span>
+                </span>
+                <CaretRight size={16} className="text-muted" aria-hidden="true" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Screen>
   );
 }

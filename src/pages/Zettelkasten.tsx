@@ -1,261 +1,428 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useNoteStore } from "@/stores/useNoteStore";
-import { PageShell } from "@/components/ui/PageShell";
-import { AppLayoutMobile, DesktopSidebar } from "@/components/layout/AppLayout";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { HeaderBar } from "@/components/ui/HeaderBar";
-import {
-  ArrowLeft,
-  Cards,
-  Link,
-  Plus,
-  Tag,
-  ArrowRight,
-  ArrowLeft as ArrowLeftI,
-} from "@phosphor-icons/react";
+import { useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { CaretRight, Graph, Plus } from "@phosphor-icons/react";
+import { AppBar, EmptyState, Screen } from "@/components/Layout";
+import { useContentStore } from "@/stores/useContentStore";
 import { cn } from "@/lib/utils";
-import { ZettelCard as ZettelCardType } from "@/types";
+import { DisplayMenu } from "@/components/DisplayMenu";
+import {
+  columnsFor,
+  gridStyle,
+  groupItems,
+  sortItems,
+  type DisplayFields,
+} from "@/lib/display";
+import { useSurfacePrefs } from "@/stores/useDisplayStore";
+import { useIsDesktop } from "@/lib/useMediaQuery";
+import type { ZettelCard } from "@/types";
 
-export default function ZettelkastenPage() {
-  const { id } = useParams<{ id: string }>();
+export default function Zettelkasten() {
+  const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { getNote, zettelCards, addZettelCard, getZettelCard, updateZettelCard } = useNoteStore();
+  const [params] = useSearchParams();
+  const vault = useContentStore((s) => s.vaults.find((v) => v.id === id));
+  const allCards = useContentStore((s) => s.zettel);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [showForm, setShowForm] = useState(false);
-  const [formTitle, setFormTitle] = useState("");
-  const [formBody, setFormBody] = useState("");
-  const [formSource, setFormSource] = useState("");
-  const [formTags, setFormTags] = useState("");
+  const cards = useMemo(
+    () =>
+      allCards
+        .filter((c) => c.vaultId === id)
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+    [allCards, id],
+  );
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  /* Affichage : la pile reste la vue par défaut (c’est le geste), mais on
+     peut basculer en grille ou en liste pour relire un coffre de 200 cartes. */
+  const { prefs: display, set: setDisplay } = useSurfacePrefs("vault", {
+    view: "stack",
+    sortBy: "created",
+  });
+  const desktop = useIsDesktop();
+  const fields: DisplayFields<ZettelCard> = useMemo(
+    () => ({
+      code: { label: "Code", value: (card) => card.code },
+      title: { label: "Titre", value: (card) => card.title },
+      created: { label: "Créée", value: (card) => card.createdAt, type: "date" },
+      updated: { label: "Modifiée", value: (card) => card.updatedAt, type: "date" },
+      source: { label: "Source", value: (card) => card.source || "Sans source" },
+      refs: { label: "Références", value: (card) => card.refs.length, type: "number" },
+      month: {
+        label: "Mois",
+        value: (card) =>
+          new Date(card.createdAt).toLocaleDateString("fr", {
+            month: "long",
+            year: "numeric",
+          }),
+      },
+    }),
+    [],
+  );
+  const ordered = useMemo(
+    () => sortItems(cards, fields, [display.sortBy, display.thenBy]),
+    [cards, fields, display.sortBy, display.thenBy],
+  );
+  const groups = useMemo(
+    () => groupItems(ordered, fields, display.groupBy),
+    [ordered, fields, display.groupBy],
+  );
 
-  // Get cards linked to this zettelkasten note
-  const cards = zettelCards.slice(0, 8);
+  const startCode = params.get("card");
+  const startIndex = Math.max(
+    0,
+    cards.findIndex((c) => c.code === startCode),
+  );
+  const [index, setIndex] = useState(startIndex);
+  const [drag, setDrag] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [flying, setFlying] = useState(false);
+  const start = useRef({ x: 0, y: 0 });
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setIsDragging(true);
-    setDragStart(e.touches[0].clientX);
+  const card = cards[Math.min(index, Math.max(cards.length - 1, 0))];
+
+  if (!vault || cards.length === 0) {
+    return (
+      <Screen className="px-5">
+        <AppBar back title="" />
+        <EmptyState
+          icon={Graph}
+          title="Ce coffre est vide"
+          description="Une carte par idée, écrite avec vos mots, avec sa source. Commencez par la première."
+          action={
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => navigate(`/vault/${id}/new`)}
+            >
+              <Plus size={18} weight="bold" /> Nouvelle carte
+            </button>
+          }
+        />
+      </Screen>
+    );
+  }
+
+  const go = (direction: 1 | -1) => {
+    setFlying(true);
+    setDrag({ x: direction * 460, y: 0 });
+    window.setTimeout(() => {
+      setIndex((current) => {
+        const next = current + direction;
+        if (next < 0) return cards.length - 1;
+        if (next >= cards.length) return 0;
+        return next;
+      });
+      setDrag({ x: 0, y: 0 });
+      setFlying(false);
+    }, 190);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    setDragOffset(e.touches[0].clientX - dragStart);
+  const openCard = (code: string) => {
+    const target = cards.findIndex((c) => c.code === code);
+    if (target >= 0) setIndex(target);
   };
 
-  const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (Math.abs(dragOffset) > 60) {
-      if (dragOffset > 0 && currentIndex < cards.length - 1) setCurrentIndex((i) => i + 1);
-      else if (dragOffset < 0 && currentIndex > 0) setCurrentIndex((i) => i - 1);
-    }
-    setDragOffset(0);
-  };
-
-  const handleSubmit = () => {
-    if (!formTitle.trim() && !formBody.trim()) return;
-    const tags = formTags.split(",").map((t) => t.trim()).filter(Boolean);
-    const card: ZettelCardType = {
-      id: `z-${Date.now()}`,
-      title: formTitle || "Sans titre",
-      bodyJson: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: formBody }] }] },
-      sourceRef: formSource,
-      refs: [],
-      createdAt: new Date().toISOString(),
-    };
-    addZettelCard(card);
-    setFormTitle("");
-    setFormBody("");
-    setFormSource("");
-    setFormTags("");
-    setShowForm(false);
-  };
-
-  const currentCard = cards[currentIndex];
+  const behind = [1, 2]
+    .filter((offset) => cards.length > offset)
+    .map((offset) => cards[(index + offset) % cards.length]);
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)]">
-      <DesktopSidebar />
-      <PageShell padding="p-4 md:p-6" className="relative">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--ink)] font-inter focus:outline-none">
-            <ArrowLeft weight="bold" className="w-4 h-4" /> Retour
-          </button>
-          <div className="flex items-center gap-2">
-            <Cards weight="fill" className="w-5 h-5 text-[hsl(var(--accent))]" />
-            <span className="font-literata font-semibold text-[var(--ink)]">Zettelkasten</span>
-          </div>
-          <button
-            onClick={() => navigate(`/zettel/${id}/graph`)}
-            className="flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--ink)] font-inter focus:outline-none"
-          >
-            <Link weight="regular" className="w-4 h-4" /> Graphe
-          </button>
-        </div>
-
-        {/* Card stack */}
-        {cards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <EmptyState
-              icon={Cards}
-              title="Ajoutez votre première carte"
-              description="Créez des fiches pour connecter vos idées."
-              actionLabel="Créer une carte"
-              onAction={() => setShowForm(true)}
+    <Screen className="px-5">
+      <AppBar
+        back
+        onBack={() => navigate("/")}
+        title={undefined}
+        action={
+          <div className="flex items-center gap-1.5">
+            <DisplayMenu
+              surface="vault"
+              defaults={{ view: "stack", sortBy: "created" }}
+              views={[
+                { value: "stack", label: "Pile", hint: "Feuilleter au doigt" },
+                { value: "grid", label: "Grille", hint: "Vignettes" },
+                { value: "list", label: "Liste", hint: "Titres" },
+              ]}
+              columns={{
+                min: 1,
+                max: 3,
+                fallback: desktop ? 3 : 2,
+                autoHint: "Automatique : 2 sur téléphone, 3 en bureau.",
+              }}
+              groupOptions={[
+                { value: "source", label: "Source" },
+                { value: "month", label: "Mois de création" },
+                { value: "refs", label: "Nombre de références" },
+              ]}
+              sortOptions={[
+                { value: "created", label: "Création" },
+                { value: "updated", label: "Modification" },
+                { value: "code", label: "Code" },
+                { value: "title", label: "Titre A → Z" },
+                { value: "refs", label: "Références" },
+                { value: "source", label: "Source" },
+              ]}
             />
+            <button
+              type="button"
+              className="pill h-10 px-3 text-[13.5px]"
+              onClick={() => navigate(`/vault/${id}/graph`)}
+            >
+              Graphe
+            </button>
           </div>
-        ) : (
-          <div
-            ref={containerRef}
-            className="relative w-full max-w-sm mx-auto"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            style={{
-              transform: isDragging ? `translateX(${dragOffset}px) rotate(${dragOffset * 0.05}deg)` : "none",
-              transition: isDragging ? "none" : "transform 0.3s ease-out",
-            }}
-          >
-            {/* Stack effect */}
-            {cards.map((card, i) => {
-              if (i > currentIndex + 2) return null;
-              const offset = currentIndex - i;
-              if (offset < 0) return null;
-              return (
-                <div
-                  key={card.id}
+        }
+      />
+
+      <h1 className="mt-1 font-serif text-[28px] font-semibold leading-tight">
+        {vault.name}
+      </h1>
+      <p className="mt-0.5 text-[15px] text-muted">
+        Coffre · {cards.length} carte{cards.length > 1 ? "s" : ""}
+      </p>
+
+      {display.view !== "stack" ? (
+        <div className="mt-5 pb-28">
+          {groups.map((group) => {
+            const columns = columnsFor(display, {
+              fallback: desktop ? 3 : 2,
+              min: 1,
+              max: 3,
+            });
+            return (
+              <section key={group.key} className="mt-4">
+                {group.label && (
+                  <h2 className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
+                    {group.label}
+                    <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] font-bold tabular-nums">
+                      {group.items.length}
+                    </span>
+                  </h2>
+                )}
+                <ul
                   className={cn(
-                    "absolute inset-0 bg-[var(--surface)] border border-[var(--line)] rounded-28 shadow-sm",
-                    "p-6 flex flex-col"
+                    display.view === "grid"
+                      ? "grid gap-2.5"
+                      : "flex flex-col gap-2",
                   )}
-                  style={{
-                    transform: `translateY(${offset * 6}px) scale(${1 - offset * 0.03})`,
-                    opacity: offset === 0 ? 1 : Math.max(0.3, 1 - offset * 0.2),
-                    zIndex: cards.length - i,
-                  }}
+                  style={display.view === "grid" ? gridStyle(columns) : undefined}
                 >
-                  {offset === 0 && (
-                    <>
-                      <h3 className="font-literata font-bold text-[var(--ink)] text-lg mb-2">{card.title}</h3>
-                      {card.bodyJson && "content" in card.bodyJson && (
-                        <p className="font-inter text-sm text-[var(--muted)] leading-relaxed flex-1 mb-4">
-                          {(card.bodyJson.content as any[])?.map((c: any) => c.content?.[0]?.text || "").join(" ").trim()}
-                        </p>
-                      )}
-                      {card.sourceRef && (
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--muted)] font-inter mb-3">
-                          <ArrowRight weight="regular" className="w-3 h-3" />
-                          {card.sourceRef}
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-1.5">
-                        {card.refs.slice(0, 5).map((refId) => {
-                          const ref = cards.find((c) => c.id === refId);
-                          return ref ? (
-                            <span key={refId} className="px-2 py-0.5 rounded-full bg-[var(--surface-2)] text-xs font-inter text-[var(--muted)]">
-                              {ref.title.slice(0, 12)}…
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  {group.items.map((entry) => (
+                    <li key={entry.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openCard(entry.code);
+                          setDisplay({ view: "stack" });
+                        }}
+                        className={cn(
+                          "w-full rounded-card border border-line bg-surface text-left hover:border-line-strong",
+                          display.view === "grid" ? "flex h-full flex-col p-3" : "flex items-center gap-3 p-3",
+                        )}
+                      >
+                        <span className="text-[12.5px] font-semibold text-accent">
+                          {entry.code}
+                        </span>
+                        <span
+                          className={cn(
+                            "font-serif font-semibold",
+                            display.view === "grid"
+                              ? "mt-1 line-clamp-2 text-[15px] leading-[20px]"
+                              : "min-w-0 flex-1 truncate text-[15px]",
+                          )}
+                        >
+                          {entry.title}
+                        </span>
+                        {display.view === "grid" ? (
+                          <span className="mt-1 line-clamp-3 text-[12.5px] leading-[18px] text-muted">
+                            {entry.body}
+                          </span>
+                        ) : (
+                          <span className="hidden shrink-0 text-[12px] text-muted sm:block">
+                            {entry.source || "sans source"}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          <p className="mt-4 text-center text-[12.5px] text-muted">
+            Touchez une carte pour revenir à la pile, à cet endroit.
+          </p>
+        </div>
+      ) : (
+      <>
+      <div className="relative mx-auto mt-6 h-[480px] max-w-[540px] select-none">
+        {/* cartes derrière */}
+        {behind
+          .map((cardBehind, position) => ({ cardBehind, position }))
+          .reverse()
+          .map(({ cardBehind, position }) =>
+            cardBehind ? (
+              <div
+                key={`${cardBehind.id}-${position}`}
+                aria-hidden="true"
+                className="absolute rounded-sheet border border-line"
+                style={{
+                  left: position === 1 ? 30 : 18,
+                  right: position === 1 ? 30 : 18,
+                  top: position === 1 ? 0 : 20,
+                  height: 400,
+                  background: position === 1 ? "var(--surface-2)" : "var(--surface)",
+                  transform: `rotate(${position === 1 ? -3 : 2}deg)`,
+                }}
+              />
+            ) : null,
+          )}
 
-        {/* Navigation */}
-        {cards.length > 1 && (
-          <div className="flex justify-center gap-4 mt-6">
-            <button
-              onClick={() => currentIndex > 0 && setCurrentIndex((i) => i - 1)}
-              disabled={currentIndex === 0}
-              className="p-3 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-30 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-            >
-              <ArrowLeftI weight="bold" className="w-5 h-5" />
-            </button>
-            <span className="flex items-center font-inter text-sm text-[var(--muted)] px-3">
-              {currentIndex + 1} / {cards.length}
-            </span>
-            <button
-              onClick={() => currentIndex < cards.length - 1 && setCurrentIndex((i) => i + 1)}
-              disabled={currentIndex >= cards.length - 1}
-              className="p-3 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-30 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-            >
-              <ArrowRight weight="bold" className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
-        {/* Add card form */}
-        {showForm && (
-          <div className="fixed inset-0 z-50 bg-[var(--bg)] flex items-end md:items-center justify-center">
-            <div className="w-full max-w-md bg-[var(--surface)] border-t md:border border-[var(--line)] md:rounded-2xl p-6 space-y-4 animate-slide-up">
-              <h3 className="font-literata font-bold text-[var(--ink)] text-lg">Nouvelle carte</h3>
-              <input
-                type="text"
-                placeholder="Titre de la carte…"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] font-literata text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-              />
-              <textarea
-                placeholder="Contenu de la carte…"
-                value={formBody}
-                onChange={(e) => setFormBody(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] font-inter text-[var(--ink)] resize-none focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-              />
-              <input
-                type="text"
-                placeholder="Source de référence…"
-                value={formSource}
-                onChange={(e) => setFormSource(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] font-inter text-sm text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-              />
-              <input
-                type="text"
-                placeholder="Tags (séparés par des virgules)…"
-                value={formTags}
-                onChange={(e) => setFormTags(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] font-inter text-sm text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 py-3 rounded-xl bg-[var(--surface-2)] text-[var(--muted)] font-inter font-medium hover:text-[var(--ink)] transition-colors focus:outline-none"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  className="flex-1 py-3 rounded-xl bg-[hsl(var(--accent))] text-white font-inter font-medium hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                >
-                  Ajouter
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FAB */}
-        <button
-          onClick={() => setShowForm(true)}
-          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 w-14 h-14 rounded-full bg-[hsl(var(--accent))] text-white shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] focus:ring-offset-2 z-40"
-          aria-label="Ajouter une carte"
+        {/* carte du dessus */}
+        <article
+          key={card.id}
+          onPointerDown={(event) => {
+            if (flying) return;
+            start.current = { x: event.clientX, y: event.clientY };
+            setDragging(true);
+            (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (!dragging) return;
+            setDrag({
+              x: event.clientX - start.current.x,
+              y: 0,
+            });
+          }}
+          onPointerUp={(event) => {
+            if (!dragging) return;
+            setDragging(false);
+            const dx = event.clientX - start.current.x;
+            if (Math.abs(dx) > 80) {
+              go(dx < 0 ? 1 : -1);
+            } else {
+              setDrag({ x: 0, y: 0 });
+            }
+          }}
+          onPointerCancel={() => {
+            setDragging(false);
+            setDrag({ x: 0, y: 0 });
+          }}
+          style={{
+            transform: `translate(${drag.x}px, 0) rotate(${drag.x / 40}deg)`,
+            transition:
+              dragging || flying ? "none" : "transform .24s cubic-bezier(.2,.8,.3,1)",
+            touchAction: "pan-y",
+          }}
+          className="absolute inset-x-0 top-11 min-h-[410px] cursor-grab rounded-sheet border border-line px-[22px] py-[22px] shadow-lift active:cursor-grabbing"
+          aria-label={`Carte ${card.code}, ${card.title}`}
         >
-          <Plus weight="bold" className="w-7 h-7" />
+          <div
+            className="absolute inset-0 rounded-sheet"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(transparent 0 35px, var(--surface-2) 35px 36px)",
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[14px] font-semibold text-accent">
+                {card.code}
+              </span>
+              <span className="text-[14px] font-medium text-muted">
+                {index + 1} / {cards.length}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/vault/${id}/new?edit=${card.id}`)}
+              className="mt-2.5 block w-full text-left font-serif text-[23px] font-semibold leading-[32px]"
+            >
+              {card.title}
+            </button>
+
+            <p className="mt-2 font-serif text-[17px] leading-[36px]">
+              {card.body}
+            </p>
+
+            {card.source && (
+              <div className="mt-3.5 inline-block rounded-rect bg-accent-soft px-2.5 py-1 text-[14px] font-medium text-accent-ink">
+                Source : {card.source}
+              </div>
+            )}
+
+            {card.refs.length > 0 && (
+              <div className="mt-3.5 flex flex-col items-start gap-1">
+                {card.refs.map((ref) => {
+                  const target = cards.find((c) => c.code === ref);
+                  return (
+                    <button
+                      key={ref}
+                      type="button"
+                      onClick={() => openCard(ref)}
+                      className="flex items-center gap-1 text-left text-[14px] font-medium text-accent"
+                    >
+                      Voir {ref}
+                      {target ? ` · ${target.title}` : ""}
+                      <CaretRight size={14} weight="bold" aria-hidden="true" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </article>
+      </div>
+
+      <div className="mt-1 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          aria-label="Carte précédente"
+          onClick={() => go(-1)}
+          className="icon-btn h-9 w-9 text-muted"
+        >
+          <CaretRight size={16} weight="bold" className="rotate-180" />
         </button>
-      </PageShell>
-      <AppLayoutMobile />
-    </div>
+        <div className="flex items-center gap-1.5" aria-hidden="true">
+          {cards.slice(0, Math.min(cards.length, 7)).map((c, i) => (
+            <span
+              key={c.id}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === index % 7 ? "w-4 bg-accent" : "w-1.5 bg-line-strong",
+              )}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          aria-label="Carte suivante"
+          onClick={() => go(1)}
+          className="icon-btn h-9 w-9 text-muted"
+        >
+          <CaretRight size={16} weight="bold" />
+        </button>
+      </div>
+      <p className="mt-1 text-center text-[14px] text-muted">
+        Glissez pour feuilleter
+      </p>
+      </>
+      )}
+
+      <div className="h-28" />
+
+      <div className="dock pointer-events-none fixed inset-x-0 bottom-[calc(20px+var(--safe-bottom))] z-20 mx-auto px-5">
+        <button
+          type="button"
+          onClick={() => navigate(`/vault/${id}/new`)}
+          className="btn-primary pointer-events-auto h-14 w-full rounded-big text-[16px]"
+        >
+          <Plus size={20} weight="bold" /> Nouvelle carte
+        </button>
+      </div>
+    </Screen>
   );
 }

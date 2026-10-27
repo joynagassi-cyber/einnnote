@@ -1,44 +1,115 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Library from "./pages/Library";
-import ChooseMethod from "./pages/ChooseMethod";
-import Editor from "./pages/Editor";
-import Review from "./pages/Review";
-import MindMap from "./pages/MindMap";
-import Zettelkasten from "./pages/Zettelkasten";
-import ZettelGraph from "./pages/ZettelGraph";
-import Learn from "./pages/Learn";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
-
-const queryClient = new QueryClient();
+import type { ReactNode } from "react";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ThemeSync, ToastHost } from "@/components/Layout";
+import { AppShell } from "@/components/DesktopRail";
+import Library from "@/pages/Library";
+import ChooseMethod from "@/pages/ChooseMethod";
+import Editor from "@/pages/Editor";
+import Review from "@/pages/Review";
+import MindMap from "@/pages/MindMap";
+import Zettelkasten from "@/pages/Zettelkasten";
+import ZettelForm from "@/pages/ZettelForm";
+import ZettelGraph from "@/pages/ZettelGraph";
+import Learn from "@/pages/Learn";
+import LessonPlayer from "@/pages/LessonPlayer";
+import Settings from "@/pages/Settings";
+import Appearance from "@/pages/Appearance";
+import Personalization from "@/pages/Personalization";
+import Preview from "@/pages/Preview";
+import Projects from "@/pages/Projects";
+import ProjectDetail from "@/pages/ProjectDetail";
+import Vaults from "@/pages/Vaults";
+import DataBackup from "@/pages/DataBackup";
+import Progress from "@/pages/Progress";
+import Trash from "@/pages/Trash";
+import About from "@/pages/About";
+import NotFound from "@/pages/NotFound";
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+  <>
+    <BrowserRouter>
+      <ThemeSync />
+      <ToastHost />
+      <Shell>
+        <RouteGuard>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/new" element={<ChooseMethod />} />
-          <Route path="/editor/:id" element={<Editor />} />
+          <Route path="/" element={<Library />} />
           <Route path="/review" element={<Review />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/vaults" element={<Vaults />} />
+          <Route path="/new" element={<ChooseMethod />} />
+          <Route path="/note/:id" element={<Editor />} />
           <Route path="/mindmap/:id" element={<MindMap />} />
-          <Route path="/zettel/:id" element={<Zettelkasten />} />
-          <Route path="/zettel/:id/graph" element={<ZettelGraph />} />
+          <Route path="/vault/:id" element={<Zettelkasten />} />
+          <Route path="/vault/:id/new" element={<ZettelForm />} />
+          <Route path="/vault/:id/graph" element={<ZettelGraph />} />
           <Route path="/learn" element={<Learn />} />
-          <Route path="/settings/appearance" element={<Settings />} />
+          <Route path="/learn/:lessonId" element={<LessonPlayer />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/appearance" element={<Appearance />} />
+          <Route
+            path="/settings/personalization"
+            element={<Personalization />}
+          />
+          <Route path="/settings/data" element={<DataBackup />} />
+          <Route path="/settings/progress" element={<Progress />} />
+          <Route path="/settings/trash" element={<Trash />} />
+          <Route path="/settings/about" element={<About />} />
+          {/* Anciennes adresses : conservées pour ne pas casser un lien */}
+          <Route path="/library" element={<Navigate to="/" replace />} />
+          <Route path="/editor/:id" element={<LegacyEditorRedirect />} />
+          <Route path="/zettel/:id" element={<LegacyZettelRedirect />} />
+          <Route path="/zettel/:id/graph" element={<LegacyGraphRedirect />} />
+          {/* Aperçu côte à côte mobile + bureau, plein écran */}
+          <Route path="/preview" element={<Preview />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+        </RouteGuard>
+      </Shell>
+    </BrowserRouter>
+  </>
 );
+
+/** L’aperçu s’affiche sans rail : il montre l’application, pas le cadre. */
+function Shell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/preview")) return <>{children}</>;
+  return <AppShell>{children}</AppShell>;
+}
+
+/**
+ * Un écran qui plante ne doit pas tout emporter. La clé sur le chemin
+ * remet la frontière à zéro dès qu’on navigue : l’erreur reste locale.
+ */
+function RouteGuard({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary key={pathname} route={pathname}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
+function LegacyEditorRedirect() {
+  const id = window.location.pathname.split("/").pop() ?? "";
+  return <Navigate to={`/note/${id}`} replace />;
+}
+function LegacyZettelRedirect() {
+  const id = window.location.pathname.split("/").pop() ?? "";
+  return <Navigate to={`/vault/${id}`} replace />;
+}
+function LegacyGraphRedirect() {
+  const parts = window.location.pathname.split("/");
+  const id = parts[2] ?? "";
+  return <Navigate to={`/vault/${id}/graph`} replace />;
+}
 
 export default App;
