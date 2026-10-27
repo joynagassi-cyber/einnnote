@@ -789,6 +789,61 @@ describe("Engram — écrans", () => {
     expect(vaults.some((vault) => vault.name === "Séminaire")).toBe(true);
   });
 
+  it("crée un coffre entier depuis un modèle, en un geste", async () => {
+    const user = userEvent.setup();
+    open("/vaults");
+    await user.click(screen.getByRole("button", { name: /^Coffre$/ }));
+    await user.click(screen.getByRole("button", { name: /Carte conceptuelle/ }));
+
+    const state = useContentStore.getState();
+    const vault = state.vaults.find((item) => item.name === "Carte conceptuelle");
+    expect(vault).toBeTruthy();
+    const cards = state.zettel.filter((card) => card.vaultId === vault!.id);
+    expect(cards).toHaveLength(5);
+    // les codes du modèle sont rendus tels quels, sinon les références pendent
+    expect(cards.map((card) => card.code).sort()).toEqual(["#1A", "#1A1", "#1A2", "#1A3", "#1B"]);
+    const codes = new Set(cards.map((card) => card.code));
+    for (const card of cards) {
+      for (const ref of card.refs) expect(codes.has(ref)).toBe(true);
+    }
+    // style et étiquettes qui vont avec le modèle
+    expect(useAppStore.getState().settings.graphStyle).toBe("carte-conceptuelle");
+    expect(useAppStore.getState().settings.graphLabels).toBe(true);
+    await waitFor(() => expect(window.location.pathname).toBe(`/vault/${vault!.id}/graph`));
+  });
+
+  it("choisit un style par ses liens nommés, pas par hasard", async () => {
+    const user = userEvent.setup();
+    open("/vault/v-eco/graph");
+    await user.click(screen.getByRole("button", { name: "Styles de graphe" }));
+    await user.click(screen.getByRole("button", { name: "Style Carte conceptuelle" }));
+    expect(useAppStore.getState().settings.graphLabels).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Style Réseau" }));
+    expect(useAppStore.getState().settings.graphLabels).toBe(false);
+  });
+
+  it("règle l’affichage du graphe et le garde", async () => {
+    const user = userEvent.setup();
+    open("/vault/v-eco/graph");
+    await user.click(screen.getByRole("button", { name: "Affichage et export" }));
+
+    const labels = screen.getByRole("switch", { name: /Étiquettes de relation/ });
+    expect(labels.getAttribute("aria-checked")).toBe("false");
+    await user.click(labels);
+    expect(useAppStore.getState().settings.graphLabels).toBe(true);
+
+    await user.click(screen.getByRole("switch", { name: /Renvois/ }));
+    expect(useAppStore.getState().settings.graphEchoes).toBe(false);
+
+    await user.click(screen.getByRole("switch", { name: /Animation du courant/ }));
+    expect(useAppStore.getState().settings.graphAnimate).toBe(true);
+
+    // trois sorties, dont deux SVG et un JSON
+    expect(screen.getByRole("button", { name: /SVG clair/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /SVG sombre/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /JSON du graphe/ })).toBeTruthy();
+  });
+
   it("refuse de supprimer un coffre qui contient des fiches", async () => {
     const user = userEvent.setup();
     const before = useContentStore.getState().vaults.length;

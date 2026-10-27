@@ -4,10 +4,8 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  Handle,
   MarkerType,
   MiniMap,
-  Position,
   ReactFlow,
   useNodesState,
   useEdgesState,
@@ -16,9 +14,18 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Crosshair, Graph, Sparkle, TreeStructure } from "@phosphor-icons/react";
+import {
+  Crosshair,
+  DownloadSimple,
+  Graph,
+  Plus,
+  SlidersHorizontal,
+  Sparkle,
+  TreeStructure,
+} from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
 import { GraphStyleGallery } from "@/components/GraphStyleGallery";
+import { GraphExchange } from "@/components/GraphExchange";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { useIsDesktop } from "@/lib/useMediaQuery";
@@ -32,8 +39,9 @@ import {
   type ZettelPosition,
 } from "@/lib/graph/zettel";
 import { graphStyleById, type GraphStyle } from "@/lib/graph/styles";
-import { floatingParams } from "@/lib/graph/floating";
 import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
+import { linkLabel } from "@/lib/graph/labels";
+import type { GraphDocument } from "@/lib/graph/export";
 import type { ZettelCard } from "@/types";
 
 type FicheData = {
@@ -47,33 +55,12 @@ type FicheData = {
 
 type FicheNode = Node<FicheData, "fiche">;
 
-const HIDDEN = { opacity: 0, width: 6, height: 6 } as const;
-const SIDES = ["left", "right", "top", "bottom"] as const;
-const POSITION = {
-  left: Position.Left,
-  right: Position.Right,
-  top: Position.Top,
-  bottom: Position.Bottom,
-} as const;
-
 const BACKGROUNDS: Record<string, BackgroundVariant | null> = {
   dots: BackgroundVariant.Dots,
   lines: BackgroundVariant.Lines,
   cross: BackgroundVariant.Cross,
   none: null,
 };
-
-const EDGE_TYPE: Record<GraphStyle["edge"], string | undefined> = {
-  floating: "floating",
-  tapered: "tapered",
-  smoothstep: "smoothstep",
-  straight: "straight",
-  bezier: "default",
-};
-
-function sideHandle(prefix: "s" | "t", side: string) {
-  return `${prefix}-${side}`;
-}
 
 /**
  * Le graphe d’un coffre Zettelkasten.
@@ -99,10 +86,19 @@ export default function ZettelGraph() {
   const allCards = useContentStore((s) => s.zettel);
   const graphStyle = useAppStore((s) => s.settings.graphStyle);
   const setGraphStyle = useAppStore((s) => s.setGraphStyle);
+  const graphLabels = useAppStore((s) => s.settings.graphLabels);
+  const graphEchoes = useAppStore((s) => s.settings.graphEchoes);
+  const graphAnimate = useAppStore((s) => s.settings.graphAnimate);
+  const setGraphDisplay = useAppStore((s) => s.setGraphDisplay);
+
+  const createVault = useContentStore((s) => s.createVault);
+  const addZettelCard = useContentStore((s) => s.addZettelCard);
+  const updateZettelCard = useContentStore((s) => s.updateZettelCard);
 
   const style = graphStyleById(graphStyle);
   const [pickedStyle, setPickedStyle] = useState<string | null>(null);
   const [stylesOpen, setStylesOpen] = useState(false);
+  const [displayOpen, setDisplayOpen] = useState(false);
   const [rootCode, setRootCode] = useState<string | null>(params.get("card"));
   const [rootPickOpen, setRootPickOpen] = useState(false);
   const [epoch, setEpoch] = useState(0);
@@ -124,9 +120,14 @@ export default function ZettelGraph() {
     [graph, style.layout],
   );
 
+  const display = useMemo(
+    () => ({ labels: graphLabels, echoes: graphEchoes, animate: graphAnimate }),
+    [graphLabels, graphEchoes, graphAnimate],
+  );
+
   const flow = useMemo(
-    () => toFlow(cards, graph, layout.positions, style),
-    [cards, graph, layout, style],
+    () => toFlow(cards, graph, layout.positions, style, display),
+    [cards, graph, layout, style, display],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FicheNode>(flow.nodes);
@@ -134,6 +135,9 @@ export default function ZettelGraph() {
 
   const signature = [
     style.id,
+    display.labels ? "l1" : "l0",
+    display.echoes ? "e1" : "e0",
+    display.animate ? "a1" : "a0",
     rootCode ?? "",
     epoch,
     cards.map((card) => `${card.code}:${card.title}:${card.refs.length}`).join("|"),
@@ -205,6 +209,20 @@ export default function ZettelGraph() {
               >
                 <Sparkle size={desktop ? 16 : 19} weight="fill" aria-hidden />
                 {desktop && "Style"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayOpen(true)}
+                aria-label="Affichage et export"
+                className={cn(
+                  "h-10 text-ink",
+                  desktop
+                    ? "pill gap-1.5 px-3 text-[13.5px] font-semibold"
+                    : "icon-btn w-10",
+                )}
+              >
+                <SlidersHorizontal size={desktop ? 16 : 19} aria-hidden />
+                {desktop && "Affichage"}
               </button>
               <button
                 type="button"
@@ -361,6 +379,42 @@ export default function ZettelGraph() {
         </p>
       </Sheet>
 
+      {/* Affichage, export, reprise : ce qu’on voit est ce qu’on emporte */}
+      <Sheet
+        open={displayOpen}
+        onClose={() => setDisplayOpen(false)}
+        title="Affichage et export"
+      >
+        <GraphExchange
+          input={{ vault, cards, graph, positions: layout.positions, style }}
+          style={style}
+          display={display}
+          onDisplay={(patch) => setGraphDisplay(patch)}
+          onImport={(document) => {
+            /* Un fichier validé devient un coffre neuf : on crée les fiches,
+               puis on leur rend leur code d’origine (le magasin en attribue un
+               autre à la création). Aucune fiche existante n’est touchée. */
+            const created = createVault({
+              name: document.vault.name,
+              projectId: vault.projectId,
+              note: `Importé le ${new Date(document.exportedAt).toLocaleDateString("fr-FR")} · style ${document.style}`,
+            });
+            for (const card of [...document.cards].reverse()) {
+              const made = addZettelCard({
+                vaultId: created.id,
+                title: card.title,
+                body: card.body ?? "",
+                source: card.source ?? "",
+                refs: card.refs ?? [],
+              });
+              updateZettelCard(made.id, { code: card.code, refs: card.refs ?? [] });
+            }
+            setDisplayOpen(false);
+            navigate(`/vault/${created.id}/graph`);
+          }}
+        />
+      </Sheet>
+
       {/* Racine : voir le coffre depuis une autre fiche */}
       <Sheet
         open={rootPickOpen}
@@ -414,7 +468,10 @@ function toFlow(
   graph: ZettelGraphModel,
   positions: ZettelPosition[],
   style: GraphStyle,
+  display: { labels: boolean; echoes: boolean; animate: boolean },
 ): { nodes: FicheNode[]; edges: Edge[] } {
+  const labelsEnabled = display.labels;
+  const { echoes, animate } = display;
   const byCode = new Map(cards.map((card) => [card.code, card]));
   const boxOf = new Map(
     positions.map((position) => [
@@ -447,53 +504,43 @@ function toFlow(
     ];
   });
 
+  const weight = style.weight ?? 2;
   const marker = style.arrow
     ? { type: MarkerType.ArrowClosed, width: 13, height: 13, color: "var(--accent)" }
     : undefined;
-
-  const tapered = style.edge === "tapered";
-  const weight = style.weight ?? 2;
-  const stroke = tapered
-    ? { stroke: "var(--accent)" }
-    : { stroke: "var(--accent)", strokeWidth: weight, strokeLinecap: "round" as const };
-  const handled = style.edge !== "floating" && style.edge !== "tapered";
 
   const edgeOf = (source: string, target: string, echo: boolean): Edge | null => {
     const a = boxOf.get(source);
     const b = boxOf.get(target);
     if (!a || !b) return null;
-    const sides = floatingParams(a, b);
-    const lineStyle = echo
-      ? {
-          ...stroke,
-          opacity: 0.4,
-          ...(tapered ? {} : { strokeWidth: Math.max(1, weight * 0.7) }),
-          strokeDasharray: "3 5",
-        }
-      : style.dashed
-        ? { ...stroke, strokeDasharray: "6 4" }
-        : stroke;
-
+    const label = linkLabel(cards, source, target);
     return {
       id: `${echo ? "echo" : "tree"}-${source}-${target}`,
       source,
       target,
-      type: EDGE_TYPE[style.edge],
-      ...(handled
-        ? {
-            sourceHandle: sideHandle("s", sides.sourceSide),
-            targetHandle: sideHandle("t", sides.targetSide),
-          }
-        : {}),
-      style: lineStyle,
-      data: { echo },
+      /* Une seule arête maison : elle calcule son accroche sur le bord réel des
+         deux cartes et porte l’étiquette de relation sur son propre chemin. */
+      type: "engram",
+      data: {
+        kind: style.edge,
+        echo,
+        /* Un lien d’arbre sans citation déclarée n’a pas de relation à
+           nommer : « lien » n’apprend rien et alourdit le canevas. L’export
+           applique exactement la même règle. */
+        label: label.relation === "lie" ? undefined : label.label,
+        labels: labelsEnabled,
+        animate,
+        weight,
+        dashed: style.dashed,
+      },
+      style: { stroke: "var(--accent)" },
       ...(echo || !marker ? {} : { markerEnd: marker }),
     };
   };
 
   const edges: Edge[] = [
     ...graph.treeLinks.map((link) => edgeOf(link.source, link.target, false)),
-    ...graph.echoes.map((link) => edgeOf(link.source, link.target, true)),
+    ...(echoes ? graph.echoes.map((link) => edgeOf(link.source, link.target, true)) : []),
   ].filter((edge): edge is Edge => Boolean(edge));
 
   return { nodes, edges };
@@ -507,16 +554,6 @@ function FicheNodeView({ data }: NodeProps<FicheNode>) {
   const { code, title, refs, root, detached } = data;
   return (
     <div className="group relative">
-      {SIDES.map((side) => (
-        <Handle
-          key={`t-${side}`}
-          type="target"
-          id={`t-${side}`}
-          position={POSITION[side]}
-          isConnectable={false}
-          style={HIDDEN}
-        />
-      ))}
       <div
         style={{ width: CARD_W, minHeight: CARD_H }}
         className={cn(
@@ -544,16 +581,6 @@ function FicheNodeView({ data }: NodeProps<FicheNode>) {
           {title}
         </span>
       </div>
-      {SIDES.map((side) => (
-        <Handle
-          key={`s-${side}`}
-          type="source"
-          id={`s-${side}`}
-          position={POSITION[side]}
-          isConnectable={false}
-          style={HIDDEN}
-        />
-      ))}
     </div>
   );
 }

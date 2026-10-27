@@ -1,4 +1,4 @@
-# Modèles — 18 charpentes de notes et de fiches + 14 cartes mentales
+# Modèles — 18 charpentes de notes et de fiches + 14 cartes mentales + 6 coffres
 
 > Ce document explique **d’où vient chaque modèle**, comment il est calculé, ce
 > qui est vérifié par test, et ce qui reste à faire. Il ne recopie pas le code :
@@ -167,9 +167,33 @@ souvent `dagre` ou `elkjs`. Les importer aurait ajouté une dépendance lourde
 pour un gain nul sur des arbres de 16 nœuds. Une disposition maison de 200
 lignes, couverte par des tests de collision, est plus solide ici.
 
+## 5. Coffres — 6 réseaux de fiches
+
+Dernier venu : un modèle peut remplir non pas *une* fiche mais **plusieurs
+fiches déjà liées**. Six modèles, chacun dérivé d’un motif de diagramme
+(`docs/VISUALFLOW.md`) et traduit en contenu d’étude réel :
+
+| Modèle | Motif d’origine | Style de graphe | Ce qu’il pose |
+|---|---|---|---|
+| Carte conceptuelle | Concept map | `carte-conceptuelle` | concept pivot, inclusions, exclusions, voisin |
+| Chaîne d’arguments | Pipeline / Flow diagram | `flux` | thèse, deux prémisses, objection, réponse |
+| Arbre de décision | Validation flow | `arbre-binaire` | question, critère, deux issues, cas résiduel |
+| Machine à états | State machine | `circuit` | état initial, nominal, erreur, final, transitions interdites |
+| Décomposition d’un chapitre | Organisation chart | `colonnes` | chapitre → sections → notion révisable |
+| Boucle de révision | Workflow automatisé | `reseau` | cours → questions → fiche → test → ajustement → retour |
+
+Trois propriétés tenues par `src/lib/templates/graphs.test.ts` : codes uniques,
+**références résolues** (aucun lien orphelin), et graphe **connexe** — aucune
+fiche hors arbre. Un modèle qui produirait une fiche isolée serait un modèle
+cassé : le test le refuse.
+
+Application en **un geste**, depuis `Coffres → + Coffre` : le coffre, ses fiches,
+leurs codes, leurs références et le style de graphe sont posés, puis le graphe
+s’ouvre. La vignette est calculée par le moteur du graphe, pas dessinée à part.
+
 ---
 
-## 5. Le modèle par défaut
+## 6. Le modèle par défaut
 
 `carte-lecture` — **Carte de lecture active**, radiale, courbes.
 
@@ -189,7 +213,7 @@ Toute nouvelle carte créée sans modèle explicite reçoit ce modèle (store :
 
 ---
 
-## 6. Ce qui manque encore (honnêtement)
+## 7. Ce qui manque encore (honnêtement)
 
 | Manque | Effet | Coût |
 |---|---|---|

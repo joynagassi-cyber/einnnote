@@ -55,6 +55,8 @@ export interface GraphStyle {
   scope: GraphScope;
   /** épaisseur du trait : les styles fins restent lisibles à 40 nœuds */
   weight?: number;
+  /** nommer les liens (« cite », « cité par »…) — un style peut l’activer */
+  labels?: boolean;
 }
 
 export const GRAPH_STYLES: GraphStyle[] = [
@@ -68,6 +70,18 @@ export const GRAPH_STYLES: GraphStyle[] = [
     background: "dots",
     scope: "zettel",
     weight: 2.2,
+  },
+  {
+    id: "carte-conceptuelle",
+    label: "Carte conceptuelle",
+    hint: "Liens nommés (« cite », « cité par ») : un graphe qui se lit comme un texte.",
+    origin: "VisualFlow · React flow concept map",
+    layout: "tree-lr",
+    edge: "floating",
+    background: "none",
+    scope: "zettel",
+    weight: 2,
+    labels: true,
   },
   {
     id: "souffle",

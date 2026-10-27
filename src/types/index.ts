@@ -211,6 +211,12 @@ export interface AppSettings {
   wallDim: number;
   /** style de graphe par défaut (voir `src/lib/graph/styles.ts`) */
   graphStyle: string;
+  /** étiquettes de relation sur les liens */
+  graphLabels: boolean;
+  /** dessiner les renvois (liens hors arbre) */
+  graphEchoes: boolean;
+  /** animer les renvois (désactivé si mouvement réduit) */
+  graphAnimate: boolean;
   font: NoteFont;
   fontSize: number;
   contrast: "system" | "on" | "off";

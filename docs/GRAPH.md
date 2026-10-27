@@ -18,7 +18,7 @@ et qu’une colonne le rétrécirait.
 
 ```
 ┌───────────────┬────────────────────────────────────────────────────────────┐
-│ É Engram  ☾   │  ← Graphe · Économie            [✦ Style] [⑂ Racine]        │
+│ É Engram  ☾   │  ← Graphe · Économie   [✦ Style] [☰ Affichage] [⑂ Racine]   │
 │               ├────────────────────────────────────────────────────────────┤
 │ Notes         │  12 fiches · 10 liens d’arbre · 2 renvois   ─ arbre ⇢ renvoi│
 │ Projets       │                                                            │
@@ -126,15 +126,16 @@ version prend deux rectangles indépendants, et un test le vérifie
 
 ---
 
-## 3. Les douze styles
+## 3. Les treize styles
 
 Un style décrit **la présentation** ; un modèle de carte mentale décrit **la
-pensée**. Les deux sont orthogonaux : 14 modèles × 12 styles, sans écrire 168
+pensée**. Les deux sont orthogonaux : 20 modèles × 13 styles, sans écrire 260
 objets.
 
 | Style | Disposition | Liens | Fond | Ce qu’il sert |
 |---|---|---|---|---|
 | **Arbre binaire** (défaut) | racine au centre, moitiés en miroir | flottants | points | relire un coffre comme un plan |
+| **Carte conceptuelle** | arbre horizontal | flottants **étiquetés** | points | nommer chaque relation (voir `VISUALFLOW.md`) |
 | Souffle | arbre horizontal | flottants | points | dérouler une thèse |
 | Réseau | radial | flottants | croix | montrer un voisinage |
 | Flux | arbre horizontal | angles arrondis + flèches | lignes | enchaînement, pas hiérarchie |
@@ -161,6 +162,10 @@ en SVG puis rastérisées pour la documentation. Jeu de démonstration : le coff
 | Radial | Plume |
 |---|---|
 | ![Radial](graphs/radial.png) | ![Plume](graphs/plume.png) |
+
+| Carte conceptuelle — les liens portent leur relation |
+|---|
+| ![Carte conceptuelle](graphs/carte-conceptuelle.png) |
 
 L’aperçu de chaque style est **calculé** (`graphStylePreview`) avec les mêmes
 fonctions que le canevas : `floatingCurve`, `stepPath`, `ribbonPath`. Un style
@@ -233,7 +238,7 @@ une colonne de 8 cartes de haut).
 `src/lib/graph/floating.test.ts` : 8 cas de géométrie, dont boîtes de tailles
 différentes, déplacement purement vertical, et boîtes confondues (aucun `NaN`).
 
-`src/lib/graph/styles.test.ts` : 12 styles, 5 familles de liens, 6 dispositions,
+`src/lib/graph/styles.test.ts` : 13 styles, 5 familles de liens, 6 dispositions,
 vignettes finies et contenues dans leur cadre.
 
 `src/test/smoke.test.tsx` : le graphe d’un coffre affiche **autant de nœuds que
@@ -271,3 +276,37 @@ qui place des nœuds.
 | Pas d’animation de transition entre dispositions | le canevas se replace d’un coup et `fitView` recadre | interpolation des positions (200 ms) entre deux styles |
 | Sur téléphone, un arbre large demande de paner | le dézoom initial est plafonné (0,42) pour garder les titres lisibles ; « Recentrer » recadre | une disposition mobile dédiée (une colonne par niveau, largeur 100 %) |
 | La racine imposée n’est pas mémorisée | c’est une intention de lecture ponctuelle | la stocker dans les préférences de la surface |
+
+---
+
+## 6. Affichage, étiquettes de relation, export
+
+Trois réglages (`settings.graphLabels`, `graphEchoes`, `graphAnimate`) et trois
+gestes (SVG clair, SVG sombre, JSON) vivent dans une seule feuille, ouverte par
+`☰ Affichage` :
+
+| Réglage | Ce qu’il change | Ce qu’il ne change pas |
+|---|---|---|
+| **Étiquettes de relation** | un texte sur le lien : `cite`, `cité par`, `réciproque`, `lien` | aucune référence n’est ajoutée ni retirée |
+| **Renvois** | affiche ou masque les liens hors arbre | les fiches restent, l’arbre reste |
+| **Animation du courant** | un flux parcourt les pointillés | rien ne bouge si le mouvement est réduit |
+
+**Pourquoi des étiquettes déduites.** Le libellé n’est pas stocké : il est
+**calculé** à partir des `refs` des fiches (`src/lib/graph/labels.ts`). Un lien
+d’arbre sans citation déclarée s’appelle donc « lien », pas « cite » — c’est la
+seule formulation honnête. Les styles qui reposent sur les liens nommés
+(`carte-conceptuelle`) allument les étiquettes quand on les choisit ; les autres
+les laissent éteintes, et l’utilisateur tranche ensuite.
+
+**Export.** `graphToSvg` réutilise `floatingCurve`, `stepPath` et `ribbonPath` :
+le fichier est le dessin de l’écran, à la police près. `graphToDocument` écrit un
+JSON `{ format: "engram-graphe", version: 1, … }` et `parseGraphDocument` le
+relit en refusant : JSON invalide, mauvais format, fiche sans code ni titre, code
+en double, lien vers une fiche absente. Un fichier accepté peut devenir un coffre
+entier (fiches, codes d’origine et références) depuis la même feuille.
+
+Tests : `src/lib/graph/labels.test.ts` (5) et `src/lib/graph/export.test.ts` (9).
+
+**D’où vient cette partie** : VisualFlow, `Flow_renderer_test` — voir
+[`VISUALFLOW.md`](VISUALFLOW.md), qui liste les 24 exemples relevés, ce qui a été
+gardé, et ce qui a été refusé.

@@ -12,6 +12,10 @@ import { useContentStore } from "@/stores/useContentStore";
 import { useToast } from "@/stores/useToast";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { VaultTemplateGallery } from "@/components/TemplateGallery";
+import { VAULT_TEMPLATES, type VaultTemplate } from "@/lib/templates/graphs";
+import { vaultFromTemplate } from "@/lib/templates/apply";
+import { useAppStore } from "@/stores/useAppStore";
 
 /**
  * Coffres — la page qui manquait.
@@ -28,6 +32,9 @@ export default function Vaults() {
   const zettel = useContentStore((s) => s.zettel);
   const createVault = useContentStore((s) => s.createVault);
   const deleteVault = useContentStore((s) => s.deleteVault);
+  const addZettelCard = useContentStore((s) => s.addZettelCard);
+  const updateZettelCard = useContentStore((s) => s.updateZettelCard);
+  const setGraphStyle = useAppStore((s) => s.setGraphStyle);
   const toast = useToast((s) => s.show);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -35,6 +42,7 @@ export default function Vaults() {
   const [name, setName] = useState("");
   const [memo, setMemo] = useState("");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const [templateId, setTemplateId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     return vaults.map((vault) => {
@@ -76,6 +84,39 @@ export default function Vaults() {
     setMemo("");
     toast(`Coffre « ${vault.name} » créé`, "accent");
     navigate(`/vault/${vault.id}`);
+  };
+
+  /**
+   * Un modèle de coffre se pose en un geste : le coffre, ses fiches, leurs
+   * codes et leurs références, puis on atterrit sur le graphe. Aucun écran
+   * intermédiaire, rien à renommer.
+   */
+  const applyTemplate = (template: VaultTemplate) => {
+    if (!projectId) {
+      toast("Créez d’abord un projet : un coffre y est rattaché.");
+      return;
+    }
+    const seed = vaultFromTemplate(template);
+    const vault = createVault({ name: seed.name, projectId, note: seed.note });
+    for (const card of [...seed.cards].reverse()) {
+      const made = addZettelCard({
+        vaultId: vault.id,
+        title: card.title,
+        body: card.body,
+        source: card.source,
+        refs: card.refs,
+      });
+      /* Le magasin attribue un code à la création : on rend ici celui du
+         modèle, sinon les références ne pointeraient plus sur rien. */
+      updateZettelCard(made.id, { code: card.code, refs: card.refs });
+    }
+    setGraphStyle(seed.style);
+    setSheetOpen(false);
+    setTemplateId(null);
+    setName("");
+    setMemo("");
+    toast(`Coffre « ${vault.name} » créé · ${seed.cards.length} fiches`, "accent");
+    navigate(`/vault/${vault.id}/graph`);
   };
 
   return (
@@ -209,19 +250,7 @@ export default function Vaults() {
         onClose={() => setSheetOpen(false)}
         title="Nouveau coffre"
       >
-        <label htmlFor="vault-name" className="mb-1.5 block text-[14px] font-semibold text-muted">
-          Nom du coffre
-        </label>
-        <input
-          id="vault-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Ex. Droit des contrats"
-          className="field h-12"
-          autoFocus
-        />
-
-        <p className="mb-1.5 mt-4 block text-[14px] font-semibold text-muted">
+        <p className="mb-1.5 block text-[14px] font-semibold text-muted">
           Projet
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -237,6 +266,37 @@ export default function Vaults() {
             </button>
           ))}
         </div>
+
+        <h3 className="mb-1.5 text-[14px] font-semibold text-muted">
+          Partir d’un modèle
+        </h3>
+        <p className="mb-2.5 text-[12.5px] leading-[18px] text-muted">
+          Le modèle crée le coffre, ses fiches et leurs liens d’un seul geste, et
+          ouvre le graphe sur le style qui lui convient. Tout reste modifiable
+          ensuite, fiche par fiche.
+        </p>
+        <VaultTemplateGallery
+          templates={VAULT_TEMPLATES}
+          selectedId={templateId}
+          onPick={(template) => {
+            setTemplateId(template.id);
+            applyTemplate(template);
+          }}
+        />
+
+        <h3 className="mb-1.5 mt-6 text-[14px] font-semibold text-muted">
+          Ou créer à la main
+        </h3>
+        <label htmlFor="vault-name" className="mb-1.5 block text-[14px] font-semibold text-muted">
+          Nom du coffre
+        </label>
+        <input
+          id="vault-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Ex. Droit des contrats"
+          className="field h-12"
+        />
 
         <label htmlFor="vault-note" className="mb-1.5 mt-4 block text-[14px] font-semibold text-muted">
           À quoi sert ce coffre ? <span className="font-normal">(facultatif)</span>

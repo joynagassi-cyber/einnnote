@@ -4,7 +4,12 @@ import { cn } from "@/lib/utils";
 import { layoutMindmap, LAYOUT_LABELS } from "@/lib/mindmap/layout";
 import type { MindmapTemplate } from "@/lib/templates/mindmaps";
 import type { NoteTemplate, ZettelTemplate } from "@/lib/templates/notes";
+import type { VaultTemplate } from "@/lib/templates/graphs";
+import { vaultSignature } from "@/lib/templates/graphs";
 import { templateSignature } from "@/lib/templates/apply";
+import { graphStyleById } from "@/lib/graph/styles";
+import { CARD_H, CARD_W, layoutZettelGraph, zettelGraph } from "@/lib/graph/zettel";
+import type { ZettelCard } from "@/types";
 
 /**
  * Galerie de modèles — commune aux quatre méthodes.
@@ -83,6 +88,85 @@ function TemplateCard({
 /* ------------------------------------------------------------------ */
 /* Aperçus                                                             */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Vignette d’un coffre : la **vraie** disposition du graphe, réduite.
+ * Les cartes du modèle deviennent des fiches jetables, on appelle le même
+ * moteur que la page Graphe, puis on dessine les liens et les cartes à
+ * l’échelle du cadre. Aucune maquette à maintenir en parallèle du moteur.
+ */
+export function VaultPreview({ template }: { template: VaultTemplate }) {
+  const { positions, links, width, height } = useMemo(() => {
+    const style = graphStyleById(template.style);
+    const cards: ZettelCard[] = template.cards.map((card, index) => ({
+      id: `preview-${template.id}-${index}`,
+      code: card.code,
+      vaultId: "preview",
+      title: card.title,
+      body: card.body,
+      source: card.source,
+      refs: [...card.refs],
+      createdAt: "",
+      updatedAt: "",
+    }));
+    const graph = zettelGraph(cards);
+    const layout = layoutZettelGraph(graph, style.layout);
+    return {
+      positions: layout.positions,
+      links: [...graph.treeLinks, ...graph.echoes.map((link) => ({ ...link, echo: true }))],
+      width: layout.width,
+      height: layout.height,
+    };
+  }, [template]);
+
+  const byCode = useMemo(
+    () => new Map(positions.map((position) => [position.code, position])),
+    [positions],
+  );
+
+  return (
+    <svg
+      viewBox={`-20 -20 ${Math.max(width, 100) + 40} ${Math.max(height, 100) + 40}`}
+      role="img"
+      aria-label={`Aperçu : ${template.name}, ${template.cards.length} fiches`}
+      className="h-full w-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {links.map((link, index) => {
+        const from = byCode.get(link.source);
+        const to = byCode.get(link.target);
+        if (!from || !to) return null;
+        const echo = "echo" in link && link.echo;
+        return (
+          <line
+            key={`${link.source}-${link.target}-${index}`}
+            x1={from.x + CARD_W / 2}
+            y1={from.y + CARD_H / 2}
+            x2={to.x + CARD_W / 2}
+            y2={to.y + CARD_H / 2}
+            stroke={echo ? "var(--line-strong)" : "var(--accent)"}
+            strokeWidth={echo ? 2 : 4}
+            strokeLinecap="round"
+            opacity={echo ? 0.55 : 0.85}
+          />
+        );
+      })}
+      {positions.map((position) => (
+        <rect
+          key={position.code}
+          x={position.x}
+          y={position.y}
+          width={CARD_W}
+          height={CARD_H}
+          rx={12}
+          fill={position.root ? "var(--accent-soft)" : "var(--surface)"}
+          stroke={position.root ? "var(--accent)" : "var(--line-strong)"}
+          strokeWidth={position.root ? 4 : 3}
+        />
+      ))}
+    </svg>
+  );
+}
 
 /** Vignette d’une carte mentale : la vraie disposition, réduite. */
 export function MindmapPreview({ template }: { template: MindmapTemplate }) {
@@ -297,6 +381,35 @@ export function ZettelTemplateGallery({
             </span>
             <ArrowRight size={16} className="shrink-0 text-muted" aria-hidden />
           </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function VaultTemplateGallery({
+  templates,
+  selectedId,
+  onPick,
+}: {
+  templates: VaultTemplate[];
+  selectedId?: string | null;
+  onPick: (template: VaultTemplate) => void;
+}) {
+  return (
+    <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      {templates.map((template) => (
+        <li key={template.id}>
+          <TemplateCard
+            name={template.name}
+            intent={template.intent}
+            audience={template.audience}
+            meta={`${vaultSignature(template)} · ${template.discipline}`}
+            preview={<VaultPreview template={template} />}
+            selected={selectedId === template.id}
+            onPick={() => onPick(template)}
+            actionLabel="Créer le coffre"
+          />
         </li>
       ))}
     </ul>

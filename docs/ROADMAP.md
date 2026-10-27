@@ -170,3 +170,9 @@ Compteur de stockage + alertes, rappel de sauvegarde, `ErrorBoundary` par
 route, export Markdown du vault entier, projets (multi-vault) avec migration
 v1 → v2, personnalisation avancée pilotée par `data-*`, accent Indigo Gemini,
 compositeur mobile au-dessus du clavier, page `/preview` mobile + bureau.
+
+Puis (passage VisualFlow, `docs/VISUALFLOW.md`) : 13ᵉ style **Carte
+conceptuelle** (liens nommés), arête unique `EngramEdge` (5 dessins, étiquette
+sur le chemin), réglages d’affichage (étiquettes / renvois / animation), export
+SVG clair-sombre + JSON validé, import d’un graphe en coffre, et **6 modèles de
+coffre** appliqués en un geste depuis `Coffres → + Coffre`.

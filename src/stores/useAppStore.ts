@@ -19,7 +19,7 @@ import {
 } from "@/lib/themes";
 import { effectiveBlur, effectiveVeil, glassColor, toRgb } from "@/lib/glass";
 import { wallById } from "@/lib/walls";
-import { DEFAULT_GRAPH_STYLE } from "@/lib/graph/styles";
+import { DEFAULT_GRAPH_STYLE, graphStyleById as styleById } from "@/lib/graph/styles";
 
 interface AppState {
   settings: AppSettings;
@@ -36,6 +36,11 @@ interface AppState {
   setCanvas: (canvas: CanvasBg) => void;
   setWallpaper: (wallpaper: string | null) => void;
   setGraphStyle: (graphStyle: string) => void;
+  setGraphDisplay: (patch: {
+    labels?: boolean;
+    echoes?: boolean;
+    animate?: boolean;
+  }) => void;
   setWallSettings: (patch: { blur?: number; dim?: number }) => void;
   setFont: (font: NoteFont) => void;
   setFontSize: (fontSize: number) => void;
@@ -72,6 +77,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wallBlur: 26,
   wallDim: 55,
   graphStyle: DEFAULT_GRAPH_STYLE,
+  graphLabels: false,
+  graphEchoes: true,
+  graphAnimate: false,
   font: "literata",
   fontSize: 17,
   contrast: "off",
@@ -276,8 +284,26 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ settings: { ...s.settings, canvas } })),
       setWallpaper: (wallpaper) =>
         set((s) => ({ settings: { ...s.settings, wallpaper } })),
+      /* Choisir un style règle aussi la valeur initiale des étiquettes : les
+         styles qui reposent sur des liens nommés les allument, les autres les
+         laissent éteintes. L’utilisateur reste maître du réglage ensuite. */
       setGraphStyle: (graphStyle) =>
-        set((s) => ({ settings: { ...s.settings, graphStyle } })),
+        set((s) => ({
+          settings: {
+            ...s.settings,
+            graphStyle,
+            graphLabels: Boolean(styleById(graphStyle).labels),
+          },
+        })),
+      setGraphDisplay: ({ labels, echoes, animate }) =>
+        set((s) => ({
+          settings: {
+            ...s.settings,
+            graphLabels: labels ?? s.settings.graphLabels,
+            graphEchoes: echoes ?? s.settings.graphEchoes,
+            graphAnimate: animate ?? s.settings.graphAnimate,
+          },
+        })),
       setWallSettings: ({ blur, dim }) =>
         set((s) => ({
           settings: {

@@ -2,6 +2,7 @@ import type { Block, EdgeStyle, MindEdge, MindNode } from "@/types";
 import type { TemplateBlockSpec, NoteTemplate, ZettelTemplate } from "@/lib/templates/notes";
 import { layoutMindmap } from "@/lib/mindmap/layout";
 import type { MindmapTemplate } from "@/lib/templates/mindmaps";
+import type { VaultTemplate } from "@/lib/templates/graphs";
 
 /**
  * Passes-plats entre un modèle et les objets réellement stockés.
@@ -89,4 +90,30 @@ export function zettelFromTemplate(template: ZettelTemplate) {
 export function templateSignature(template: NoteTemplate): string {
   const headings = template.blocks.filter((block) => block.kind === "h1").length;
   return `${headings} sections · ${template.blocks.length} blocs`;
+}
+
+export interface VaultSeed {
+  name: string;
+  note: string;
+  style: string;
+  cards: { code: string; title: string; body: string; source: string; refs: string[] }[];
+}
+
+/**
+ * Déplie un modèle de coffre. Les codes sont **déjà** ceux du modèle : c’est ce
+ * qui permet aux références de survivre telles quelles, fiche par fiche.
+ */
+export function vaultFromTemplate(template: VaultTemplate): VaultSeed {
+  return {
+    name: template.name,
+    note: template.intent,
+    style: template.style,
+    cards: template.cards.map((card) => ({
+      code: card.code,
+      title: card.title,
+      body: card.body,
+      source: card.source,
+      refs: [...card.refs],
+    })),
+  };
 }

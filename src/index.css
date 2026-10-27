@@ -713,6 +713,15 @@
   font-family: "Inter", sans-serif;
 }
 
+/* Le seul mouvement du graphe : un courant qui parcourt les pointillés
+   (renvois, ou mode « animation »). `stroke-dashoffset` est animable partout,
+   contrairement à `stroke-dasharray`. Coupé par prefers-reduced-motion. */
+@keyframes engram-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
 
 /* ============================================================
    Inspecteur « Affichage et tri »
