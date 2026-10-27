@@ -6,6 +6,7 @@ import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useLibraryFilters } from "@/stores/useLibraryFilters";
 import { useDisplayStore } from "@/stores/useDisplayStore";
+import { useSessionStore } from "@/stores/useSessionStore";
 import { DEFAULT_FILTERS } from "@/lib/libraryFilters";
 
 /** Place le curseur à la fin du dernier bloc (jsdom ne sait pas cliquer). */
@@ -54,12 +55,18 @@ beforeEach(() => {
   // Réhydrate les données de démonstration
   useAppStore.setState({ activeProjectId: null });
   useDisplayStore.getState().resetAll();
+  useSessionStore.getState().resetSession();
+  /* Tout le contenu de démonstration est remis en place : un test qui vide le
+     magasin ne doit pas laisser les suivants devant un coffre vide. */
   useContentStore.setState({
     projects: useContentStore.getInitialState().projects,
     notes: useContentStore.getInitialState().notes,
     questions: useContentStore.getInitialState().questions,
     links: useContentStore.getInitialState().links,
     cards: useContentStore.getInitialState().cards,
+    mindmaps: useContentStore.getInitialState().mindmaps,
+    vaults: useContentStore.getInitialState().vaults,
+    zettel: useContentStore.getInitialState().zettel,
     logs: [],
     progress: [],
   });
@@ -172,19 +179,43 @@ describe("Engram — écrans", () => {
     expect(screen.getByLabelText("Source ou référence")).toBeTruthy();
   });
 
-  it("affiche le graphe du coffre en arbre, avec toutes les fiches", () => {
+  it("affiche le graphe du coffre en arbre, avec toutes les fiches (bureau)", () =>
+    withDesktop(async () => {
+      open("/vault/v-eco/graph");
+      expect(screen.getByText("Graphe · Économie")).toBeTruthy();
+      // chaque fiche du coffre a une carte sur le canevas (arbre par défaut)
+      const cards = useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco");
+      await waitFor(() =>
+        expect(document.querySelectorAll(".react-flow__node").length).toBe(cards.length),
+      );
+      expect(screen.getByText("L’inflation et l’épargne")).toBeTruthy();
+      // la racine est choisie, pas laissée au hasard : la fiche la plus citée
+      expect(screen.getAllByText(/#1A$/).length).toBeGreaterThan(0);
+      /* jsdom ne mesure pas les nœuds, donc React Flow ne dessine aucune arête :
+         on vérifie le nombre de liens annoncé, calculé par le même modèle. */
+      expect(screen.getByText(/liens d’arbre/)).toBeTruthy();
+    }));
+
+  it("montre la fiche et ses voisines sur téléphone, pas un arbre illisible", async () => {
     open("/vault/v-eco/graph");
-    expect(screen.getByText("Graphe · Économie")).toBeTruthy();
-    // chaque fiche du coffre a une carte sur le canevas (arbre par défaut)
     const cards = useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco");
-    expect(document.querySelectorAll(".react-flow__node").length).toBe(cards.length);
-    expect(screen.getByText("L’inflation et l’épargne")).toBeTruthy();
-    // la racine est choisie, pas laissée au hasard : la fiche la plus citée
-    expect(screen.getAllByText(/#1A$/).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      const shown = document.querySelectorAll(".react-flow__node").length;
+      expect(shown).toBeGreaterThan(1);
+      /* Vue « autour » : la racine et ses voisins, jamais les douze fiches. */
+      expect(shown).toBeLessThan(cards.length);
+    });
+    expect(screen.getByRole("button", { name: "Tout" })).toBeTruthy();
+    // la bascule vers l’arbre entier existe et fonctionne
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tout" }));
+    await waitFor(() =>
+      expect(document.querySelectorAll(".react-flow__node").length).toBe(cards.length),
+    );
   });
 
   it("change de style de graphe et s’en souvient", async () => {
     const user = userEvent.setup();
+    await withDesktop(async () => {
     open("/vault/v-eco/graph");
     await user.click(screen.getByRole("button", { name: "Styles de graphe" }));
     await user.click(screen.getByRole("button", { name: "Style Réseau" }));
@@ -194,10 +225,12 @@ describe("Engram — écrans", () => {
         useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco").length,
       ),
     );
+    });
   });
 
   it("relit le coffre depuis une autre fiche racine", async () => {
     const user = userEvent.setup();
+    await withDesktop(async () => {
     open("/vault/v-eco/graph");
     await user.click(screen.getByRole("button", { name: "Choisir la fiche racine" }));
     await user.click(screen.getByRole("button", { name: /Le pouvoir d’achat/ }));
@@ -208,6 +241,7 @@ describe("Engram — écrans", () => {
     );
     const canvas = screen.getByLabelText(/Graphe du coffre Économie/);
     expect(canvas.getAttribute("aria-label")).toContain("racine #1A1a");
+    });
   });
 
   it("affiche les leçons et une leçon", () => {
@@ -773,6 +807,35 @@ describe("Engram — écrans", () => {
       // la carte suivante n’est pas la même question
       expect(screen.getByRole("heading", { level: 1 }).textContent).not.toBe(card);
     });
+  });
+
+  it("rappelle la sauvegarde une fois par lancement, et se laisse fermer", async () => {
+    const user = userEvent.setup();
+    open("/");
+    const banner = await screen.findByLabelText("Sauvegarde");
+    expect(banner.textContent).toContain("Aucune sauvegarde");
+
+    // la croix ferme le rappel
+    await user.click(screen.getByRole("button", { name: "Masquer le rappel de sauvegarde" }));
+    expect(screen.queryByLabelText("Sauvegarde")).toBeNull();
+
+    // et il ne revient pas en naviguant dans la même session
+    cleanup();
+    open("/");
+    expect(screen.queryByLabelText("Sauvegarde")).toBeNull();
+  });
+
+  it("ne rappelle rien quand il n’y a rien à sauvegarder", () => {
+    useContentStore.setState({
+      notes: [],
+      zettel: [],
+      mindmaps: [],
+      questions: [],
+      links: [],
+      cards: [],
+    });
+    open("/");
+    expect(screen.queryByLabelText("Sauvegarde")).toBeNull();
   });
 
   it("liste les coffres, en crée un et l’ouvre", async () => {

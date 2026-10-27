@@ -1,19 +1,35 @@
 # Fonds « verre » — galerie, moteur, et règles
 
-Dix-huit fonds posés **derrière** l’interface, floutés et voilés, avec des
-surfaces en glassmorphisme. Le même fond s’applique au téléphone **et** au
-bureau : le rail, les feuilles et le dock sont des verres, pas des panneaux
-opaques.
+**Vingt-quatre** fonds posés derrière l’interface, en deux familles : des
+**halos** (image douce, profondeur) et des **dégradés** (cinq arrêts, couleur
+franche). Le même fond s’applique au téléphone **et** au bureau.
+
+Règle revue : *le fond se voit, le verre floute juste ce qu’il faut*. L’écran
+est opaque à **40 %** seulement ; ce sont les **surfaces** (cartes à 88 %,
+feuilles et champs à 92 %) qui portent la lisibilité du texte. Un voile épais
+sur toute la page rendait le fond décoratif — c’est exactement ce qui a été
+corrigé.
 
 ## 1. Ce qui est livré
 
 | Mode | Fonds |
 | --- | --- |
-| Sombre (8) | Aurore · Braise · Onyx · Océan · Forêt · Cuivre · Grenat · Nuit d’encre |
-| Clair (10) | Glacier · Brume · Quartz rose · Lilas · Pêche · Sauge · Menthe · Argile · Sable · Ciel |
+| Sombre · halos (8) | Aurore · Braise · Onyx · Océan · Forêt · Cuivre · Grenat · Nuit d’encre |
+| Clair · halos (10) | Glacier · Brume · Quartz rose · Lilas · Pêche · Sauge · Menthe · Argile · Sable · Ciel |
+| Clair · dégradés (3) | Aube · Lagune · Miel |
+| Sombre · dégradés (3) | Crépuscule · Braise de nuit · Velours |
 
-Chaque fond a trois mots d’ambiance (`mood`) et une palette recommandée : cliquer
-une vignette ne change **que** le fond ; cliquer une signature change tout.
+Les dégradés ont cinq arrêts explicites (0 / 25 / 50 / 75 / 100 %), interpolés
+entre des teintes choisies à la main : pas de rampe à deux couleurs qui vire au
+gris au milieu. Ils n’ont **pas** de vignette — elle fausserait la couleur
+moyenne dont dépend le calcul de lisibilité.
+
+Chaque fond a trois mots d’ambiance (`mood`) et une palette recommandée.
+Cliquer une vignette applique **le fond et sa palette** : sans cela, poser un
+fond sombre sur un thème clair obligeait un voile si épais que l’image
+disparaissait (mesuré : voile 89 %). Avec la palette du même mode, le voile
+minimal suffit et l’image reste visible. Cliquer une signature règle tout
+d’un coup.
 
 ### Signatures (un clic, un goût complet)
 
@@ -126,7 +142,26 @@ empêche la bande de voile de mentir quand on retouche une image.
 `data-wall` sur `<html>` et monte la couche ; « Aucun » écrit `data-wall="none"` ;
 une signature écrit palette + fond + rayons d’un seul clic.
 
-## 5. Ajouter un fond
+## 5. Lire le fond sans perdre le texte : la formule
+
+Trois couches, trois rôles — et c’est l’écran, pas le voile, qui décide de la
+visibilité de l’image :
+
+```
+image (floue 2–18 px, saturée 1.14)
+  └─ voile de lisibilité : color-mix(bg X %, transparent)      X réglable
+      └─ écran             : color-mix(bg 40 %, transparent)    fixe
+          └─ surfaces      : cartes 88 %, feuilles et champs 92 %
+```
+
+Contrôle chiffré (voir `src/lib/glass.test.ts`) : sur les **24** fonds et leur
+palette recommandée, l’encre et le texte secondaire gardent **AA (≥ 4,5:1)** à
+tous les voiles ; la bande utile `veilBand()` donne le minimum lisible et le
+maximum où le fond reste perceptible, et les curseurs de l’écran Apparence s’y
+accrochent — il est donc impossible de régler un voile qui rende le texte
+illisible ou l’image invisible.
+
+## 6. Ajouter un fond
 
 1. Ouvrir `scripts/make-walls.py`, ajouter une entrée `(id, mode, couleurs…)`.
 2. Lancer le script, vérifier le SVG dans `public/walls/`.

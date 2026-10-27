@@ -418,3 +418,65 @@ export function layoutZettelGraph(
     height: cursorY - 48 + PAD * 2,
   };
 }
+
+/**
+ * Vue « autour de la fiche » — le seul cadrage lisible sur un téléphone.
+ *
+ * Un arbre de douze fiches fait ~2 000 px de large : réduit à 390 px de large,
+ * le texte des cartes devient illisible (7 px). On ne montre donc, sur mobile,
+ * que la racine et ses voisins directs ; chaque carte touchée devient la
+ * nouvelle racine, ce qui permet de parcourir le coffre sans jamais dézoomer.
+ */
+export function focusGraph(graph: ZettelGraph, depth = 1): ZettelGraph {
+  if (!graph.rootCode) return graph;
+  const kept = new Set(
+    graph.nodes
+      .filter((node) => node.depth <= depth && !node.detached)
+      .map((node) => node.code),
+  );
+  const nodes = graph.nodes.filter((node) => kept.has(node.code));
+  const treeLinks = graph.treeLinks.filter(
+    (link) => kept.has(link.source) && kept.has(link.target),
+  );
+  const echoes = graph.echoes.filter(
+    (link) => kept.has(link.source) && kept.has(link.target),
+  );
+  return {
+    rootCode: graph.rootCode,
+    nodes,
+    treeLinks,
+    echoes,
+    links: graph.links.filter(
+      (link) => kept.has(link.source) && kept.has(link.target),
+    ),
+  };
+}
+
+/**
+ * Mise en page de la vue « autour », sur téléphone : la racine puis ses
+ * voisins empilés **en une seule colonne**. À l’échelle 1, une carte fait
+ * 208 px pour 390 px d’écran : le titre reste lisible. C’est l’inverse d’un
+ * arbre horizontal, qui oblige à dézoomer jusqu’à 0,4 et rend le texte muet.
+ */
+export function layoutFocusColumn(
+  graph: ZettelGraph,
+  gap = 26,
+): { positions: ZettelPosition[]; width: number; height: number } {
+  if (!graph.nodes.length) return { positions: [], width: 0, height: 0 };
+  const root = graph.nodes.find((node) => node.code === graph.rootCode);
+  const rest = graph.nodes.filter((node) => node.code !== graph.rootCode);
+  const ordered = root ? [root, ...rest] : rest;
+  const positions: ZettelPosition[] = ordered.map((node, index) => ({
+    code: node.code,
+    x: 0,
+    y: index * (CARD_H + gap),
+    root: node.code === graph.rootCode,
+    detached: Boolean(node.detached),
+    depth: node.depth,
+  }));
+  return {
+    positions,
+    width: CARD_W,
+    height: ordered.length * (CARD_H + gap) - gap,
+  };
+}

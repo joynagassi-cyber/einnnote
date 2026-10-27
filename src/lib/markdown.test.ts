@@ -96,3 +96,121 @@ describe("export Markdown du vault", () => {
     expect(file.cards).toBe(0);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Arborescence                                                       */
+/* ------------------------------------------------------------------ */
+
+import { buildMarkdownTree, fileSafe } from "@/lib/markdown";
+
+describe("export en arborescence", () => {
+  const source = {
+    projects: [
+      { id: "p1", name: "Thèse", description: "Travail de fond", createdAt: "", updatedAt: "" },
+      { id: "p2", name: "Cours", description: "", createdAt: "", updatedAt: "" },
+    ],
+    notes: [
+      {
+        id: "n1",
+        title: "Plan du chapitre 3",
+        projectId: "p1",
+        method: "outline" as const,
+        status: "captured" as const,
+        collection: "",
+        blocks: [],
+        createdAt: "2025-01-01",
+        updatedAt: "2025-01-02",
+        vaultId: undefined,
+      },
+      {
+        id: "n2",
+        title: "Plan du chapitre 3",
+        projectId: "p1",
+        method: "cornell" as const,
+        status: "captured" as const,
+        collection: "",
+        blocks: [],
+        createdAt: "2025-01-01",
+        updatedAt: "2025-01-03",
+        vaultId: undefined,
+      },
+    ],
+    questions: [],
+    links: [],
+    vaults: [
+      { id: "v1", name: "Économie", projectId: "p1", note: "" },
+      { id: "v2", name: "Vide", projectId: "p2", note: "" },
+    ],
+    zettel: [
+      {
+        id: "z1",
+        code: "#1A",
+        vaultId: "v1",
+        title: "L’inflation / l’épargne",
+        body: "Corps",
+        source: "Livre",
+        refs: ["#1B"],
+        createdAt: "2025-01-01",
+        updatedAt: "2025-01-02",
+      },
+      {
+        id: "z2",
+        code: "#1B",
+        vaultId: "v1",
+        title: "Taux nominal",
+        body: "Corps 2",
+        source: "",
+        refs: [],
+        createdAt: "2025-01-01",
+        updatedAt: "2025-01-02",
+      },
+    ],
+    mindmaps: [],
+  };
+
+  it("range un fichier par note sous son projet", () => {
+    const tree = buildMarkdownTree(source as never);
+    const notes = tree.files.filter((file) => file.path.startsWith("Notes/"));
+    expect(notes).toHaveLength(2);
+    expect(notes[0].path.startsWith("Notes/Thèse/")).toBe(true);
+    /* deux notes de même titre ne s’écrasent pas */
+    expect(new Set(notes.map((file) => file.path)).size).toBe(2);
+    expect(notes.some((file) => file.path.includes("Plan du chapitre 3 - 2.md"))).toBe(true);
+  });
+
+  it("range les fiches par projet puis par coffre, une par fichier", () => {
+    const tree = buildMarkdownTree(source as never);
+    const cards = tree.files.filter((file) => file.path.startsWith("Coffres/"));
+    expect(cards.map((file) => file.path)).toEqual([
+      "Coffres/Thèse/Économie/_coffre.md",
+      "Coffres/Thèse/Économie/#1A L’inflation l’épargne.md",
+      "Coffres/Thèse/Économie/#1B Taux nominal.md",
+    ]);
+    expect(tree.cards).toBe(2);
+    /* un coffre vide ne crée pas de dossier fantôme */
+    expect(tree.files.some((file) => file.path.includes("/Vide/"))).toBe(false);
+  });
+
+  it("lie les fiches entre elles, dans les deux sens", () => {
+    const tree = buildMarkdownTree(source as never);
+    const first = tree.files.find((file) => file.path.includes("#1A"))!;
+    expect(first.content).toContain("[[#1B Taux nominal]]");
+    const second = tree.files.find((file) => file.path.includes("#1B"))!;
+    expect(second.content).toContain("Cité par");
+    expect(second.content).toContain("[[#1A L’inflation l’épargne]]");
+  });
+
+  it("pose un index général et une fiche par projet", () => {
+    const tree = buildMarkdownTree(source as never);
+    expect(tree.files[0].path).toBe("_index.md");
+    expect(tree.files.some((file) => file.path === "Projets/Thèse.md")).toBe(true);
+    expect(tree.root).toMatch(/^Engram \d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("nettoie les noms de fichiers sans perdre les accents", () => {
+    expect(fileSafe("Économie / inflation : le cas")).toBe("Économie inflation le cas");
+    expect(fileSafe("  ")).toBe("sans-titre");
+    expect(fileSafe("point final...")).toBe("point final");
+    expect(fileSafe(".cache")).toBe("_cache");
+  });
+});

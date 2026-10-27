@@ -17,7 +17,7 @@ import {
   themeVars,
   tokensFor,
 } from "@/lib/themes";
-import { effectiveBlur, effectiveVeil, glassColor, toRgb } from "@/lib/glass";
+import { WALL_BLUR_MAX, effectiveBlur, effectiveVeil, glassColor, toRgb } from "@/lib/glass";
 import { wallById } from "@/lib/walls";
 import { DEFAULT_GRAPH_STYLE, graphStyleById as styleById } from "@/lib/graph/styles";
 
@@ -36,6 +36,7 @@ interface AppState {
   setCanvas: (canvas: CanvasBg) => void;
   setWallpaper: (wallpaper: string | null) => void;
   setGraphStyle: (graphStyle: string) => void;
+  setLayout: (layout: "auto" | "desktop" | "mobile") => void;
   setGraphDisplay: (patch: {
     labels?: boolean;
     echoes?: boolean;
@@ -51,7 +52,7 @@ interface AppState {
   /** personnalisation fine : une clé à la fois */
   setPersonalization: (patch: Partial<Personalization>) => void;
   resetPersonalization: () => void;
-  markBackup: (iso?: string) => void;
+  markBackup: (iso?: string, stamp?: string) => void;
   completeOnboarding: () => void;
   reset: () => void;
 }
@@ -74,9 +75,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accent: "teal",
   canvas: "dots",
   wallpaper: null,
-  wallBlur: 26,
-  wallDim: 55,
+  wallBlur: 8,
+  wallDim: 28,
   graphStyle: DEFAULT_GRAPH_STYLE,
+  layout: "auto",
   graphLabels: false,
   graphEchoes: true,
   graphAnimate: false,
@@ -287,6 +289,8 @@ export const useAppStore = create<AppState>()(
       /* Choisir un style règle aussi la valeur initiale des étiquettes : les
          styles qui reposent sur des liens nommés les allument, les autres les
          laissent éteintes. L’utilisateur reste maître du réglage ensuite. */
+      setLayout: (layout) =>
+        set((s) => ({ settings: { ...s.settings, layout } })),
       setGraphStyle: (graphStyle) =>
         set((s) => ({
           settings: {
@@ -308,7 +312,7 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           settings: {
             ...s.settings,
-            wallBlur: blur === undefined ? s.settings.wallBlur : Math.min(48, Math.max(0, blur)),
+            wallBlur: blur === undefined ? s.settings.wallBlur : Math.min(WALL_BLUR_MAX, Math.max(0, blur)),
             wallDim: dim === undefined ? s.settings.wallDim : Math.min(90, Math.max(0, dim)),
           },
         })),
@@ -341,9 +345,13 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           settings: { ...s.settings, personalization: DEFAULT_PERSONALIZATION },
         })),
-      markBackup: (iso) =>
+      markBackup: (iso, stamp) =>
         set((s) => ({
-          settings: { ...s.settings, lastBackupAt: iso ?? new Date().toISOString() },
+          settings: {
+            ...s.settings,
+            lastBackupAt: iso ?? new Date().toISOString(),
+            ...(stamp === undefined ? {} : { backupStamp: stamp }),
+          },
         })),
       completeOnboarding: () =>
         set((s) => ({ settings: { ...s.settings, onboarded: true } })),

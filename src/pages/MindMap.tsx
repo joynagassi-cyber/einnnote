@@ -48,7 +48,11 @@ import type { EdgeStyle, MindMap as MindMapType, MindNode } from "@/types";
 import { MINDMAP_TEMPLATES, type MindmapTemplate } from "@/lib/templates/mindmaps";
 import { mindmapFromTemplate } from "@/lib/templates/apply";
 import { GraphStyleGallery } from "@/components/GraphStyleGallery";
-import { graphStyleById, type GraphStyle } from "@/lib/graph/styles";
+import {
+  graphStyleById,
+  type GraphEdgeKind,
+  type GraphStyle,
+} from "@/lib/graph/styles";
 import { relayoutMindmap } from "@/lib/graph/mindmapStyle";
 import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
 
@@ -97,22 +101,22 @@ type FlowNode = Node<FlowNodeData, "engram">;
 /** Les arêtes choisissent leur côté : les poignées ne doivent pas se voir. */
 const HIDDEN = { opacity: 0, width: 6, height: 6 } as const;
 
-const EDGE_TYPE: Record<EdgeStyle, string> = {
-  curved: "default",
+/** Dessin du trait quand aucun style de graphe n’est choisi sur la carte. */
+const EDGE_KIND: Record<EdgeStyle, GraphEdgeKind> = {
+  curved: "bezier",
   step: "smoothstep",
   straight: "straight",
 };
 
-/** Type d’arête React Flow selon le style de présentation choisi. */
-function edgeTypeFor(style: GraphStyle | null, fallback: EdgeStyle): string {
-  if (!style) return EDGE_TYPE[fallback];
-  return {
-    floating: "floating",
-    tapered: "tapered",
-    smoothstep: "smoothstep",
-    straight: "straight",
-    bezier: "default",
-  }[style.edge];
+/**
+ * Toutes les arêtes de la carte passent par `EngramEdge` : un seul composant
+ * sait dessiner les cinq familles de trait et accrocher le trait au bord réel
+ * des nœuds. Les types intégrés de React Flow ne connaissent que des poignées
+ * fixes, ce qui faisait disparaître les liens dès qu’un nœud changeait de
+ * forme.
+ */
+function edgeKindFor(style: GraphStyle | null, fallback: EdgeStyle): GraphEdgeKind {
+  return style ? style.edge : EDGE_KIND[fallback];
 }
 
 function toFlow(map: MindMapType, handlers: {
@@ -163,21 +167,19 @@ function toFlow(map: MindMapType, handlers: {
           targetHandle: `t-${sides.target}`,
         };
       }
-      const tapered = style?.edge === "tapered";
-      const floating = style?.edge === "floating";
       return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        ...(floating || tapered ? {} : handles),
-        type: edgeTypeFor(style, map.edgeStyle),
-        style: tapered
-          ? { stroke: "var(--accent)" }
-          : {
-              stroke: "var(--accent)",
-              strokeWidth: style?.weight ?? 2.5,
-              ...(style?.dashed ? { strokeDasharray: "6 4" } : {}),
-            },
+        ...handles,
+        type: "engram",
+        style: { stroke: "var(--accent)" },
+        data: {
+          kind: edgeKindFor(style, map.edgeStyle),
+          echo: false,
+          weight: style?.weight ?? 2.5,
+          dashed: Boolean(style?.dashed),
+        },
         /* Une carte hiérarchique se lit dans un sens : la flèche dit lequel.
            Sur les courbes organiques et les rubans, elle alourdirait le dessin. */
         ...((style ? style.arrow : map.edgeStyle === "step")
@@ -379,7 +381,7 @@ export default function MindMap() {
   };
 
   return (
-    <div className="paper screen" data-canvas="dots">
+    <div className="paper screen screen-canvas" data-canvas="dots">
       <div className="sticky top-0 z-20 glass">
         <AppBar
           back
@@ -519,7 +521,8 @@ export default function MindMap() {
         </p>
       </Sheet>
 
-      <div className="relative flex-1">
+      <div className="relative min-h-0 flex-1">
+        <div className="flow-fill">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -528,7 +531,14 @@ export default function MindMap() {
           nodeTypes={{ engram: EngramNode }}
           edgeTypes={GRAPH_EDGE_TYPES}
           fitView
-          fitViewOptions={{ padding: 0.35, maxZoom: 1.1 }}
+          /* Sur téléphone, ne pas dézoomer au point que le texte devienne
+             illisible : mieux vaut une carte qu’on fait glisser qu’une carte
+             entière réduite à des taches. */
+          fitViewOptions={{
+            padding: desktop ? 0.3 : 0.08,
+            minZoom: desktop ? 0.5 : 0.6,
+            maxZoom: 1.1,
+          }}
           minZoom={0.35}
           maxZoom={1.8}
           panOnScroll
@@ -578,6 +588,7 @@ export default function MindMap() {
             </>
           )}
         </ReactFlow>
+        </div>
 
         {map.nodes.length < 3 && (
           <div className="pointer-events-none absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted shadow-float">

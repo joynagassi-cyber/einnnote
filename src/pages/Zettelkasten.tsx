@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { CaretRight, Graph, Plus } from "@phosphor-icons/react";
+import { CaretRight, Graph, PencilSimple, Plus } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen } from "@/components/Layout";
 import { useContentStore } from "@/stores/useContentStore";
 import { cn } from "@/lib/utils";
@@ -78,6 +78,7 @@ export default function Zettelkasten() {
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [flying, setFlying] = useState(false);
+  const [query, setQuery] = useState("");
   const start = useRef({ x: 0, y: 0 });
 
   const card = cards[Math.min(index, Math.max(cards.length - 1, 0))];
@@ -101,6 +102,169 @@ export default function Zettelkasten() {
           }
         />
       </Screen>
+    );
+  }
+
+
+  /* ----------------------------- BUREAU ----------------------------- */
+  /* Deux panneaux, comme un fichier de fiches posé à plat : la liste à
+     gauche, la carte ouverte à droite. Le feuilletage au doigt n’a aucun sens
+     à la souris — il n’existe donc plus sur cette taille d’écran. */
+  if (desktop) {
+    const needle = query.trim().toLowerCase();
+    const matching = needle
+      ? cards.filter(
+          (entry) =>
+            entry.code.toLowerCase().includes(needle) ||
+            entry.title.toLowerCase().includes(needle) ||
+            entry.body.toLowerCase().includes(needle),
+        )
+      : cards;
+    const current = matching.includes(card) ? card : matching[0];
+
+    return (
+      <div className="paper screen screen-wide px-6" data-canvas="dots">
+        <div className="sticky top-0 z-20 glass">
+          <AppBar
+            back
+            onBack={() => navigate("/vaults")}
+            center={false}
+            title={`Coffre · ${vault.name}`}
+            action={
+              <div className="flex items-center gap-1.5">
+                <DisplayMenu surface="vault" defaults={{ view: "stack", sortBy: "created" }}
+                  views={[
+                    { value: "stack", label: "Pile", hint: "Feuilleter" },
+                    { value: "grid", label: "Grille", hint: "Vignettes" },
+                    { value: "list", label: "Liste", hint: "Titres" },
+                  ]}
+                  columns={{ min: 1, max: 3, fallback: 3, autoHint: "Vignettes par ligne." }}
+                  groupOptions={[
+                    { value: "source", label: "Source" },
+                    { value: "month", label: "Mois de création" },
+                    { value: "refs", label: "Nombre de références" },
+                  ]}
+                  sortOptions={[
+                    { value: "created", label: "Création" },
+                    { value: "updated", label: "Modification" },
+                    { value: "code", label: "Code" },
+                    { value: "title", label: "Titre A → Z" },
+                    { value: "refs", label: "Références" },
+                    { value: "source", label: "Source" },
+                  ]}
+                />
+                <button type="button" className="pill h-10 px-3 text-[13.5px]" onClick={() => navigate(`/vault/${id}/graph`)}>
+                  <Graph size={16} aria-hidden /> Graphe
+                </button>
+                <button type="button" className="btn-primary h-10 px-3.5 text-[13.5px]" onClick={() => navigate(`/vault/${id}/new`)}>
+                  <Plus size={16} weight="bold" aria-hidden /> Nouvelle carte
+                </button>
+              </div>
+            }
+          />
+        </div>
+
+        <div className="mt-4 grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-5 pb-6">
+          <section className="flex min-h-0 flex-col">
+            <label className="field flex h-10 items-center gap-2 px-3">
+              <span className="sr-only">Chercher une fiche</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={`Chercher dans ${cards.length} fiches`}
+                className="w-full bg-transparent text-[13.5px] outline-none"
+              />
+            </label>
+            <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
+              {matching.map((entry) => (
+                <li key={entry.id}>
+                  <button
+                    type="button"
+                    onClick={() => openCard(entry.code)}
+                    aria-current={current?.id === entry.id}
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded-field border px-3 py-2 text-left transition-colors",
+                      current?.id === entry.id
+                        ? "border-accent bg-accent-soft"
+                        : "border-transparent hover:border-line hover:bg-surface",
+                    )}
+                  >
+                    <span className="mt-0.5 shrink-0 text-[11.5px] font-bold text-accent">{entry.code}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-serif text-[14.5px] font-semibold">{entry.title}</span>
+                      <span className="mt-0.5 block truncate text-[11.5px] text-muted">
+                        {entry.refs.length} renvoi{entry.refs.length > 1 ? "s" : ""} · {entry.source || "sans source"}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {!matching.length && (
+                <li className="px-3 py-6 text-center text-[13px] text-muted">Aucune fiche ne correspond.</li>
+              )}
+            </ul>
+          </section>
+
+          {current && (
+            <article className="flex min-h-0 flex-col overflow-hidden rounded-sheet border border-line bg-surface shadow-lift">
+              <header className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
+                <div className="min-w-0">
+                  <span className="text-[12.5px] font-bold tracking-wide text-accent">{current.code}</span>
+                  <h1 className="mt-1 font-serif text-[25px] font-semibold leading-tight">{current.title}</h1>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    className="pill h-9 px-3 text-[13px]"
+                    onClick={() => navigate(`/vault/${id}/new?edit=${current.id}`)}
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    className="pill h-9 px-3 text-[13px]"
+                    onClick={() => navigate(`/vault/${id}/graph?card=${encodeURIComponent(current.code)}`)}
+                  >
+                    Situer
+                  </button>
+                </div>
+              </header>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <p className="whitespace-pre-wrap font-serif text-[17px] leading-[30px]">{current.body}</p>
+                {current.source && (
+                  <p className="mt-4 inline-block rounded-rect bg-accent-soft px-2.5 py-1 text-[13.5px] font-medium text-accent-ink">
+                    Source : {current.source}
+                  </p>
+                )}
+                {current.refs.length > 0 && (
+                  <div className="mt-5 border-t border-line pt-3">
+                    <h2 className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">
+                      Renvois
+                    </h2>
+                    <ul className="flex flex-wrap gap-1.5">
+                      {current.refs.map((ref) => {
+                        const target = cards.find((entry) => entry.code === ref);
+                        return (
+                          <li key={ref}>
+                            <button
+                              type="button"
+                              onClick={() => openCard(ref)}
+                              className="pill h-8 px-2.5 text-[12.5px]"
+                            >
+                              {ref}
+                              {target ? ` · ${target.title}` : " · absente"}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </article>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -256,7 +420,7 @@ export default function Zettelkasten() {
         </div>
       ) : (
       <>
-      <div className="relative mx-auto mt-6 h-[480px] max-w-[540px] select-none">
+      <div className="relative mx-auto mt-6 h-[480px] w-full max-w-[540px] select-none">
         {/* cartes derrière */}
         {behind
           .map((cardBehind, position) => ({ cardBehind, position }))
@@ -284,6 +448,10 @@ export default function Zettelkasten() {
           key={card.id}
           onPointerDown={(event) => {
             if (flying) return;
+            /* Un appui sur un bouton de la carte doit rester un appui : sans ce
+               test, la capture du pointeur avalait tous les clics (impossible
+               de modifier ou d’ouvrir un renvoi au doigt). */
+            if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
             start.current = { x: event.clientX, y: event.clientY };
             setDragging(true);
             (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -336,13 +504,9 @@ export default function Zettelkasten() {
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate(`/vault/${id}/new?edit=${card.id}`)}
-              className="mt-2.5 block w-full text-left font-serif text-[23px] font-semibold leading-[32px]"
-            >
+            <h2 className="mt-2.5 font-serif text-[23px] font-semibold leading-[32px]">
               {card.title}
-            </button>
+            </h2>
 
             <p className="mt-2 font-serif text-[17px] leading-[36px]">
               {card.body}
@@ -353,6 +517,15 @@ export default function Zettelkasten() {
                 Source : {card.source}
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={() => navigate(`/vault/${id}/new?edit=${card.id}`)}
+              className="btn-secondary mt-4 h-11 w-full gap-2 rounded-field text-[14.5px]"
+            >
+              <PencilSimple size={17} aria-hidden />
+              Modifier cette fiche
+            </button>
 
             {card.refs.length > 0 && (
               <div className="mt-3.5 flex flex-col items-start gap-1">

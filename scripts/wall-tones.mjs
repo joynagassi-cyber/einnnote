@@ -18,6 +18,13 @@ const toHex = (rgb) => "#" + rgb.map((v) => Math.round(v).toString(16).padStart(
 
 function averageColor(file) {
   const svg = readFileSync(file, "utf8");
+  /* Dégradé : les arrêts sont régulièrement espacés → moyenne des arrêts. */
+  const ramp = /<linearGradient[\s\S]*?<\/linearGradient>/.exec(svg)?.[0] ?? "";
+  const stops = [...ramp.matchAll(/<stop offset="\d+%" stop-color="(#[0-9A-Fa-f]{3,6})"/g)];
+  if (stops.length) {
+    const colors = stops.map((m) => toRgb(m[1]));
+    return [0, 1, 2].map((i) => colors.reduce((s, c) => s + c[i], 0) / colors.length);
+  }
   const base = toRgb(/<rect width="1600" height="1000" fill="(#[0-9A-Fa-f]{3,6})"/.exec(svg)[1]);
   const halos = [...svg.matchAll(/<circle cx="\d+" cy="\d+" r="(\d+)" fill="(#[0-9A-Fa-f]{3,6})" opacity="([\d.]+)"/g)]
     .map((m) => ({ radius: Number(m[1]), color: toRgb(m[2]), opacity: Number(m[3]) }));

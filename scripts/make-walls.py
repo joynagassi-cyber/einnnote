@@ -63,3 +63,50 @@ for wall_id, base, blobs, grain, mode in WALLS:
                           vignette="0.32" if mode == "dark" else "0.12")
     (OUT / f"{wall_id}.svg").write_text(svg, encoding="utf-8")
 print(f"{len(WALLS)} fonds écrits dans public/walls")
+# ---------------------------------------------------------------------------
+# Dégradés — six rampes à cinq arrêts, angles fixes.
+#
+# Une « aura » (les fonds ci-dessus) est une image douce et floue ; un
+# « dégradé » est une rampe continue, plus franche, qui donne une couleur
+# d’ambiance identifiable. Les arrêts sont explicites (0/25/50/75/100) et
+# interpolés entre des teintes choisies à la main : pas de « linear-gradient »
+# à deux couleurs qui vire au gris au milieu.
+#
+# Pas de vignette sur les dégradés : elle fausserait la couleur moyenne dont
+# dépend le calcul de lisibilité (`src/lib/glass.ts`).
+# ---------------------------------------------------------------------------
+
+GRADIENTS = [
+    # id, mode, angle (degrés), arrêts
+    ("aube", "light", 132, ["#FFE7D1", "#FFD2B8", "#FFB79B", "#F0A5A8", "#C9A3DE"]),
+    ("lagune", "light", 118, ["#E4F7F3", "#C6EDE9", "#A7DCE4", "#9CCBE4", "#CBD8F2"]),
+    ("miel", "light", 100, ["#FDF4DC", "#FBE6B4", "#F6D08B", "#EFB878", "#E2A57F"]),
+    ("crepuscule", "dark", 148, ["#0B1026", "#16264F", "#2C3E73", "#5A4B86", "#8C5E8C"]),
+    ("braise-nuit", "dark", 122, ["#170A0A", "#3D0F12", "#7A1D1B", "#B23A22", "#E0703A"]),
+    ("velours", "dark", 138, ["#0E0A1C", "#241340", "#43206B", "#6A2F86", "#9B4C9B"]),
+]
+
+GRADIENT_TEMPLATE = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="ramp" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate({angle} 0.5 0.5)">
+{stops}
+    </linearGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" />
+      <feColorMatrix type="saturate" values="0" />
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#ramp)" />
+  <rect width="1600" height="1000" filter="url(#grain)" opacity="0.03" style="mix-blend-mode:overlay" />
+</svg>
+"""
+
+for grad_id, mode, angle, stops in GRADIENTS:
+    marks = "\n".join(
+        f'      <stop offset="{offset}%" stop-color="{color}" />'
+        for offset, color in zip((0, 25, 50, 75, 100), stops)
+    )
+    svg = GRADIENT_TEMPLATE.format(angle=angle, stops=marks)
+    (OUT / f"{grad_id}.svg").write_text(svg, encoding="utf-8")
+print(f"{len(GRADIENTS)} dégradés écrits dans public/walls")
+

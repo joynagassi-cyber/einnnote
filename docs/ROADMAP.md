@@ -83,6 +83,7 @@ utilité de 1 (confort) à 5 (sans quoi le produit ne tient pas), effort S/M/L/X
 | Fonction | État | Utilité | Effort | Commentaire |
 | --- | --- | --- | --- | --- |
 | SQLite + Capacitor / Electron | [Établi] non implémenté | 5 | XL | Condition pour tenir la promesse « hors ligne, sans serveur » sur mobile et pour dépasser 5 Mo. |
+| ~~Export Markdown en un seul fichier~~ | ✅ fait : **arborescence** `.zip`, un fichier par note et par fiche, par projet puis par coffre (`docs/TEMPLATES.md` §7) | — | — | — |
 | Import Markdown / Obsidian | absent | 4 | M | Le pont existe dans l’autre sens (`blocksToMarkdown`). L’import demanderait un parseur et une politique de blocs. |
 | Export PDF | absent | 3 | M | Passe par l’impression CSS d’abord. |
 | Versionnage du format | [Établi] sauvegarde `version: 1` avec contrôle | 4 | S | Un refus explicite vaut mieux qu’une restauration partielle. |

@@ -713,6 +713,16 @@
   font-family: "Inter", sans-serif;
 }
 
+/* React Flow pose ses dimensions en style inline (`height: 100 %`), donc aucune
+   feuille ne peut les corriger. `height: 100 %` ne se résout que contre une
+   hauteur définie : un parent en `flex: 1` n’en a pas, et le canevas tombait à
+   0 px — les graphes étaient rendus, mais invisibles. `.flow-fill` fournit ce
+   cadre défini (position absolue dans un parent lui-même positionné). */
+.flow-fill {
+  position: absolute;
+  inset: 0;
+}
+
 /* Le seul mouvement du graphe : un courant qui parcourt les pointillés
    (renvois, ou mode « animation »). `stroke-dashoffset` est animable partout,
    contrairement à `stroke-dasharray`. Coupé par prefers-reduced-motion. */
@@ -1031,6 +1041,17 @@
   }
 
   /* Pages qui gagnent à respirer (bibliothèque, réglages) */
+  /* Une page à canevas (graphe, carte mentale) ne défile pas : elle occupe
+     exactement la hauteur de la fenêtre. Sans hauteur définie, un enfant en
+     `flex: 1` retombe à 0 px et le canevas devient invisible — c’est
+     précisément ce qui rendait les graphes vides. */
+  .screen-canvas {
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
   .screen-wide {
     --screen-max: 1060px;
   }
@@ -1462,13 +1483,13 @@
   inset: -10%;
   background-size: cover;
   background-position: center;
-  filter: blur(var(--wall-blur, 26px)) saturate(1.12);
+  filter: blur(var(--wall-blur, 8px)) saturate(1.14);
   transform: scale(1.06);
 }
 .wall-veil {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--bg) calc(var(--wall-dim, 0.55) * 100%), transparent);
+  background: color-mix(in srgb, var(--bg) calc(var(--wall-dim, 0.28) * 100%), transparent);
 }
 /* Grain fin : évite l’aspect « dégradé numérique » des fonds flous. */
 .wall-grain {
@@ -1491,21 +1512,35 @@
 :root[data-wall]:not([data-wall="none"]) body {
   background-color: transparent;
 }
+/* Le verre est un **accompagnement**, pas un rideau : l’écran laisse passer
+   l’image (34 % de fond), et la lisibilité est portée par les surfaces — une
+   carte est opaque à 88 %, une feuille à 92 %. C’est ce qui permet de voir le
+   fond *et* de lire un paragraphe posé dessus. */
 :root[data-wall]:not([data-wall="none"]) .screen {
-  background: color-mix(in srgb, var(--bg) 66%, transparent);
-  backdrop-filter: blur(20px) saturate(1.05);
-  -webkit-backdrop-filter: blur(20px) saturate(1.05);
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  backdrop-filter: blur(8px) saturate(1.06);
+  -webkit-backdrop-filter: blur(8px) saturate(1.06);
 }
 :root[data-wall]:not([data-wall="none"]) .bg-surface {
-  background-color: color-mix(in srgb, var(--surface) 76%, transparent);
+  background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+:root[data-wall]:not([data-wall="none"]) .bg-surface-2 {
+  background-color: color-mix(in srgb, var(--surface-2) 86%, transparent);
 }
 :root[data-wall]:not([data-wall="none"]) .glass {
-  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  background: color-mix(in srgb, var(--bg) 46%, transparent);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 :root[data-wall]:not([data-wall="none"]) .rail {
-  background: color-mix(in srgb, var(--surface) 68%, transparent);
-  backdrop-filter: blur(22px) saturate(1.1);
-  -webkit-backdrop-filter: blur(22px) saturate(1.1);
+  background: color-mix(in srgb, var(--surface) 64%, transparent);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+}
+/* Les feuilles et les champs restent franchement lisibles. */
+:root[data-wall]:not([data-wall="none"]) .sheet,
+:root[data-wall]:not([data-wall="none"]) .field {
+  background-color: color-mix(in srgb, var(--surface) 92%, transparent);
 }
 /* Accessibilité : transparence réduite = on remet du solide, jamais du verre. */
 :root[data-transparency="reduced"][data-wall]:not([data-wall="none"]) .screen,

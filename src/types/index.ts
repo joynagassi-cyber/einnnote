@@ -223,8 +223,12 @@ export interface AppSettings {
   motion: "system" | "reduced";
   transparency: "system" | "reduced";
   language: "fr" | "en";
+  /** mise en page : suivre l’écran, ou forcer bureau / mobile */
+  layout?: "auto" | "desktop" | "mobile";
   onboarded: boolean;
   personalization: Personalization;
   /** dernière sauvegarde chiffrée réussie (ISO) */
   lastBackupAt?: string;
+  /** empreinte du contenu au moment du dernier export */
+  backupStamp?: string;
 }

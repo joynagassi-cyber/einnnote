@@ -131,6 +131,18 @@ export function downloadFile(
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/** Même geste, pour un contenu binaire (archive ZIP, image exportée). */
+export function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 export function readFileAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

@@ -1,24 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Background,
   BackgroundVariant,
   Controls,
+  Handle,
   MarkerType,
+  Position,
   MiniMap,
   ReactFlow,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
+  ArrowsOutSimple,
   Crosshair,
-  DownloadSimple,
   Graph,
-  Plus,
   SlidersHorizontal,
   Sparkle,
   TreeStructure,
@@ -33,6 +35,8 @@ import { cn } from "@/lib/utils";
 import {
   CARD_H,
   CARD_W,
+  focusGraph,
+  layoutFocusColumn,
   layoutZettelGraph,
   zettelGraph,
   type ZettelGraph as ZettelGraphModel,
@@ -40,6 +44,7 @@ import {
 } from "@/lib/graph/zettel";
 import { graphStyleById, type GraphStyle } from "@/lib/graph/styles";
 import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
+import { floatingParams } from "@/lib/graph/floating";
 import { linkLabel } from "@/lib/graph/labels";
 import type { GraphDocument } from "@/lib/graph/export";
 import type { ZettelCard } from "@/types";
@@ -54,6 +59,17 @@ type FicheData = {
 };
 
 type FicheNode = Node<FicheData, "fiche">;
+
+/** Poignées invisibles : React Flow refuse une arête sans ancre, même quand
+    le composant d’arête calcule son propre chemin. */
+const HIDDEN = { opacity: 0, width: 6, height: 6, pointerEvents: "none" } as const;
+const SIDES = ["left", "right", "top", "bottom"] as const;
+const POSITION = {
+  left: Position.Left,
+  right: Position.Right,
+  top: Position.Top,
+  bottom: Position.Bottom,
+} as const;
 
 const BACKGROUNDS: Record<string, BackgroundVariant | null> = {
   dots: BackgroundVariant.Dots,
@@ -99,6 +115,10 @@ export default function ZettelGraph() {
   const [pickedStyle, setPickedStyle] = useState<string | null>(null);
   const [stylesOpen, setStylesOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
+  /* Sur téléphone, un arbre entier est illisible : on n’affiche que la fiche
+     courante et ses voisines. « Tout » rend l’arbre complet pour qui veut
+     l’embrasser d’un coup d’œil. */
+  const [focusOnly, setFocusOnly] = useState(true);
   const [rootCode, setRootCode] = useState<string | null>(params.get("card"));
   const [rootPickOpen, setRootPickOpen] = useState(false);
   const [epoch, setEpoch] = useState(0);
@@ -115,9 +135,14 @@ export default function ZettelGraph() {
     () => zettelGraph(cards, rootCode),
     [cards, rootCode],
   );
+  const mobileFocus = !desktop && focusOnly;
+  const view = useMemo(
+    () => (mobileFocus ? focusGraph(graph) : graph),
+    [graph, mobileFocus],
+  );
   const layout = useMemo(
-    () => layoutZettelGraph(graph, style.layout),
-    [graph, style.layout],
+    () => (mobileFocus ? layoutFocusColumn(view) : layoutZettelGraph(view, style.layout)),
+    [view, mobileFocus, style.layout],
   );
 
   const display = useMemo(
@@ -126,8 +151,8 @@ export default function ZettelGraph() {
   );
 
   const flow = useMemo(
-    () => toFlow(cards, graph, layout.positions, style, display),
-    [cards, graph, layout, style, display],
+    () => toFlow(cards, view, layout.positions, style, display),
+    [cards, view, layout, style, display],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FicheNode>(flow.nodes);
@@ -138,6 +163,7 @@ export default function ZettelGraph() {
     display.labels ? "l1" : "l0",
     display.echoes ? "e1" : "e0",
     display.animate ? "a1" : "a0",
+    mobileFocus ? "f1" : "f0",
     rootCode ?? "",
     epoch,
     cards.map((card) => `${card.code}:${card.title}:${card.refs.length}`).join("|"),
@@ -187,7 +213,7 @@ export default function ZettelGraph() {
   const dashed = Boolean(style.dashed);
 
   return (
-    <div className="paper screen screen-wide" data-canvas="dots">
+    <div className="paper screen screen-wide screen-canvas" data-canvas="dots">
       <div className="sticky top-0 z-20 glass">
         <AppBar
           back
@@ -243,26 +269,41 @@ export default function ZettelGraph() {
         />
       </div>
 
-      <div className="flex-1 px-4 pt-2 lg:px-6">
+      <div className="shrink-0 px-4 pt-2 lg:px-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted">
           <span className="font-semibold text-ink">
             {cards.length} fiche{cards.length > 1 ? "s" : ""}
           </span>
-          <span>{graph.treeLinks.length} liens d’arbre</span>
-          <span>{graph.echoes.length} renvois</span>
-          <span className="hidden items-center gap-1.5 sm:flex">
+          <span className="hidden sm:inline">{graph.treeLinks.length} liens d’arbre</span>
+          <span className="hidden sm:inline">{graph.echoes.length} renvois</span>
+          <span className="sm:hidden">
+            {graph.treeLinks.length} liens · {graph.echoes.length} renvois
+          </span>
+          <span className="hidden items-center gap-1.5 lg:flex">
             <span className="h-px w-5 bg-accent" aria-hidden /> arbre
             <span className="ml-2 h-px w-5 border-t border-dashed border-accent" aria-hidden /> renvoi
           </span>
+          {!desktop && (
+            <button
+              type="button"
+              onClick={() => setFocusOnly((value) => !value)}
+              aria-pressed={!focusOnly}
+              className="ml-auto inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-[12px] font-semibold text-ink"
+            >
+              <ArrowsOutSimple size={13} aria-hidden />
+              {focusOnly ? "Tout" : "Autour"}
+            </button>
+          )}
           {graph.nodes.some((node) => node.detached) && (
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11.5px]">
+            <span className="hidden rounded-full bg-surface-2 px-2 py-0.5 text-[11.5px] sm:inline">
               {graph.nodes.filter((node) => node.detached).length} hors arbre
             </span>
           )}
         </div>
       </div>
 
-      <div className="relative mt-2 flex-1">
+      <div className="relative mt-2 min-h-0 flex-1">
+        <div className="flow-fill">
         <ReactFlow
           key={`${epoch}-${style.id}`}
           nodes={nodes}
@@ -277,8 +318,8 @@ export default function ZettelGraph() {
              dézoom initial et on laisse paner — c’est le comportement des vrais
              outils de graphe. « Recentrer » recadre. */
           fitViewOptions={{
-            padding: 0.26,
-            minZoom: desktop ? 0.55 : 0.42,
+            padding: mobileFocus ? 0.32 : 0.22,
+            minZoom: mobileFocus ? 0.5 : 0.22,
             maxZoom: 1.1,
           }}
           minZoom={0.2}
@@ -286,13 +327,22 @@ export default function ZettelGraph() {
           panOnScroll
           zoomOnPinch
           selectionOnDrag={false}
-          onNodeClick={(_, node) =>
-            navigate(`/vault/${id}?card=${encodeURIComponent((node.data as FicheData).code)}`)
-          }
+          onNodeClick={(_, node) => {
+            const code = (node.data as FicheData).code;
+            /* En vue « autour », toucher une carte en fait la nouvelle racine :
+               on descend dans le coffre sans jamais dézoomer. */
+            if (mobileFocus && code !== view.rootCode) {
+              setRootCode(code);
+              setEpoch((value) => value + 1);
+              return;
+            }
+            navigate(`/vault/${id}?card=${encodeURIComponent(code)}`);
+          }}
           proOptions={{ hideAttribution: true }}
           aria-label={`Graphe du coffre ${vault.name} — ${cards.length} fiches, racine ${graph.rootCode}, style ${style.label}`}
           className="[&_.react-flow__pane]:cursor-default"
         >
+          <FitToView signal={`${signature}-${layout.positions.length}`} />
           {background && (
             <Background
               variant={background}
@@ -313,7 +363,7 @@ export default function ZettelGraph() {
                 zoomable
                 position="bottom-right"
                 ariaLabel="Aperçu du graphe"
-                className="!bottom-28 !right-4 !rounded-rect !border !border-line !bg-surface"
+                className="!bottom-28 !right-4 !h-[104px] !w-[168px] !overflow-hidden !rounded-rect !border !border-line !bg-surface/85 !shadow-float"
                 maskColor="var(--surface-2)"
                 nodeColor={(node) =>
                   (node.data as FicheData).root ? "var(--accent)" : "var(--line-strong)"
@@ -324,6 +374,7 @@ export default function ZettelGraph() {
             </>
           )}
         </ReactFlow>
+        </div>
       </div>
 
       <div className="dock pointer-events-none fixed inset-x-0 bottom-[calc(16px+var(--safe-bottom))] z-20 mx-auto flex gap-2.5 px-4 lg:max-w-[560px]">
@@ -459,6 +510,34 @@ export default function ZettelGraph() {
   );
 }
 
+/**
+ * Recadre le canevas quand sa taille change, et non seulement au montage.
+ * `fitView` seul se fie à la taille du premier rendu : au chargement d’un
+ * onglet ou après un passage mobile → bureau, la taille change et le graphe
+ * reste hors champ.
+ */
+function FitToView({ signal }: { signal: string }) {
+  const { fitView } = useReactFlow();
+  const refit = useCallback(() => {
+    fitView({ padding: 0.24, minZoom: 0.2, maxZoom: 1.1, duration: 180 });
+  }, [fitView]);
+
+  useEffect(() => {
+    const id = window.setTimeout(refit, 80);
+    return () => window.clearTimeout(id);
+  }, [signal, refit]);
+
+  useEffect(() => {
+    const box = document.querySelector(".flow-fill");
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => refit());
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [refit]);
+
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Traduction modèle → React Flow                                      */
 /* ------------------------------------------------------------------ */
@@ -514,6 +593,7 @@ function toFlow(
     const b = boxOf.get(target);
     if (!a || !b) return null;
     const label = linkLabel(cards, source, target);
+    const sides = floatingParams(a, b);
     return {
       id: `${echo ? "echo" : "tree"}-${source}-${target}`,
       source,
@@ -521,6 +601,8 @@ function toFlow(
       /* Une seule arête maison : elle calcule son accroche sur le bord réel des
          deux cartes et porte l’étiquette de relation sur son propre chemin. */
       type: "engram",
+      sourceHandle: `s-${sides.sourceSide}`,
+      targetHandle: `t-${sides.targetSide}`,
       data: {
         kind: style.edge,
         echo,
@@ -554,6 +636,16 @@ function FicheNodeView({ data }: NodeProps<FicheNode>) {
   const { code, title, refs, root, detached } = data;
   return (
     <div className="group relative">
+      {SIDES.map((side) => (
+        <Handle
+          key={`t-${side}`}
+          type="target"
+          id={`t-${side}`}
+          position={POSITION[side]}
+          isConnectable={false}
+          style={HIDDEN}
+        />
+      ))}
       <div
         style={{ width: CARD_W, minHeight: CARD_H }}
         className={cn(
@@ -581,6 +673,16 @@ function FicheNodeView({ data }: NodeProps<FicheNode>) {
           {title}
         </span>
       </div>
+      {SIDES.map((side) => (
+        <Handle
+          key={`s-${side}`}
+          type="source"
+          id={`s-${side}`}
+          position={POSITION[side]}
+          isConnectable={false}
+          style={HIDDEN}
+        />
+      ))}
     </div>
   );
 }

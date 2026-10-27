@@ -16,17 +16,20 @@ import type { ThemeTokens } from "@/lib/themes";
  * (`deriveAccent`, voir `useAppStore`), donc il reste AA à tous les voiles au
  * lieu de contraindre le réglage.
  *
- * Les valeurs sont celles du CSS (`src/index.css`) : surface d’écran à 74 %,
- * voile = `color-mix(bg dim%, transparent)` posé sur l’image floutée.
+ * Les valeurs sont celles du CSS (`src/index.css`) : l’écran laisse passer
+ * l’image (34 % de fond seulement), le voile est posé sur l’image floutée, et
+ * **ce sont les surfaces** (cartes, feuilles) qui portent la lisibilité du
+ * texte — pas un voile épais sur toute la page. C’est la différence entre un
+ * fond qu’on voit et un fond qu’on devine.
  */
 
 export type RGB = [number, number, number];
 
 /** Opacité de `.screen` sur le verre — doit rester synchronisée avec le CSS. */
-export const SCREEN_ALPHA = 0.66;
-/** Flou minimal : aucune arête d’image sous un paragraphe. */
-export const WALL_BLUR_MIN = 18;
-export const WALL_BLUR_MAX = 48;
+export const SCREEN_ALPHA = 0.4;
+/** Le flou reste doux : l’image doit rester une image, pas une tache. */
+export const WALL_BLUR_MIN = 2;
+export const WALL_BLUR_MAX = 18;
 /** Contraste minimal du texte (AA, texte normal). */
 export const WALL_AA = 4.5;
 /** Écart minimal (sur 255) entre le verre et le fond du thème : le fond se voit. */

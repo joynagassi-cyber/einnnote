@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   BACKUP_REMINDER_DAYS,
   backupAgeDays,
+  contentStamp,
+  hasUnsavedChanges,
   byteSize,
   canWrite,
   formatBytes,
@@ -129,5 +131,52 @@ describe("rappel de sauvegarde", () => {
 
   it("ne rappelle rien juste après une sauvegarde", () => {
     expect(needsBackupReminder(daysAgo(0), true, now)).toBe(false);
+  });
+});
+
+describe("contenu non sauvegardé", () => {
+  const base = {
+    notes: [{ id: "n1", updatedAt: "2025-01-01T10:00:00.000Z" }],
+    zettel: [{ id: "z1", updatedAt: "2025-01-01T10:00:00.000Z" }],
+    mindmaps: [{ id: "m1" }],
+    vaults: [{ id: "v1", name: "Économie" }],
+    projects: [{ id: "p1", name: "Thèse" }],
+  };
+
+  it("change quand une note est modifiée, pas quand rien ne bouge", () => {
+    const stamp = contentStamp(base);
+    expect(contentStamp({ ...base })).toBe(stamp);
+    expect(
+      contentStamp({
+        ...base,
+        notes: [{ id: "n1", updatedAt: "2025-01-02T10:00:00.000Z" }],
+      }),
+    ).not.toBe(stamp);
+    expect(
+      contentStamp({ ...base, zettel: [...base.zettel, { id: "z2", updatedAt: "2025-01-02" }] }),
+    ).not.toBe(stamp);
+  });
+
+  it("ignore les notes en corbeille", () => {
+    expect(
+      contentStamp({
+        ...base,
+        notes: [{ id: "n1", updatedAt: "2025-01-01T10:00:00.000Z", deletedAt: "2025-02-01" }],
+      }),
+    ).not.toBe(contentStamp(base));
+  });
+
+  it("décide s’il reste quelque chose à sauvegarder", () => {
+    const stamp = contentStamp(base);
+    /* jamais sauvegardé, mais du contenu : oui */
+    expect(hasUnsavedChanges(stamp, undefined, undefined, true)).toBe(true);
+    /* rien à sauvegarder : non, même sans sauvegarde */
+    expect(hasUnsavedChanges(stamp, undefined, undefined, false)).toBe(false);
+    /* sauvegardé à l’identique : non */
+    expect(hasUnsavedChanges(stamp, stamp, "2025-01-05T00:00:00.000Z", true)).toBe(false);
+    /* sauvegardé puis modifié : oui */
+    expect(hasUnsavedChanges(`${stamp}x`, stamp, "2025-01-05T00:00:00.000Z", true)).toBe(true);
+    /* sauvegarde ancienne sans empreinte (version précédente) : on prévient */
+    expect(hasUnsavedChanges(stamp, undefined, "2025-01-05T00:00:00.000Z", true)).toBe(true);
   });
 });

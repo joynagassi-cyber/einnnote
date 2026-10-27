@@ -19,7 +19,7 @@ import {
  * Le verre n’a pas le droit d’être un pari.
  *
  * Une image sous du texte crée deux risques symétriques : trop de fond et le
- * texte flotte ; trop de voile et le fond disparaît. On vérifie ici, sur les 18
+ * texte flotte ; trop de voile et le fond disparaît. On vérifie ici, sur les 24
  * fonds et leur palette recommandée, que la bande calculée tient les deux
  * promesses — et que la couleur moyenne déclarée correspond bien au SVG.
  */
@@ -29,6 +29,16 @@ type RGB = [number, number, number];
 /** Couleur moyenne de l’image : fond plein + halos au prorata de leur surface. */
 function averageColor(id: string): RGB {
   const svg = readFileSync(join(process.cwd(), "public", "walls", `${id}.svg`), "utf8");
+  /* Rampe : les arrêts sont espacés régulièrement, donc la couleur moyenne est
+     leur moyenne. Aura : fond plein + halos au prorata de leur surface. */
+  const ramp = /<linearGradient[\s\S]*?<\/linearGradient>/.exec(svg)?.[0] ?? "";
+  const stops = [...ramp.matchAll(/<stop offset="\d+%" stop-color="(#[0-9A-Fa-f]{3,6})"/g)];
+  if (stops.length) {
+    const colors = stops.map((match) => toRgb(match[1]));
+    return [0, 1, 2].map(
+      (channel) => colors.reduce((sum, color) => sum + color[channel], 0) / colors.length,
+    ) as RGB;
+  }
   const base = toRgb(/<rect width="1600" height="1000" fill="(#[0-9A-Fa-f]{3,6})"/.exec(svg)![1]);
   const halos = [...svg.matchAll(/<circle cx="\d+" cy="\d+" r="(\d+)" fill="(#[0-9A-Fa-f]{3,6})" opacity="([\d.]+)"/g)].map(
     (match) => ({ radius: Number(match[1]), color: toRgb(match[2]), opacity: Number(match[3]) }),
@@ -139,9 +149,10 @@ describe("lisibilité du verre", () => {
   });
 
   it("garde le flou dans des bornes utiles", () => {
-    expect(effectiveBlur(0)).toBe(18);
-    expect(effectiveBlur(120)).toBe(48);
-    expect(effectiveBlur(26)).toBe(26);
-    expect(SCREEN_ALPHA).toBeLessThan(0.74);
+    expect(effectiveBlur(0)).toBe(2);
+    expect(effectiveBlur(120)).toBe(18);
+    expect(effectiveBlur(8)).toBe(8);
+    /* L’écran laisse voir l’image : 40 % de fond, 60 % d’image. */
+    expect(SCREEN_ALPHA).toBeLessThanOrEqual(0.45);
   });
 });

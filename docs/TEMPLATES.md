@@ -213,7 +213,31 @@ Toute nouvelle carte créée sans modèle explicite reçoit ce modèle (store :
 
 ---
 
-## 7. Ce qui manque encore (honnêtement)
+## 7. Exporter ce qu’on a produit
+
+Deux formats, deux usages :
+
+| Sortie | Geste | Ce qu’on obtient |
+|---|---|---|
+| **Arborescence** (`.zip`) | bouton « Arborescence » | un fichier **par note** (nommé de son titre) et **par fiche**, rangés `Notes/<projet>/…` et `Coffres/<projet>/<coffre>/…`, plus `_index.md` et une fiche par projet |
+| **Fichier unique** (`.md`) | bouton « Fichier unique » | tout le périmètre dans un seul document, pour un courriel ou un billet |
+
+Dans l’arborescence, les citations deviennent des liens wiki
+(`[[#1B Taux nominal]]`) **dans les deux sens** : chaque fiche liste ce qu’elle
+cite et ce qui la cite. Deux notes de même titre ne s’écrasent pas (`… - 2.md`),
+les caractères interdits sont remplacés et les accents conservés.
+
+Pourquoi un ZIP et pas un dossier : un navigateur ne sait pas écrire de dossier.
+La bibliothèque `jszip` aurait coûté ~100 ko pour compresser des fichiers texte
+qui pèsent quelques centaines de kilo-octets ; `src/lib/zip.ts` écrit donc
+l’archive **sans compression** (méthode 0), sans dépendance, et le test vérifie
+la structure binaire (signatures, offsets, CRC-32) plutôt que « ça produit des
+octets ». Contrôle indépendant : `zipfile.testzip()` de Python renvoie **ok** sur
+l’archive produite par l’application dans un vrai navigateur.
+
+---
+
+## 8. Ce qui manque encore (honnêtement)
 
 | Manque | Effet | Coût |
 |---|---|---|

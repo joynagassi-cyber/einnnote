@@ -14,10 +14,13 @@ import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { StorageMeter } from "@/components/StorageGuard";
 import { useStorageUsage } from "@/lib/useStorage";
-import { buildMarkdown, type MarkdownScope } from "@/lib/markdown";
+import { buildMarkdown, buildMarkdownTree, type MarkdownScope } from "@/lib/markdown";
+import { buildZip } from "@/lib/zip";
+import { contentStamp } from "@/lib/storage";
 import { useToast } from "@/stores/useToast";
 import {
   decryptBackup,
+  downloadBlob,
   downloadFile,
   encryptBackup,
   readFileAsText,
@@ -100,17 +103,47 @@ export default function DataBackup() {
         : mdScope.startsWith("vault:")
           ? { kind: "vault", vaultId: mdScope.slice("vault:".length) }
           : { kind: "project", projectId: mdScope.slice("project:".length) };
-    const bundle = buildMarkdown(store, scope);
+    const tree = buildMarkdownTree(store as never, scope);
+    if (!tree.files.length) {
+      toast("Rien à exporter dans ce périmètre");
+      return;
+    }
+    /* Un fichier par note et par fiche, rangé en dossiers : le ZIP est le seul
+       format qu’un navigateur peut produire et que le système ouvre d’un
+       double-clic. */
+    const zip = buildZip(
+      tree.files.map((file) => ({
+        path: `${tree.root}/${file.path}`,
+        content: file.content,
+      })),
+    );
+    downloadBlob(`${tree.root}.zip`, new Blob([zip as BlobPart], { type: "application/zip" }));
+    markBackup(undefined, contentStamp(store));
+    toast(
+      `Markdown : ${tree.notes} note${tree.notes > 1 ? "s" : ""}, ${tree.cards} fiche${tree.cards > 1 ? "s" : ""} · ${tree.files.length} fichiers`,
+      "accent",
+    );
+  };
+
+  /* Le fichier unique reste utile : on l’envoie par courriel, on le colle dans
+     un billet. L’arborescence, elle, est faite pour être ouverte dans un
+     gestionnaire de notes. Les deux ont leur geste. */
+  const exportMarkdownFlat = () => {
+    const store = useContentStore.getState();
+    const scope: MarkdownScope =
+      mdScope === "library"
+        ? { kind: "library" }
+        : mdScope.startsWith("vault:")
+          ? { kind: "vault", vaultId: mdScope.slice("vault:".length) }
+          : { kind: "project", projectId: mdScope.slice("project:".length) };
+    const bundle = buildMarkdown(store as never, scope);
     if (!bundle.content) {
       toast("Rien à exporter dans ce périmètre");
       return;
     }
     downloadFile(bundle.filename, bundle.content, "text/markdown");
-    markBackup();
-    toast(
-      `Markdown : ${bundle.notes} note${bundle.notes > 1 ? "s" : ""}, ${bundle.cards} carte${bundle.cards > 1 ? "s" : ""}`,
-      "accent",
-    );
+    markBackup(undefined, contentStamp(store));
+    toast(`Markdown : ${bundle.notes} notes, ${bundle.cards} fiches`, "accent");
   };
 
   const pickFile = async (chosen?: File) => {
@@ -241,9 +274,12 @@ export default function DataBackup() {
       </h2>
       <div className="rounded-card border border-line bg-surface p-4">
         <p className="text-[14px] leading-[21px] text-muted">
-          Un fichier <code className="font-mono text-[13px]">.md</code> avec
-          en-tête YAML, une section par note, questions et cartes incluses.
-          Ouvrable dans Obsidian, Logseq ou GitHub.
+          Une archive <code className="font-mono text-[13px]">.zip</code> :{" "}
+          <strong className="font-semibold text-ink">un fichier par note</strong>{" "}
+          (nommé de son titre), rangé par projet puis par coffre, avec un index.
+          Les liens entre fiches deviennent des liens wiki{" "}
+          <code className="font-mono text-[13px]">[[…]]</code> : on ouvre le
+          dossier dans Obsidian, Logseq ou GitHub, et tout reste cliquable.
         </p>
         <label htmlFor="md-scope" className="mb-1.5 mt-3 block text-[14px] text-muted">
           Périmètre
@@ -266,10 +302,16 @@ export default function DataBackup() {
             </option>
           ))}
         </select>
-        <button type="button" onClick={exportMarkdown} className="btn-secondary mt-3 w-full">
-          <FileText size={18} />
-          Exporter en Markdown
-        </button>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <button type="button" onClick={exportMarkdown} className="btn-secondary flex-1">
+            <FileText size={18} />
+            Arborescence (.zip)
+          </button>
+          <button type="button" onClick={exportMarkdownFlat} className="btn-secondary flex-1">
+            <FileText size={18} />
+            Fichier unique (.md)
+          </button>
+        </div>
       </div>
 
       <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">Restaurer</h2>

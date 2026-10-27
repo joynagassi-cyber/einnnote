@@ -7,6 +7,14 @@ import { PALETTES, paletteByKey } from "@/lib/themes";
 const WALL_DIR = join(process.cwd(), "public", "walls");
 
 describe("fonds « verre »", () => {
+  it("propose les deux familles de fonds", () => {
+    expect(WALLS.filter((wall) => wall.kind === "ramp").length).toBeGreaterThanOrEqual(6);
+    expect(WALLS.filter((wall) => !wall.kind || wall.kind === "aura").length).toBeGreaterThanOrEqual(18);
+    for (const wall of WALLS.filter((entry) => entry.kind === "ramp")) {
+      expect(wall.mode, wall.id).toMatch(/^(light|dark)$/);
+    }
+  });
+
   it("en propose au moins dix-huit, tous uniques", () => {
     expect(WALLS.length).toBeGreaterThanOrEqual(18);
     expect(new Set(WALLS.map((wall) => wall.id)).size).toBe(WALLS.length);
@@ -19,7 +27,13 @@ describe("fonds « verre »", () => {
       expect(existsSync(file), wall.id).toBe(true);
       const svg = readFileSync(file, "utf8");
       expect(svg.startsWith("<svg"), wall.id).toBe(true);
-      expect(svg, wall.id).toContain("feGaussianBlur");
+      /* Deux façons de faire un fond : des halos flous, ou une rampe. */
+      if (wall.kind === "ramp") {
+        expect(svg, wall.id).toContain("linearGradient");
+        expect(svg.match(/<stop /g)?.length, wall.id).toBeGreaterThanOrEqual(5);
+      } else {
+        expect(svg, wall.id).toContain("feGaussianBlur");
+      }
       expect(svg.length, wall.id).toBeLessThan(12_000);
     }
     // aucun fichier sans entrée : la galerie ne doit pas mentir

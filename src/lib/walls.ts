@@ -17,9 +17,19 @@ import type { PaletteMode } from "@/lib/themes";
  * licence photo (voir docs/WALLS.md).
  */
 
+/**
+ * Deux familles de fonds, et deux usages :
+ * - `aura` — des halos flous sur une couleur de base : une ambiance, une
+ *   profondeur, une photo qu’on devine ;
+ * - `ramp` — un dégradé à cinq arrêts : une couleur franche et identifiable,
+ *   pour qui veut une signature chromatique plutôt qu’une texture.
+ */
+export type WallKind = "aura" | "ramp";
+
 export interface Wall {
   id: string;
   label: string;
+  kind?: WallKind;
   /** l’ambiance en trois mots, affichée sous la vignette */
   mood: string;
   mode: PaletteMode;
@@ -52,6 +62,13 @@ export const WALLS: Wall[] = [
   { id: "argile", label: "Argile", mood: "terre · sable", mode: "light", palette: "argile", tone: "#eddecd" },
   { id: "sable", label: "Sable", mood: "beige · papier", mode: "light", palette: "papier", tone: "#f0e7d5" },
   { id: "ciel", label: "Ciel", mood: "bleu · matin", mode: "light", palette: "solarized-clair", tone: "#dae8fa" },
+  /* Dégradés — cinq arrêts, rampe continue (voir scripts/make-walls.py). */
+  { id: "aube", label: "Aube", mood: "pêche · lilas", mode: "light", palette: "rose-poudre", tone: "#f1bebc", kind: "ramp" },
+  { id: "lagune", label: "Lagune", mood: "menthe · ciel", mode: "light", palette: "menthe", tone: "#bee1eb", kind: "ramp" },
+  { id: "miel", label: "Miel", mood: "or · argile", mode: "light", palette: "argile", tone: "#f3ce9d", kind: "ramp" },
+  { id: "crepuscule", label: "Crépuscule", mood: "nuit · indigo", mode: "dark", palette: "lilas-nuit", tone: "#3d3965", kind: "ramp" },
+  { id: "braise-nuit", label: "Braise de nuit", mood: "rouge · cendre", mode: "dark", palette: "gruvbox", tone: "#7a2d1d", kind: "ramp" },
+  { id: "velours", label: "Velours", mood: "prune · améthyste", mode: "dark", palette: "rose-nuit", tone: "#4c2562", kind: "ramp" },
 ];
 
 export function wallById(id: string | null | undefined): Wall | undefined {

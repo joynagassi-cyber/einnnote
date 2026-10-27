@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CaretRight,
@@ -76,6 +76,7 @@ export default function Appearance() {
   const setTransparency = useAppStore((s) => s.setTransparency);
 
   const setPalette = useAppStore((s) => s.setPalette);
+  const setLayout = useAppStore((s) => s.setLayout);
   const setWallpaper = useAppStore((s) => s.setWallpaper);
   const setWallSettings = useAppStore((s) => s.setWallSettings);
   const setPersonalization = useAppStore((s) => s.setPersonalization);
@@ -287,12 +288,14 @@ export default function Appearance() {
       {/* Fonds « verre »                                             */}
       {/* ---------------------------------------------------------- */}
       <h2 className="mb-1 mt-6 text-[14px] font-semibold text-muted">
-        Fonds · {WALLS.length} verres
+        Fonds · {WALLS.length}
       </h2>
       <p className="mb-3 text-[12.5px] leading-[18px] text-muted">
-        Une image floutée derrière l’interface, avec des surfaces translucides.
-        Le voile est réglable : il garantit que le texte reste lisible quel que
-        soit le fond.
+        Deux familles : des <strong className="font-semibold text-ink">halos</strong>{" "}
+        (image douce, profondeur) et des{" "}
+        <strong className="font-semibold text-ink">dégradés</strong> (couleur
+        franche, cinq arrêts). Le fond se voit ; le verre ne fait que flouter.
+        La lisibilité du texte vient des surfaces, pas d’un voile épais.
       </p>
       <div className="grid grid-cols-3 gap-2 lg:grid-cols-5">
         <button
@@ -311,11 +314,28 @@ export default function Appearance() {
         </button>
         {WALLS.map((wall) => {
           const active = settings.wallpaper === wall.id;
+          const firstRamp = wall.kind === "ramp" && WALLS.find((item) => item.kind === "ramp")?.id === wall.id;
           return (
+            <Fragment key={wall.id}>
+            {firstRamp && (
+              <h3 className="col-span-3 mt-2 text-[12px] font-semibold uppercase tracking-wide text-muted lg:col-span-5">
+                Dégradés
+              </h3>
+            )}
             <button
-              key={wall.id}
               type="button"
-              onClick={() => setWallpaper(wall.id)}
+              onClick={() => {
+                setWallpaper(wall.id);
+                /* Un fond sombre sur un thème clair oblige un voile si épais
+                   que l’image disparaît. On applique donc la palette que le
+                   fond recommande — celle qui correspond à son mode — et le
+                   voile minimal qui garde le texte lisible : l’image reste
+                   visible, le texte reste AA. */
+                setPalette(wall.palette);
+                setWallSettings({
+                  dim: veilBand(tokensFor(wall.palette), toRgb(wall.tone)).min,
+                });
+              }}
               aria-pressed={active}
               aria-label={`Fond ${wall.label} (${wall.mood})`}
               className={cn(
@@ -346,6 +366,7 @@ export default function Appearance() {
                 </span>
               )}
             </button>
+            </Fragment>
           );
         })}
       </div>
@@ -467,6 +488,25 @@ export default function Appearance() {
         </span>
         <CaretRight size={16} className="shrink-0 text-muted" aria-hidden="true" />
       </button>
+
+      <h2 className="mb-1 mt-6 text-[14px] font-semibold text-muted">Mise en page</h2>
+      <p className="mb-2 text-[12.5px] leading-[18px] text-muted">
+        L’écran décide par défaut. « Bureau » garde le rail et les deux
+        panneaux même dans une fenêtre étroite (utile pour vérifier le rendu
+        depuis un aperçu) ; « Mobile » reproduit la version téléphone sur un
+        grand écran. Le paramètre d’adresse <code className="font-mono text-[12px]">?bureau=1</code>{" "}
+        ou <code className="font-mono text-[12px]">?mobile=1</code> prend le dessus.
+      </p>
+      <Segmented
+        options={[
+          { value: "auto", label: "Auto" },
+          { value: "desktop", label: "Bureau" },
+          { value: "mobile", label: "Mobile" },
+        ]}
+        value={settings.layout ?? "auto"}
+        onChange={(value) => setLayout(value as "auto" | "desktop" | "mobile")}
+        label="Mise en page"
+      />
 
       <h2 className="mb-3 mt-6 text-[14px] font-semibold text-muted">
         Fond du canevas

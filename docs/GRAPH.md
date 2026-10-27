@@ -266,19 +266,6 @@ qui place des nœuds.
 
 ---
 
-## 6. Limites assumées
-
-| Limite | Pourquoi c’est acceptable ici | Ce qu’il faudrait pour lever |
-|---|---|---|
-| Pas d’édition de liens sur le canevas | les liens viennent des fiches (`refs`), pas d’un éditeur de schéma | reprendre `EasyConnect` + `EdgeToolbar` : poignées visibles, création au glisser |
-| Positions déplacées à la main non enregistrées (graphe de coffre) | le graphe est une **vue** du coffre ; la source de vérité reste les fiches | persister un décalage par fiche, ou une position par (coffre, code) |
-| Une fiche par code dans un coffre | le code est la clé de citation entre fiches | autoriser des codes dupliqués demanderait un identifiant de lien distinct |
-| Pas d’animation de transition entre dispositions | le canevas se replace d’un coup et `fitView` recadre | interpolation des positions (200 ms) entre deux styles |
-| Sur téléphone, un arbre large demande de paner | le dézoom initial est plafonné (0,42) pour garder les titres lisibles ; « Recentrer » recadre | une disposition mobile dédiée (une colonne par niveau, largeur 100 %) |
-| La racine imposée n’est pas mémorisée | c’est une intention de lecture ponctuelle | la stocker dans les préférences de la surface |
-
----
-
 ## 6. Affichage, étiquettes de relation, export
 
 Trois réglages (`settings.graphLabels`, `graphEchoes`, `graphAnimate`) et trois
@@ -310,3 +297,18 @@ Tests : `src/lib/graph/labels.test.ts` (5) et `src/lib/graph/export.test.ts` (9)
 **D’où vient cette partie** : VisualFlow, `Flow_renderer_test` — voir
 [`VISUALFLOW.md`](VISUALFLOW.md), qui liste les 24 exemples relevés, ce qui a été
 gardé, et ce qui a été refusé.
+
+---
+
+## 7. Limites assumées
+
+| Limite | Pourquoi c’est acceptable ici | Ce qu’il faudrait pour lever |
+|---|---|---|
+| Pas d’édition de liens sur le canevas | les liens viennent des fiches (`refs`), pas d’un éditeur de schéma | reprendre `EasyConnect` + `EdgeToolbar` : poignées visibles, création au glisser |
+| Positions déplacées à la main non enregistrées (graphe de coffre) | le graphe est une **vue** du coffre ; la source de vérité reste les fiches | persister un décalage par fiche, ou une position par (coffre, code) |
+| Une fiche par code dans un coffre | le code est la clé de citation entre fiches | autoriser des codes dupliqués demanderait un identifiant de lien distinct |
+| Pas d’animation de transition entre dispositions | le canevas se replace d’un coup et `fitView` recadre | interpolation des positions (200 ms) entre deux styles |
+| ~~Sur téléphone, un arbre large demande de paner~~ | ✅ corrigé : vue « **autour** » (fiche + voisines en une colonne, échelle ≥ 0,6) avec bascule « Tout » — voir `DESKTOP-MOBILE.md` | — |
+| La racine imposée n’est pas mémorisée | c’est une intention de lecture ponctuelle | la stocker dans les préférences de la surface |
+
+---

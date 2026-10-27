@@ -164,3 +164,49 @@ export function needsBackupReminder(
   if (days === null) return true;
   return days >= BACKUP_REMINDER_DAYS;
 }
+
+/**
+ * Empreinte du contenu — sert à répondre à une seule question : « y a-t-il
+ * quelque chose à sauvegarder depuis le dernier export ? ».
+ *
+ * Pourquoi pas la date du dernier export seule : un export suivi de trois
+ * fiches écrites doit réafficher le rappel, et un export sans changement ne
+ * doit pas le réafficher. On compare donc une empreinte stable (nombres +
+ * dernière modification), pas un horodatage de navigation.
+ */
+export function contentStamp(source: {
+  notes: { id: string; updatedAt: string; deletedAt?: string }[];
+  zettel: { id: string; updatedAt: string }[];
+  mindmaps?: { id: string; updatedAt?: string }[];
+  vaults?: { id: string; name: string }[];
+  projects?: { id: string; name: string }[];
+}): string {
+  const lastUpdate = Math.max(
+    0,
+    ...[...source.notes, ...source.zettel].map((item) =>
+      new Date(item.updatedAt ?? "").getTime() || 0,
+    ),
+  );
+  const notes = source.notes.filter((note) => !note.deletedAt).length;
+  return [
+    `n${notes}`,
+    `z${source.zettel.length}`,
+    `m${source.mindmaps?.length ?? 0}`,
+    `v${source.vaults?.length ?? 0}`,
+    `p${source.projects?.length ?? 0}`,
+    `t${lastUpdate}`,
+  ].join(".");
+}
+
+/** Le contenu a-t-il changé depuis la dernière sauvegarde ? */
+export function hasUnsavedChanges(
+  stamp: string,
+  savedStamp: string | undefined,
+  lastBackupAt: string | undefined,
+  hasContent: boolean,
+): boolean {
+  if (!hasContent) return false;
+  if (!lastBackupAt) return true;
+  if (!savedStamp) return true;
+  return stamp !== savedStamp;
+}

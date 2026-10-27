@@ -1,19 +1,22 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CloudSlash,
   DownloadSimple,
   Warning,
+  X,
 } from "@phosphor-icons/react";
 import { useAppStore } from "@/stores/useAppStore";
 import {
-  BACKUP_REMINDER_DAYS,
   backupAgeDays,
+  contentStamp,
   formatBytes,
-  needsBackupReminder,
+  hasUnsavedChanges,
   type StorageUsage,
 } from "@/lib/storage";
+import { useContentStore } from "@/stores/useContentStore";
+import { useSessionStore } from "@/stores/useSessionStore";
 import { useStorageUsage } from "@/lib/useStorage";
 import { cn } from "@/lib/utils";
 
@@ -99,27 +102,53 @@ export function BackupReminder({
 }) {
   const navigate = useNavigate();
   const lastBackupAt = useAppStore((s) => s.settings.lastBackupAt);
+  const savedStamp = useAppStore((s) => s.settings.backupStamp);
+  const notes = useContentStore((s) => s.notes);
+  const zettel = useContentStore((s) => s.zettel);
+  const mindmaps = useContentStore((s) => s.mindmaps);
+  const vaults = useContentStore((s) => s.vaults);
+  const projects = useContentStore((s) => s.projects);
   const usage = useStorageUsage(refreshKey);
 
-  const days = backupAgeDays(lastBackupAt);
-  const critical = usage?.level !== "ok";
-  const show = needsBackupReminder(lastBackupAt, true);
+  /* Le rappel n’existe qu’au lancement : on fige la réponse au premier montage
+     de la session, puis on marque la session comme « déjà proposée ». Une
+     navigation ne le fait donc pas revenir ; un rechargement, si. */
+  const [firstInSession] = useState(
+    () => !useSessionStore.getState().backupPrompted,
+  );
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (firstInSession) useSessionStore.getState().markBackupPrompted();
+  }, [firstInSession]);
 
+  const stamp = useMemo(
+    () => contentStamp({ notes, zettel, mindmaps, vaults, projects }),
+    [notes, zettel, mindmaps, vaults, projects],
+  );
+  const hasContent = notes.length + zettel.length + mindmaps.length > 0;
+  const unsaved = hasUnsavedChanges(stamp, savedStamp, lastBackupAt, hasContent);
+  /* `usage` vaut `undefined` tant que la mesure n’est pas faite : ce n’est pas
+     une alerte, c’est une absence de mesure. */
+  const critical = Boolean(usage) && usage!.level !== "ok";
+
+  const days = backupAgeDays(lastBackupAt);
   const message = useMemo(() => {
     if (critical) return "Le stockage se remplit";
-    if (days === null) return "Aucune sauvegarde pour l’instant";
-    if (days === 0) return "Dernière sauvegarde aujourd’hui";
-    return `Dernière sauvegarde il y a ${days} jour${days > 1 ? "s" : ""}`;
-  }, [critical, days]);
+    if (!lastBackupAt) return "Aucune sauvegarde pour l’instant";
+    if (days === 0) return "Des notes ne sont pas sauvegardées (export d’aujourd’hui)";
+    return `${days} jour${days > 1 ? "s" : ""} de notes non sauvegardées`;
+  }, [critical, days, lastBackupAt]);
 
-  if (!show && !critical) return null;
+  /* Trois conditions, dans cet ordre : le lancement, l’absence de contenu à
+     sauvegarder, puis le refus explicite de l’utilisateur. */
+  if (!firstInSession || dismissed || (!unsaved && !critical)) return null;
 
   return (
     <section
       aria-label="Sauvegarde"
       className={cn(
-        "flex items-center gap-3 rounded-card border border-line bg-surface",
-        compact ? "p-3" : "p-4",
+        "relative flex items-center gap-3 rounded-card border border-line bg-surface",
+        compact ? "p-3 pr-10" : "p-4 pr-11",
       )}
     >
       <span
@@ -144,6 +173,14 @@ export function BackupReminder({
       >
         Sauver
         <ArrowRight size={14} weight="bold" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Masquer le rappel de sauvegarde"
+        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+      >
+        <X size={15} weight="bold" aria-hidden />
       </button>
     </section>
   );
