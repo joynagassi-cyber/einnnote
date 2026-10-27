@@ -19,6 +19,7 @@ import {
 } from "@/lib/themes";
 import { effectiveBlur, effectiveVeil, glassColor, toRgb } from "@/lib/glass";
 import { wallById } from "@/lib/walls";
+import { DEFAULT_GRAPH_STYLE } from "@/lib/graph/styles";
 
 interface AppState {
   settings: AppSettings;
@@ -34,6 +35,7 @@ interface AppState {
   setCustomAccent: (hex: string) => void;
   setCanvas: (canvas: CanvasBg) => void;
   setWallpaper: (wallpaper: string | null) => void;
+  setGraphStyle: (graphStyle: string) => void;
   setWallSettings: (patch: { blur?: number; dim?: number }) => void;
   setFont: (font: NoteFont) => void;
   setFontSize: (fontSize: number) => void;
@@ -69,6 +71,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wallpaper: null,
   wallBlur: 26,
   wallDim: 55,
+  graphStyle: DEFAULT_GRAPH_STYLE,
   font: "literata",
   fontSize: 17,
   contrast: "off",
@@ -273,6 +276,8 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ settings: { ...s.settings, canvas } })),
       setWallpaper: (wallpaper) =>
         set((s) => ({ settings: { ...s.settings, wallpaper } })),
+      setGraphStyle: (graphStyle) =>
+        set((s) => ({ settings: { ...s.settings, graphStyle } })),
       setWallSettings: ({ blur, dim }) =>
         set((s) => ({
           settings: {

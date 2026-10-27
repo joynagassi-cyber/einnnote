@@ -121,7 +121,8 @@ export interface ZettelCard {
 export interface MindNode {
   id: string;
   text: string;
-  shape: "circle" | "rect" | "square" | "diamond";
+  /** formes proposées à la création : quatre historiques + deux ajoutées */
+  shape: "circle" | "rect" | "square" | "diamond" | "hex" | "pill";
   x: number;
   y: number;
   parentId?: string;
@@ -142,6 +143,8 @@ export interface MindMap {
   nodes: MindNode[];
   edges: MindEdge[];
   edgeStyle: EdgeStyle;
+  /** style de présentation choisi (voir `src/lib/graph/styles.ts`) */
+  styleId?: string;
   updatedAt: string;
 }
 
@@ -206,6 +209,8 @@ export interface AppSettings {
   wallBlur: number;
   /** voile qui protège la lisibilité du texte, en pourcentage */
   wallDim: number;
+  /** style de graphe par défaut (voir `src/lib/graph/styles.ts`) */
+  graphStyle: string;
   font: NoteFont;
   fontSize: number;
   contrast: "system" | "on" | "off";

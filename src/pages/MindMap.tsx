@@ -19,7 +19,9 @@ import "@xyflow/react/dist/style.css";
 import {
   Circle,
   Diamond,
+  Hexagon,
   ListBullets,
+  Palette,
   Plus,
   PencilSimple,
   Rectangle,
@@ -45,6 +47,10 @@ import { cn } from "@/lib/utils";
 import type { EdgeStyle, MindMap as MindMapType, MindNode } from "@/types";
 import { MINDMAP_TEMPLATES, type MindmapTemplate } from "@/lib/templates/mindmaps";
 import { mindmapFromTemplate } from "@/lib/templates/apply";
+import { GraphStyleGallery } from "@/components/GraphStyleGallery";
+import { graphStyleById, type GraphStyle } from "@/lib/graph/styles";
+import { relayoutMindmap } from "@/lib/graph/mindmapStyle";
+import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
 
 type FlowNodeData = {
   text: string;
@@ -64,6 +70,8 @@ function nodeSize(shape: MindNode["shape"], depth: number) {
   if (shape === "circle") return { w: 80, h: 80 };
   if (shape === "square") return { w: 80, h: 80 };
   if (shape === "diamond") return { w: 124, h: 64 };
+  if (shape === "pill") return { w: 148, h: 48 };
+  if (shape === "hex") return { w: 136, h: 108 };
   return { w: depth === 1 ? 136 : 120, h: depth === 1 ? 52 : 44 };
 }
 
@@ -95,10 +103,22 @@ const EDGE_TYPE: Record<EdgeStyle, string> = {
   straight: "straight",
 };
 
+/** Type d’arête React Flow selon le style de présentation choisi. */
+function edgeTypeFor(style: GraphStyle | null, fallback: EdgeStyle): string {
+  if (!style) return EDGE_TYPE[fallback];
+  return {
+    floating: "floating",
+    tapered: "tapered",
+    smoothstep: "smoothstep",
+    straight: "straight",
+    bezier: "default",
+  }[style.edge];
+}
+
 function toFlow(map: MindMapType, handlers: {
   onAdd: (id: string) => void;
   onOpen: (id: string) => void;
-}, selId: string | null = null): { nodes: FlowNode[]; edges: Edge[] } {
+}, selId: string | null = null, style: GraphStyle | null = null): { nodes: FlowNode[]; edges: Edge[] } {
   const depthOfNode = new Map<string, number>();
   const byId = new Map(map.nodes.map((node) => [node.id, node]));
   const walkDepth = (node: MindNode, guard = new Set<string>()): number => {
@@ -143,16 +163,24 @@ function toFlow(map: MindMapType, handlers: {
           targetHandle: `t-${sides.target}`,
         };
       }
+      const tapered = style?.edge === "tapered";
+      const floating = style?.edge === "floating";
       return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        ...handles,
-        type: EDGE_TYPE[map.edgeStyle],
-        style: { stroke: "var(--accent)", strokeWidth: 2.5 },
+        ...(floating || tapered ? {} : handles),
+        type: edgeTypeFor(style, map.edgeStyle),
+        style: tapered
+          ? { stroke: "var(--accent)" }
+          : {
+              stroke: "var(--accent)",
+              strokeWidth: style?.weight ?? 2.5,
+              ...(style?.dashed ? { strokeDasharray: "6 4" } : {}),
+            },
         /* Une carte hiérarchique se lit dans un sens : la flèche dit lequel.
-           Sur les courbes organiques, elle alourdirait le dessin. */
-        ...(map.edgeStyle === "step"
+           Sur les courbes organiques et les rubans, elle alourdirait le dessin. */
+        ...((style ? style.arrow : map.edgeStyle === "step")
           ? { markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "var(--accent)" } }
           : {}),
       };
@@ -164,6 +192,7 @@ export default function MindMap() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const map = useContentStore((s) => s.mindmaps.find((m) => m.id === id));
+  const graphStyle = graphStyleById(map?.styleId);
   const updateMindMap = useContentStore((s) => s.updateMindMap);
   const addMindNode = useContentStore((s) => s.addMindNode);
   const updateMindNode = useContentStore((s) => s.updateMindNode);
@@ -176,6 +205,10 @@ export default function MindMap() {
   const [draftText, setDraftText] = useState("");
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
+  const [styleOpen, setStyleOpen] = useState(false);
+  /* Réorganiser = accepter que le style recalcule les positions. Sans cette
+     case, un nœud déplacé à la main le reste : la présentation seule change. */
+  const [keepPositions, setKeepPositions] = useState(false);
   const [defaultShape, setDefaultShape] = useState<MindNode["shape"]>("rect");
 
   const openEditor = useCallback((nodeId: string) => {
@@ -211,6 +244,7 @@ export default function MindMap() {
               onOpen: openEditor,
             },
             null,
+            graphStyle,
           )
         : { nodes: [], edges: [] },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,11 +268,12 @@ export default function MindMap() {
         onOpen: openEditor,
       },
       selectedId,
+      graphStyle,
     );
     setNodes(flow.nodes);
     setEdges(flow.edges);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodesKey, map?.edges.length, map?.edgeStyle, map?.title, selectedId]);
+  }, [nodesKey, map?.edges.length, map?.edgeStyle, map?.styleId, map?.title, selectedId]);
 
   /* Affichage des nœuds : la carte reste reine, mais un plan lisible évite
      de tourner autour du canevas pour retrouver une idée. Les crochets sont
@@ -314,6 +349,18 @@ export default function MindMap() {
     toast("Branche supprimée");
   };
 
+  /* Un style ne touche jamais au texte : il applique une disposition (sauf si
+     l’on garde ses positions) et une forme de lien. */
+  const applyStyle = (style: GraphStyle) => {
+    const patch: Partial<MindMapType> = { styleId: style.id };
+    if (!keepPositions) {
+      patch.nodes = relayoutMindmap(map, style.layout);
+    }
+    updateMindMap(map.id, patch);
+    setStyleOpen(false);
+    toast(`Style « ${style.label} » appliqué`, "accent");
+  };
+
   /* Changer de modèle remplace la carte, mais seulement après un second
      geste : une carte de 25 nœuds ne doit pas disparaître sur un appui. */
   const applyTemplate = (template: MindmapTemplate) => {
@@ -341,6 +388,21 @@ export default function MindMap() {
           title={map.title}
           action={
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Styles de graphe"
+                title="Style"
+                onClick={() => setStyleOpen(true)}
+                className={cn(
+                  "h-10 text-accent",
+                  desktop
+                    ? "pill gap-1.5 px-3 text-[13.5px] font-semibold"
+                    : "icon-btn w-10",
+                )}
+              >
+                <Palette size={desktop ? 16 : 20} weight="fill" aria-hidden />
+                {desktop && "Style"}
+              </button>
               <button
                 type="button"
                 aria-label="Modèles de carte"
@@ -464,6 +526,7 @@ export default function MindMap() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={{ engram: EngramNode }}
+          edgeTypes={GRAPH_EDGE_TYPES}
           fitView
           fitViewOptions={{ padding: 0.35, maxZoom: 1.1 }}
           minZoom={0.35}
@@ -524,52 +587,62 @@ export default function MindMap() {
       </div>
 
       <div className="dock pointer-events-none fixed inset-x-0 bottom-[calc(16px+var(--safe-bottom))] z-20 mx-auto px-4">
-        <div className="pointer-events-auto flex h-[68px] items-center justify-around rounded-big border border-line bg-surface px-1 shadow-float">
-          <ShapeButton
-            label="Cercle"
-            active={selected?.shape === "circle" || (!selected && defaultShape === "circle")}
-            onClick={() => applyShape("circle")}
-          >
-            <Circle size={22} />
-          </ShapeButton>
-          <ShapeButton
-            label="Rectangle"
-            active={selected?.shape === "rect" || (!selected && defaultShape === "rect")}
-            onClick={() => applyShape("rect")}
-          >
-            <Rectangle size={22} />
-          </ShapeButton>
-          <ShapeButton
-            label="Carré"
-            active={selected?.shape === "square" || (!selected && defaultShape === "square")}
-            onClick={() => applyShape("square")}
-          >
-            <Square size={22} />
-          </ShapeButton>
-          <ShapeButton
-            label="Losange"
-            active={selected?.shape === "diamond" || (!selected && defaultShape === "diamond")}
-            onClick={() => applyShape("diamond")}
-          >
-            <Diamond size={22} />
-          </ShapeButton>
+        <div className="pointer-events-auto flex h-[68px] items-center gap-1 rounded-big border border-line bg-surface px-1 shadow-float">
+          <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
+            <ShapeButton
+              label="Cercle"
+              active={selected?.shape === "circle" || (!selected && defaultShape === "circle")}
+              onClick={() => applyShape("circle")}
+            >
+              <Circle size={22} />
+            </ShapeButton>
+            <ShapeButton
+              label="Rectangle"
+              active={selected?.shape === "rect" || (!selected && defaultShape === "rect")}
+              onClick={() => applyShape("rect")}
+            >
+              <Rectangle size={22} />
+            </ShapeButton>
+            <ShapeButton
+              label="Carré"
+              active={selected?.shape === "square" || (!selected && defaultShape === "square")}
+              onClick={() => applyShape("square")}
+            >
+              <Square size={22} />
+            </ShapeButton>
+            <ShapeButton
+              label="Losange"
+              active={selected?.shape === "diamond" || (!selected && defaultShape === "diamond")}
+              onClick={() => applyShape("diamond")}
+            >
+              <Diamond size={22} />
+            </ShapeButton>
+            <ShapeButton
+              label="Pilule"
+              active={selected?.shape === "pill" || (!selected && defaultShape === "pill")}
+              onClick={() => applyShape("pill")}
+            >
+              <span className="h-[13px] w-[26px] rounded-full border-[2.5px] border-current" aria-hidden />
+            </ShapeButton>
+            <ShapeButton
+              label="Hexagone"
+              active={selected?.shape === "hex" || (!selected && defaultShape === "hex")}
+              onClick={() => applyShape("hex")}
+            >
+              <Hexagon size={22} />
+            </ShapeButton>
+          </div>
 
-          <span className="h-6 w-px bg-line" aria-hidden="true" />
+          <span className="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
 
           <button
             type="button"
-            aria-pressed={map.edgeStyle === "curved"}
-            onClick={() =>
-              setEdgeStyle(map.id, map.edgeStyle === "curved" ? "step" : "curved")
-            }
-            className={cn(
-              "h-11 rounded-[22px] px-3.5 text-[14px] font-semibold",
-              map.edgeStyle === "curved"
-                ? "border border-accent bg-accent-soft text-accent-ink"
-                : "border border-line text-ink",
-            )}
+            onClick={() => setStyleOpen(true)}
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-[22px] px-3 text-[13.5px] font-semibold text-accent"
+            aria-label={`Style actuel : ${graphStyle.label}`}
           >
-            {map.edgeStyle === "curved" ? "Courbes" : "Angles"}
+            <Palette size={18} weight="fill" aria-hidden />
+            Style
           </button>
         </div>
       </div>
@@ -597,7 +670,7 @@ export default function MindMap() {
             />
             <p className="mb-2 mt-4 text-[14px] font-semibold text-muted">Forme</p>
             <div className="flex gap-2">
-              {(["circle", "rect", "square", "diamond"] as const).map((shape) => (
+              {(["circle", "rect", "square", "diamond", "pill", "hex"] as const).map((shape) => (
                 <button
                   key={shape}
                   type="button"
@@ -648,6 +721,38 @@ export default function MindMap() {
         )}
       </Sheet>
 
+      {/* Styles : la présentation d’un graphe, pas son contenu */}
+      <Sheet
+        open={styleOpen}
+        onClose={() => setStyleOpen(false)}
+        title={`Styles · ${graphStyle.label}`}
+        size="wide"
+      >
+        <p className="mb-2 text-[13.5px] leading-[20px] text-muted">
+          Un style change la disposition et la forme des liens, jamais le texte.
+          Il est mémorisé avec cette carte.
+        </p>
+        <label className="mb-3 flex items-center gap-2.5 rounded-field border border-line bg-surface px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={keepPositions}
+            onChange={(event) => setKeepPositions(event.target.checked)}
+            className="h-4 w-4 accent-[var(--accent)]"
+          />
+          <span className="text-[13px] leading-[18px]">
+            Garder mes positions
+            <span className="block text-[11.5px] text-muted">
+              Décoché, le style range les nœuds selon sa disposition.
+            </span>
+          </span>
+        </label>
+        <GraphStyleGallery
+          scope="mindmap"
+          selectedId={graphStyle.id}
+          onPick={applyStyle}
+        />
+      </Sheet>
+
       {/* Modèles : 14 manières de penser, une galerie unique */}
       <Sheet
         open={templatesOpen}
@@ -690,13 +795,24 @@ export default function MindMap() {
 /* ------------------------------------------------------------------ */
 
 function shapeLabel(shape: MindNode["shape"]) {
-  return { circle: "Cercle", rect: "Rectangle", square: "Carré", diamond: "Losange" }[shape];
+  return {
+    circle: "Cercle",
+    rect: "Rectangle",
+    square: "Carré",
+    diamond: "Losange",
+    pill: "Pilule",
+    hex: "Hexagone",
+  }[shape];
 }
 
 function shapeIcon(shape: MindNode["shape"]) {
   if (shape === "circle") return <Circle size={20} />;
   if (shape === "square") return <Square size={20} />;
   if (shape === "diamond") return <Diamond size={20} />;
+  if (shape === "hex") return <Hexagon size={20} />;
+  if (shape === "pill") {
+    return <span className="h-[11px] w-[22px] rounded-full border-2 border-current" aria-hidden />;
+  }
   return <Rectangle size={20} />;
 }
 
@@ -727,6 +843,9 @@ function EngramNode({ id, data }: NodeProps<FlowNode>) {
           shape === "square" &&
             "h-20 w-20 rounded-rect border-[1.5px] border-line-strong bg-surface p-2",
           shape === "diamond" && "h-16 w-[124px] p-2",
+          shape === "pill" &&
+            "h-12 w-[148px] rounded-full border-[1.5px] border-line-strong bg-surface px-4 text-[13.5px]",
+          shape === "hex" && "h-[108px] w-[136px] p-3 text-[13px] leading-[17px]",
           sel && shape !== "circle" && "border-2 border-accent bg-accent-soft text-accent-ink",
           sel && shape === "circle" && !root && "border-2 border-accent bg-accent-soft text-accent-ink",
         )}
@@ -737,7 +856,14 @@ function EngramNode({ id, data }: NodeProps<FlowNode>) {
                 background: sel ? "var(--accent-soft)" : "var(--surface-2)",
                 color: sel ? "var(--accent-ink)" : "var(--ink)",
               }
-            : undefined
+            : shape === "hex"
+              ? {
+                  clipPath:
+                    "polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)",
+                  background: sel ? "var(--accent-soft)" : "var(--surface-2)",
+                  color: sel ? "var(--accent-ink)" : "var(--ink)",
+                }
+              : undefined
         }
       >
         <span className="line-clamp-3">{text}</span>
@@ -797,7 +923,7 @@ function ShapeButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "flex h-11 w-11 items-center justify-center rounded-rect",
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect",
         active ? "bg-accent-soft text-accent" : "text-ink active:bg-surface-2",
       )}
     >

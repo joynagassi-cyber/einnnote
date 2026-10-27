@@ -172,10 +172,42 @@ describe("Engram — écrans", () => {
     expect(screen.getByLabelText("Source ou référence")).toBeTruthy();
   });
 
-  it("affiche le graphe du coffre", () => {
+  it("affiche le graphe du coffre en arbre, avec toutes les fiches", () => {
     open("/vault/v-eco/graph");
-    expect(screen.getByText("Graph · Économie")).toBeTruthy();
-    expect(screen.getAllByText(/· carte ouverte/).length).toBe(1);
+    expect(screen.getByText("Graphe · Économie")).toBeTruthy();
+    // chaque fiche du coffre a une carte sur le canevas (arbre par défaut)
+    const cards = useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco");
+    expect(document.querySelectorAll(".react-flow__node").length).toBe(cards.length);
+    expect(screen.getByText("L’inflation et l’épargne")).toBeTruthy();
+    // la racine est choisie, pas laissée au hasard : la fiche la plus citée
+    expect(screen.getAllByText(/#1A$/).length).toBeGreaterThan(0);
+  });
+
+  it("change de style de graphe et s’en souvient", async () => {
+    const user = userEvent.setup();
+    open("/vault/v-eco/graph");
+    await user.click(screen.getByRole("button", { name: "Styles de graphe" }));
+    await user.click(screen.getByRole("button", { name: "Style Réseau" }));
+    expect(useAppStore.getState().settings.graphStyle).toBe("reseau");
+    await waitFor(() =>
+      expect(document.querySelectorAll(".react-flow__node").length).toBe(
+        useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco").length,
+      ),
+    );
+  });
+
+  it("relit le coffre depuis une autre fiche racine", async () => {
+    const user = userEvent.setup();
+    open("/vault/v-eco/graph");
+    await user.click(screen.getByRole("button", { name: "Choisir la fiche racine" }));
+    await user.click(screen.getByRole("button", { name: /Le pouvoir d’achat/ }));
+    await waitFor(() =>
+      expect(document.querySelectorAll(".react-flow__node").length).toBe(
+        useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco").length,
+      ),
+    );
+    const canvas = screen.getByLabelText(/Graphe du coffre Économie/);
+    expect(canvas.getAttribute("aria-label")).toContain("racine #1A1a");
   });
 
   it("affiche les leçons et une leçon", () => {
@@ -292,17 +324,29 @@ describe("Engram — écrans", () => {
     );
   });
 
-  it("étend le graphe du coffre à deux niveaux", async () => {
+  it("applique un style à une carte mentale sans toucher au texte", async () => {
     const user = userEvent.setup();
-    open("/vault/v-eco/graph");
-    const nodeCount = () =>
-      screen
-        .getAllByRole("button")
-        .filter((node) => (node.textContent?.trim() ?? "").startsWith("#")).length;
-    const oneLevel = nodeCount();
-    expect(oneLevel).toBeGreaterThan(1);
-    await user.click(screen.getByRole("button", { name: "Étendre à 2 niveaux" }));
-    await waitFor(() => expect(nodeCount()).toBeGreaterThan(oneLevel));
+    open("/mindmap/m-systeme");
+    await waitFor(() =>
+      expect(screen.getAllByText("Système nerveux").length).toBeGreaterThan(0),
+    );
+    const before = useContentStore
+      .getState()
+      .mindmaps.find((map) => map.id === "m-systeme")!;
+    const texts = before.nodes.map((node) => node.text).sort();
+
+    await user.click(screen.getByRole("button", { name: "Styles de graphe" }));
+    await user.click(screen.getByRole("button", { name: "Style Flux" }));
+
+    const after = useContentStore
+      .getState()
+      .mindmaps.find((map) => map.id === "m-systeme")!;
+    expect(after.styleId).toBe("flux");
+    expect(after.nodes.map((node) => node.text).sort()).toEqual(texts);
+    // la disposition est recalculée : au moins un nœud a bougé
+    expect(
+      after.nodes.some((node, index) => node.x !== before.nodes[index].x || node.y !== before.nodes[index].y),
+    ).toBe(true);
   });
 
   it("modifie un nœud de la carte mentale (double appui)", async () => {

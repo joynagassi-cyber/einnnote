@@ -4,6 +4,10 @@
 > qui est vérifié par test, et ce qui reste à faire. Il ne recopie pas le code :
 > il dit pourquoi il est écrit ainsi.
 
+> **Styles ≠ modèles.** Un modèle dit *comment penser* (Ishikawa, Toulmin,
+> SQ3R) ; un style de graphe dit *comment dessiner* (arêtes flottantes,
+> angles, rubans, colonnes). Les deux se combinent : voir `docs/GRAPH.md`.
+
 ---
 
 ## 1. Le problème réel
