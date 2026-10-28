@@ -1053,6 +1053,12 @@
        une colonne de téléphone posée au milieu du vide. */
     --screen-max: 720px;
   }
+  /* La largeur choisie l’emporte sur la largeur d’écran. Une seule variable
+     commande le rail, la marge du contenu et la position des fenêtres. */
+  :root[data-rail="expanded"] {
+    --rail: 264px;
+  }
+
   .app-main {
     margin-left: var(--rail);
   }
@@ -1100,6 +1106,10 @@
     --rail: 264px;
     --dock-max: 560px;
     --screen-max: 720px;
+  }
+
+  :root[data-rail="collapsed"] {
+    --rail: 88px;
   }
 
   .app-main {

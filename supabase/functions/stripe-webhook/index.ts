@@ -1,5 +1,5 @@
 /**
- * Engram Cloud — Edge Function « stripe-webhook »
+ * Einnote Cloud — Edge Function « stripe-webhook »
  *
  * Seule autorité qui écrit dans `engram.entitlements`. Elle vérifie la
  * signature Stripe (donc l'origine), puis accorde ou retire l'accès.
@@ -19,21 +19,35 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=denonext";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2024-06-20",
-});
+/* Le client Stripe est construit à la demande, jamais à l'import : une
+   fonction déployée sans secret doit répondre proprement « non configuré »
+   plutôt que de planter au démarrage (500 opaque, invisible dans les logs du
+   paiement). */
+let stripeClient: Stripe | null = null;
+function stripe(): Stripe {
+  const key = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!key) throw new Error("STRIPE_SECRET_KEY absent");
+  stripeClient ??= new Stripe(key, { apiVersion: "2024-06-20" });
+  return stripeClient;
+}
 
 /** Service role : contourne la RLS, et c'est le seul rôle qui doit le faire. */
-const admin = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-);
+function admin() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
 
 Deno.serve(async (request) => {
   const signature = request.headers.get("stripe-signature");
   const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 
-  if (!signature || !secret) {
+  if (!Deno.env.get("STRIPE_SECRET_KEY") || !secret) {
+    return new Response("paiement non configuré sur ce serveur", { status: 503 });
+  }
+
+  if (!signature) {
     return new Response("signature manquante", { status: 400 });
   }
 
@@ -41,14 +55,14 @@ Deno.serve(async (request) => {
   let event: Stripe.Event;
 
   try {
-    event = await stripe.webhooks.constructEventAsync(payload, signature, secret);
+    event = await stripe().webhooks.constructEventAsync(payload, signature, secret);
   } catch (error) {
     // Signature invalide = requête non authentique. On refuse.
     return new Response(`signature invalide: ${(error as Error).message}`, { status: 400 });
   }
 
   const write = (ownerId: string, values: Record<string, unknown>) =>
-    admin
+    admin()
       .schema("engram")
       .from("entitlements")
       .upsert(
@@ -107,7 +121,7 @@ Deno.serve(async (request) => {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = String(invoice.subscription ?? "");
       if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const subscription = await stripe().subscriptions.retrieve(subscriptionId);
         const ownerId = subscription.metadata?.supabase_user_id;
         if (ownerId) {
           await write(ownerId, { plan: "cloud", status: "past_due" });

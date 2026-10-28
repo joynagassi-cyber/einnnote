@@ -196,37 +196,68 @@ describe("Rail du bureau", () => {
     });
   });
 
-  it("se réordonne d’un clic : la page touchée se pose devant l’autre", async () => {
-    await withDesktop(async () => {
-      const user = userEvent.setup();
+  it("porte une poignée à six points sur chaque page, en dernier", async () => {
+    await withDesktop(() => {
       open("/");
       const rail = document.querySelector<HTMLElement>(".rail")!;
+      const handle = within(rail).getByRole("button", { name: "Déplacer Notes" });
+      const row = handle.parentElement!;
+      /* La poignée est le dernier élément de la ligne : c’est là qu’on la
+         cherche quand on veut attraper une page. */
+      expect(row.lastElementChild).toBe(handle);
+    });
+  });
 
-      await user.click(within(rail).getByRole("button", { name: "Réorganiser les pages" }));
-      await user.click(within(rail).getByRole("button", { name: "Apprendre" }));
-      await user.click(within(rail).getByRole("button", { name: "Notes" }));
+  it("se déplace en glissant la poignée sur une autre page", async () => {
+    await withDesktop(() => {
+      open("/");
+      const rail = document.querySelector<HTMLElement>(".rail")!;
+      const handle = within(rail).getByRole("button", { name: "Déplacer Apprendre" });
+      const target = within(rail).getByRole("button", { name: "Notes" });
 
-      await waitFor(() =>
-        expect(useNavStore.getState().desktop.slice(0, 2)).toEqual(["learn", "notes"]),
-      );
+      fireEvent.pointerDown(handle);
+      fireEvent.pointerMove(target, { pointerId: 1 });
+      fireEvent.pointerUp(rail);
+
+      expect(useNavStore.getState().desktop.slice(0, 2)).toEqual(["learn", "notes"]);
       // l’ordre est conservé sur le disque, pas seulement en mémoire
       const saved = JSON.parse(localStorage.getItem("engram.nav.v1")!);
       expect(saved.state.desktop[0]).toBe("learn");
     });
   });
 
-  it("monte une page avec la flèche, sans la toucher deux fois", async () => {
+  it("se déplace aussi au clavier, depuis la même poignée", async () => {
     await withDesktop(async () => {
       const user = userEvent.setup();
       open("/");
       const rail = document.querySelector<HTMLElement>(".rail")!;
 
-      await user.click(within(rail).getByRole("button", { name: "Réorganiser les pages" }));
-      await user.click(within(rail).getByRole("button", { name: "Descendre Notes" }));
+      const handle = within(rail).getByRole("button", { name: "Déplacer Notes" });
+      handle.focus();
+      await user.keyboard("{ArrowDown}");
 
       await waitFor(() =>
         expect(useNavStore.getState().desktop.slice(0, 2)).toEqual(["spaces", "notes"]),
       );
+    });
+  });
+
+  it("déplie et replie la barre latérale, et s’en souvient", async () => {
+    await withDesktop(async () => {
+      const user = userEvent.setup();
+      open("/");
+      const rail = document.querySelector<HTMLElement>(".rail")!;
+
+      expect(rail.dataset.compact).toBe("false");
+      await user.click(within(rail).getByRole("button", { name: "Replier la barre latérale" }));
+
+      await waitFor(() => expect(rail.dataset.compact).toBe("true"));
+      expect(useAppStore.getState().settings.rail).toBe("collapsed");
+      expect(document.documentElement.dataset.rail).toBe("collapsed");
+
+      await user.click(within(rail).getByRole("button", { name: "Déplier la barre latérale" }));
+      await waitFor(() => expect(rail.dataset.compact).toBe("false"));
+      expect(useAppStore.getState().settings.rail).toBe("expanded");
     });
   });
 });

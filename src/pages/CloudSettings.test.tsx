@@ -14,6 +14,10 @@ describe("Réglages cloud — installation sans backend", () => {
   });
 
   it("annonce l’absence de serveur au lieu d’afficher un faux état", async () => {
+    /* Un `.env.local` peut exister sur la machine de développement : ce cas
+       décrit une installation nue, on la reconstitue donc explicitement. */
+    vi.stubEnv("VITE_SUPABASE_URL", "");
+    vi.stubEnv("VITE_SUPABASE_ANON_KEY", "");
     render(
       <MemoryRouter>
         <CloudSettingsPage />

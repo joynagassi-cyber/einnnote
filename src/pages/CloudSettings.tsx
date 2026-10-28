@@ -245,7 +245,7 @@ supabase functions deploy stripe-webhook --no-verify-jwt`}
             <div className="min-w-0">
               <h2 className="font-serif text-[18px] font-semibold">Se connecter</h2>
               <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">
-                Un code à 6 chiffres, pas de mot de passe. Votre adresse sert
+                Un code à usage unique, pas de mot de passe. Votre adresse sert
                 uniquement d’identifiant de compte.
               </p>
             </div>
@@ -272,7 +272,7 @@ supabase functions deploy stripe-webhook --no-verify-jwt`}
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={6}
+                  maxLength={10}
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
                   placeholder="123456"

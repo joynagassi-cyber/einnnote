@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
-  ClockCounterClockwise,
   FolderPlus,
   FolderSimple,
   Graph,
+  MagnifyingGlass,
   NotePencil,
   PencilSimple,
   SquaresFour,
   Stack,
+  X,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen } from "@/components/Layout";
 import { Hint } from "@/components/Hint";
@@ -46,6 +47,9 @@ export default function Spaces() {
   const [params, setParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(params.get("new") === "1");
   const [renameId, setRenameId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"recent" | "name" | "notes" | "due">("recent");
+  const [status, setStatus] = useState<"all" | "due" | "active" | "empty">("all");
 
   /* Le bouton flottant navigue vers la même adresse avec `?new=1` : la page ne
      se remonte pas, donc l’état doit suivre le paramètre et pas seulement le
@@ -94,6 +98,31 @@ export default function Spaces() {
   const totalVaults = vaults.length;
   const totalFiches = zettel.length;
 
+  /* Filtre et tri sont calculés, jamais figés : ce que la liste montre est
+     exactement ce que la barre annonce. */
+  const visibleRows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const filtered = rows.filter((row) => {
+      if (needle) {
+        const haystack = `${row.project.name} ${row.project.description ?? ""}`.toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      if (status === "due") return row.due > 0;
+      if (status === "active") return row.noteCount > 0 || row.ficheCount > 0;
+      if (status === "empty") return row.noteCount === 0 && row.ficheCount === 0;
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sort === "name") return a.project.name.localeCompare(b.project.name, "fr");
+      if (sort === "notes") return b.noteCount - a.noteCount || b.ficheCount - a.ficheCount;
+      if (sort === "due") return b.due - a.due || b.noteCount - a.noteCount;
+      return (b.last ?? "").localeCompare(a.last ?? "") || a.project.name.localeCompare(b.project.name, "fr");
+    });
+  }, [rows, query, sort, status]);
+
+  const filtering = query.trim().length > 0 || status !== "all" || sort !== "recent";
+
   return (
     <Screen withNav className="screen-wide px-5 lg:px-8">
       <AppBar
@@ -135,8 +164,98 @@ export default function Spaces() {
           }
         />
       ) : (
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map((row) => (
+        <>
+        <div className="mt-4 flex flex-wrap items-center gap-2" role="search">
+          <div className="relative min-w-0 flex-1 sm:max-w-[280px]">
+            <MagnifyingGlass
+              size={16}
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Rechercher un projet"
+              placeholder="Rechercher un projet"
+              className="field h-10 pl-9 pr-9 text-[13.5px]"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Effacer la recherche"
+                className="icon-btn absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+              >
+                <X size={14} weight="bold" />
+              </button>
+            )}
+          </div>
+
+          <label className="sr-only" htmlFor="spaces-sort">
+            Trier les projets
+          </label>
+          <select
+            id="spaces-sort"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as typeof sort)}
+            className="field h-10 w-auto min-w-[168px] pr-8 text-[13px]"
+          >
+            <option value="recent">Modifié récemment</option>
+            <option value="name">Nom A → Z</option>
+            <option value="notes">Nombre de notes</option>
+            <option value="due">À revoir d’abord</option>
+          </select>
+
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrer les projets">
+            {([
+              { id: "all", label: "Tous" },
+              { id: "due", label: "À réviser" },
+              { id: "active", label: "Actifs" },
+              { id: "empty", label: "Vides" },
+            ] as const).map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setStatus(chip.id)}
+                aria-pressed={status === chip.id}
+                className={cn(
+                  "h-8 rounded-full border px-3 text-[12.5px] font-medium transition-colors",
+                  status === chip.id
+                    ? "border-accent bg-accent-soft text-accent-ink"
+                    : "border-line bg-surface text-ink hover:bg-surface-2",
+                )}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="ml-auto text-[12px] tabular-nums text-muted" aria-live="polite">
+            {visibleRows.length} sur {rows.length} projet{rows.length > 1 ? "s" : ""}
+          </span>
+          {filtering && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setSort("recent");
+                setStatus("all");
+              }}
+              className="text-[12.5px] font-semibold text-accent hover:underline"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+
+        {visibleRows.length === 0 ? (
+          <p className="mt-6 rounded-card border border-dashed border-line-strong px-4 py-8 text-center text-[13.5px] text-muted">
+            Aucun projet ne correspond à ces filtres.
+          </p>
+        ) : (
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleRows.map((row) => (
             <li key={row.project.id} className="h-full">
               <div className="group flex h-full flex-col rounded-card border border-line bg-surface p-4 transition-colors hover:border-line-strong">
                 <button
@@ -218,49 +337,9 @@ export default function Spaces() {
             </li>
           ))}
         </ul>
+        )}
+        </>
       )}
-
-      {/* Rappel de la hiérarchie, en bas : la même phrase que le schéma
-          d’Apprendre, pour que la page se suffise à elle-même. */}
-      <section className="mt-6 rounded-card border border-line bg-surface p-4">
-        <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted">
-          Trois niveaux, trois rôles
-        </h2>
-        <ul className="mt-2 grid gap-2 sm:grid-cols-3">
-          {[
-            {
-              icon: SquaresFour,
-              title: "Projet",
-              text: "Le chantier : un cours, un mémoire, un dossier.",
-            },
-            {
-              icon: Stack,
-              title: "Vault",
-              text: "La catégorie : « Superposition quantique », où l’on range ses notes.",
-            },
-            {
-              icon: NotePencil,
-              title: "Note",
-              text: "Le concept : une page, avec sa source, révisable en fiches.",
-            },
-          ].map((role) => (
-            <li key={role.title} className="flex items-start gap-2">
-              <span className="tile h-8 w-8" aria-hidden>
-                <role.icon size={16} weight="duotone" className="text-accent" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[13.5px] font-semibold">{role.title}</span>
-                <span className="block text-[12px] leading-[17px] text-muted">{role.text}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-[17px] text-muted">
-          <ClockCounterClockwise size={13} weight="duotone" className="mt-0.5 shrink-0" aria-hidden />
-          Réviser part de ces fiches : les questions posées sur un passage deviennent les
-          cartes du jour.
-        </p>
-      </section>
 
       <div className="h-28" />
 

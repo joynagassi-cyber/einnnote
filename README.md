@@ -12,7 +12,9 @@ tout reste dans le stockage local de l’appareil.
 **Synchronisation optionnelle** (`/settings/cloud`, 10 $/mois) : un backend
 Supabase que l’on peut inspecter, avec un paywall appliqué par la base et non
 par l’interface. Sans abonnement, l’application reste exactement la même.
-Architecture, coûts et mise en service : [`docs/CLOUD.md`](docs/CLOUD.md).
+Le projet `Einnote` existe (schéma appliqué, fonctions déployées) ; il manque
+encore les secrets Stripe pour encaisser. Architecture, coûts et état réel de
+la mise en service : [`docs/CLOUD.md`](docs/CLOUD.md).
 
 ## Lancer
 

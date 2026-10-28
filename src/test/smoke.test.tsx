@@ -359,7 +359,7 @@ describe("Einnote — écrans", () => {
     expect(screen.getByRole("button", { name: /Aujourd’hui/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Mois précédent" })).toBeTruthy();
     // un jour est sélectionné par défaut : le panneau latéral est rempli
-    expect(screen.getByText(/^\d+ événement|Rien ce jour-là/)).toBeTruthy();
+    expect(screen.getAllByText(/^\d+ événements?$|Rien ce jour-là/).length).toBeGreaterThan(0);
   });
 
   it("choisit une portée, démarre une révision et évalue une carte", async () => {

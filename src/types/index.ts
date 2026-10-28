@@ -292,6 +292,8 @@ export interface AppSettings {
   language: "fr" | "en";
   /** mise en page : suivre l’écran, ou forcer bureau / mobile */
   layout?: "auto" | "desktop" | "mobile";
+  /** largeur choisie pour la barre latérale ; « auto » suit la place */
+  rail?: "auto" | "expanded" | "collapsed";
   onboarded: boolean;
   personalization: Personalization;
   /** dernière sauvegarde chiffrée réussie (ISO) */

@@ -48,6 +48,8 @@ interface AppState {
   setDynamicAccent: (on: boolean) => void;
   setGraphStyle: (graphStyle: string) => void;
   setLayout: (layout: "auto" | "desktop" | "mobile") => void;
+  /** déplier ou replier la barre latérale */
+  setRail: (rail: "auto" | "expanded" | "collapsed") => void;
   /** réglages de la révision espacée (fusion partielle) */
   setReview: (patch: Partial<ReviewSettings>) => void;
   setReminder: (patch: Partial<ReviewSettings["reminder"]>) => void;
@@ -95,6 +97,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dynamicAccent: true,
   graphStyle: DEFAULT_GRAPH_STYLE,
   layout: "auto",
+  rail: "auto",
   graphLabels: false,
   graphEchoes: true,
   graphAnimate: false,
@@ -338,6 +341,7 @@ export const useAppStore = create<AppState>()(
          laissent éteintes. L’utilisateur reste maître du réglage ensuite. */
       setLayout: (layout) =>
         set((s) => ({ settings: { ...s.settings, layout } })),
+      setRail: (rail) => set((s) => ({ settings: { ...s.settings, rail } })),
       setReview: (patch) =>
         set((s) => ({
           settings: {

@@ -37,12 +37,9 @@ import {
 } from "@/lib/useDesktopShortcuts";
 import { Sheet } from "@/components/Layout";
 import {
-  ArrowDown,
-  ArrowUp,
-  Check,
   DotsSixVertical,
   Keyboard,
-  SlidersHorizontal,
+  SidebarSimple,
   type Icon,
 } from "@phosphor-icons/react";
 import { useNavStore } from "@/stores/useNavStore";
@@ -56,7 +53,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   /* Navigation latérale dès 768 px. Sa forme (icônes ou libellés) suit la
      largeur réelle ; seuls les écrans à deux panneaux suivent `useIsDesktop`. */
   const rail = useRail();
-  const compact = useCompactRail();
+  const widthCompact = useCompactRail();
+  const railPreference = useAppStore((s) => s.settings.rail ?? "auto");
+  const setRail = useAppStore((s) => s.setRail);
+  /* Trois états, un seul rendu : la préférence de l’utilisateur l’emporte sur
+     la largeur de l’écran, « auto » suit la place disponible. */
+  const compact =
+    railPreference === "collapsed"
+      ? true
+      : railPreference === "expanded"
+        ? false
+        : widthCompact;
   /* Le clavier complet suppose un vrai poste ; deux panneaux supposent la place. */
   const desktop = useIsDesktop();
   const navigate = useNavigate();
@@ -69,6 +76,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     const forced = forcedLayout() ?? layout ?? "auto";
     document.documentElement.dataset.layout = forced;
   }, [layout, rail]);
+
+  /* La largeur du rail est une variable CSS : c’est ici qu’on la pilote, et
+     nulle part ailleurs. */
+  useEffect(() => {
+    document.documentElement.dataset.rail = railPreference;
+  }, [railPreference]);
 
   /* Le clavier n’existe qu’en bureau : sur téléphone, ces lettres sont du texte. */
   useDesktopShortcuts(desktop, {
@@ -87,6 +100,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       {rail && (
         <DesktopRail
           compact={compact}
+          onToggleWidth={() =>
+            setRail(
+              railPreference === "collapsed"
+                ? "expanded"
+                : railPreference === "expanded"
+                  ? "collapsed"
+                  : compact
+                    ? "expanded"
+                    : "collapsed",
+            )
+          }
           onShowShortcuts={() => setHelpOpen(true)}
         />
       )}
@@ -165,10 +189,13 @@ const SETTINGS = [{ to: "/settings", label: "Réglages", icon: Gear }] as const;
 
 export function DesktopRail({
   compact = false,
+  onToggleWidth,
   onShowShortcuts,
 }: {
   /** rail étroit : icônes seulement (768–1023 px) */
   compact?: boolean;
+  /** déplie ou replie la barre : la largeur choisie est mémorisée */
+  onToggleWidth?: () => void;
   onShowShortcuts?: () => void;
 }) {
   const navigate = useNavigate();
@@ -186,9 +213,21 @@ export function DesktopRail({
   const navItems = useNavStore((state) => state.desktop);
   const moveNav = useNavStore((state) => state.move);
   const placeBeforeNav = useNavStore((state) => state.placeBefore);
-  const [reordering, setReordering] = useState(false);
-  const [picked, setPicked] = useState<NavId | null>(null);
+
+  /* Déplacement à la poignée : on saisit les six points d’une page, on la fait
+     glisser sur une autre, elle prend sa place. Aucun mode à activer, aucun
+     panneau à ouvrir — le geste est le même que dans un tableur. */
+  const [dragId, setDragId] = useState<NavId | null>(null);
+  const [overId, setOverId] = useState<NavId | null>(null);
   const desktopNav = resolveItems(navItems);
+
+  const finishDrag = () => {
+    if (dragId && overId && dragId !== overId) {
+      placeBeforeNav("desktop", dragId, overId);
+    }
+    setDragId(null);
+    setOverId(null);
+  };
 
   const isMain = (to: string) =>
     to === "/" ? pathname === "/" : pathname.startsWith(to);
@@ -198,6 +237,10 @@ export function DesktopRail({
       className="rail"
       aria-label="Barre latérale"
       data-compact={compact ? "true" : "false"}
+      /* Le relâchement est écouté sur toute la barre : une poignée lâchée
+         entre deux lignes doit tout de même déposer la page. */
+      onPointerUp={finishDrag}
+      onPointerLeave={() => setOverId(null)}
     >
       <div
         className={cn(
@@ -226,6 +269,17 @@ export function DesktopRail({
             </span>
           )}
         </button>
+        <div className={cn("flex shrink-0 items-center", compact ? "flex-col gap-1" : "gap-0.5")}>
+        <button
+          type="button"
+          onClick={onToggleWidth}
+          aria-label={compact ? "Déplier la barre latérale" : "Replier la barre latérale"}
+          title={compact ? "Déplier" : "Replier"}
+          aria-expanded={!compact}
+          className="icon-btn h-9 w-9 shrink-0"
+        >
+          <SidebarSimple size={18} weight="bold" aria-hidden="true" />
+        </button>
         <button
           type="button"
           onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -239,6 +293,7 @@ export function DesktopRail({
             <Moon size={18} weight="bold" aria-hidden="true" />
           )}
         </button>
+        </div>
       </div>
 
       {/* Le bouton « Nouvelle note » a quitté le rail : la création passe par
@@ -254,83 +309,80 @@ export function DesktopRail({
       >
         <div className={cn("flex items-center", compact ? "justify-center" : "mt-5 justify-between pr-1")}>
           {!compact && <p className="rail-label">Espace</p>}
-          <button
-            type="button"
-            onClick={() => {
-              setReordering((value) => !value);
-              setPicked(null);
-            }}
-            aria-pressed={reordering}
-            aria-label={reordering ? "Terminer la réorganisation" : "Réorganiser les pages"}
-            title={reordering ? "Terminer" : "Réorganiser les pages"}
-            className={cn(
-              "flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-accent hover:bg-surface-2",
-              compact ? "h-8 w-8 justify-center" : "mb-1.5 h-6 px-1.5",
-            )}
-          >
-            {reordering ? <Check size={15} weight="bold" aria-hidden /> : <DotsSixVertical size={15} weight="bold" aria-hidden />}
-            {!compact && (reordering ? "Terminé" : "Ordre")}
-          </button>
         </div>
         {compact && <div className="mx-2 my-3 h-px bg-line" aria-hidden="true" />}
 
-        {reordering && !compact && (
-          <p className="mb-1.5 rounded-rect bg-accent-soft px-2 py-1.5 text-[11.5px] font-medium leading-[16px] text-accent-ink">
-            {picked
-              ? "Touchez la page devant laquelle la placer."
-              : "Touchez la page à déplacer."}
-          </p>
-        )}
-
-        <div className="flex flex-col gap-0.5">
+        <div
+          className="flex flex-col gap-0.5"
+          onPointerUp={finishDrag}
+          onPointerLeave={() => setOverId(null)}
+        >
           {desktopNav.map((item, index) => (
-            <div key={item.id} className="relative">
+            <div
+              key={item.id}
+              className="group relative"
+              onPointerEnter={() => {
+                if (dragId && dragId !== item.id) setOverId(item.id);
+              }}
+              onPointerMove={() => {
+                if (dragId && dragId !== item.id && overId !== item.id) setOverId(item.id);
+              }}
+            >
               <RailItem
                 compact={compact}
                 icon={item.icon}
                 label={item.label}
                 badge={item.id === "review" && due > 0 ? due : undefined}
-                active={!reordering && isMain(item.to)}
-                selected={picked === item.id}
-                outlined={reordering}
+                active={isMain(item.to)}
+                selected={dragId === item.id}
+                outlined={Boolean(dragId)}
                 onClick={() => {
-                  if (!reordering) {
-                    navigate(item.to);
+                  /* Pendant un déplacement, cliquer ne navigue pas : on dépose. */
+                  if (dragId) {
+                    finishDrag();
                     return;
                   }
-                  if (!picked) {
-                    setPicked(item.id);
-                    return;
-                  }
-                  if (picked === item.id) {
-                    setPicked(null);
-                    return;
-                  }
-                  placeBeforeNav("desktop", picked, item.id);
-                  setPicked(null);
+                  navigate(item.to);
                 }}
+                handle={
+                  <button
+                    type="button"
+                    aria-label={`Déplacer ${item.label}`}
+                    title="Glisser pour déplacer"
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDragId(item.id);
+                      setOverId(null);
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        moveNav("desktop", item.id, -1);
+                      }
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        moveNav("desktop", item.id, 1);
+                      }
+                    }}
+                    className={cn(
+                      "flex shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted transition-opacity",
+                      "hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 active:cursor-grabbing",
+                      compact
+                        ? "absolute right-0.5 top-0.5 h-4 w-4 opacity-0 group-hover:opacity-100"
+                        : "h-7 w-6 opacity-30 group-hover:opacity-100",
+                    )}
+                  >
+                    <DotsSixVertical size={13} weight="bold" aria-hidden />
+                  </button>
+                }
               />
-              {reordering && (
-                <div className="absolute right-1 top-1 flex gap-0.5">
-                  <button
-                    type="button"
-                    aria-label={`Monter ${item.label}`}
-                    disabled={index === 0}
-                    onClick={() => moveNav("desktop", item.id, -1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-line bg-surface text-muted disabled:opacity-30"
-                  >
-                    <ArrowUp size={12} weight="bold" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Descendre ${item.label}`}
-                    disabled={index === desktopNav.length - 1}
-                    onClick={() => moveNav("desktop", item.id, 1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-line bg-surface text-muted disabled:opacity-30"
-                  >
-                    <ArrowDown size={12} weight="bold" />
-                  </button>
-                </div>
+              {overId === item.id && (
+                <span
+                  className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded-full bg-accent"
+                  aria-hidden
+                />
               )}
             </div>
           ))}
@@ -422,60 +474,73 @@ function RailItem({
   selected = false,
   outlined = false,
   onClick,
+  handle,
 }: {
   icon: Icon;
   label: string;
   badge?: number;
   active: boolean;
   compact?: boolean;
-  /** la page en cours de déplacement, pendant la réorganisation */
+  /** la page en cours de déplacement */
   selected?: boolean;
-  /** affiche un contour quand la réorganisation est active */
+  /** affiche un contour pendant un déplacement */
   outlined?: boolean;
   onClick: () => void;
+  /** poignée de déplacement, toujours en dernier dans l’entrée */
+  handle?: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    /* Deux boutons frères, jamais imbriqués : le lien et la poignée. Un bouton
+       dans un bouton est invalide et rend le clavier imprévisible. */
+    <div
       data-active={active}
-      aria-current={active ? "page" : undefined}
-      aria-pressed={selected || undefined}
-      aria-label={compact ? label : undefined}
-      title={compact ? label : undefined}
       className={cn(
-        "flex w-full items-center rounded-rect text-[15px] transition-colors",
-        compact
-          ? "relative h-11 justify-center px-0"
-          : "gap-3 px-3 py-2.5",
+        "group/row flex items-center rounded-rect transition-colors",
+        compact ? "relative" : "gap-0.5 pr-1",
         active || selected
           ? "bg-accent-soft font-semibold text-accent-ink"
           : "text-ink hover:bg-surface-2",
         outlined && "border border-dashed border-line-strong",
-        outlined && !compact && "pr-14",
       )}
     >
-      <Icon
-        size={20}
-        weight={active ? "fill" : "regular"}
-        aria-hidden="true"
-        className={active ? "text-accent" : "text-muted"}
-      />
-      {compact ? (
-        <span className="sr-only">{label}</span>
-      ) : (
-        <span className="flex-1 truncate text-left">{label}</span>
-      )}
-      {badge !== undefined &&
-        (compact ? (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9.5px] font-bold leading-none text-on-accent">
-            {badge}
-          </span>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-current={active ? "page" : undefined}
+        aria-pressed={selected || undefined}
+        aria-label={compact ? label : undefined}
+        title={compact ? label : undefined}
+        className={cn(
+          "flex min-w-0 flex-1 items-center rounded-rect text-[15px] transition-colors",
+          compact ? "h-11 justify-center px-0" : "gap-3 px-3 py-2.5",
+        )}
+      >
+        <Icon
+          size={20}
+          weight={active ? "fill" : "regular"}
+          aria-hidden="true"
+          className={active ? "text-accent" : "text-muted"}
+        />
+        {compact ? (
+          <span className="sr-only">{label}</span>
         ) : (
-          <span className="rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-accent">
-            {badge}
-          </span>
-        ))}
-    </button>
+          <span className="flex-1 truncate text-left">{label}</span>
+        )}
+        {badge !== undefined &&
+          !compact && (
+            <span className="rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-accent">
+              {badge}
+            </span>
+          )}
+      </button>
+
+      {badge !== undefined && compact && (
+        <span className="pointer-events-none absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9.5px] font-bold leading-none text-on-accent">
+          {badge}
+        </span>
+      )}
+
+      {handle}
+    </div>
   );
 }

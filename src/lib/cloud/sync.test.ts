@@ -104,6 +104,10 @@ const pushed = () =>
 
 describe("sans backend", () => {
   it("le dit, et ne tente aucun appel", async () => {
+    /* Le dépôt de développement peut avoir un `.env.local` : on annule
+       explicitement la configuration pour tester le cas « aucun serveur ». */
+    vi.stubEnv("VITE_SUPABASE_URL", "");
+    vi.stubEnv("VITE_SUPABASE_ANON_KEY", "");
     const result = await syncNow();
     expect(result.reason).toBe("not-configured");
     expect(harness.calls).toHaveLength(0);

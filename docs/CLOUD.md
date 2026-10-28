@@ -1,10 +1,11 @@
 # Cloud Einnote — architecture, coûts, mise en service
 
-> État réel, pas une intention : **le backend n’est pas déployé.** Aucun projet
-> Supabase n’a pu être créé (quota de projets gratuits de l’organisation atteint,
-> voir §7). Tout le reste — schéma SQL, politiques d’accès, fonctions serveur,
-> moteur de fusion, écran de réglages — est écrit et **vérifié sur un vrai
-> PostgreSQL** (§6). Il ne manque que l’hébergement.
+> État réel, pas une intention : **le backend est déployé.** Projet Supabase
+> `Einnote` (`bqgyzwjlouuohmqscnwu`, `eu-west-2`) créé le 28 octobre 2026, schéma
+> `engram` appliqué, six fonctions `security definer` en place, RLS active sur
+> les trois tables, et les deux Edge Functions Deno `stripe-checkout` /
+> `stripe-webhook` déployées (§5). Ce qui **reste à faire** tient en deux
+> secrets Stripe — voir §8.
 
 ---
 
@@ -95,24 +96,32 @@ est une nuisance, pas une fonctionnalité.
 
 ---
 
-## 5. Mise en service (le jour où un projet existe)
+## 5. Mise en service — état réel
+
+**Déjà fait** sur le projet `Einnote` (`bqgyzwjlouuohmqscnwu`) :
+
+| Élément | État |
+|---|---|
+| Schéma `engram` (3 tables, RLS, index) | appliqué |
+| `push_entities`, `pull_entities`, `my_entitlement`, `list_devices`, `touch_device`, `wipe_cloud_data` | créées, `security definer`, `execute` réservé à `authenticated` |
+| `engram.entitlements` | RLS active, **aucune** politique d’écriture |
+| Edge Function `stripe-checkout` (JWT vérifié) | déployée, version 1 |
+| Edge Function `stripe-webhook` (JWT ouvert, signature Stripe) | déployée, version 1 |
+
+**Reste à faire, côté Stripe** — sans ces valeurs, le paiement répond
+`503 « Paiement non configuré sur ce serveur »`, proprement, et l’application
+reste locale :
 
 ```bash
-# 1 — projet Supabase, puis
-supabase link --project-ref <ref>
-supabase db push                       # applique supabase/migrations/0001_cloud_sync.sql
-
-# 2 — secrets des fonctions
 supabase secrets set \
   STRIPE_SECRET_KEY=sk_live_… \
   STRIPE_PRICE_ID=price_… \
   STRIPE_WEBHOOK_SECRET=whsec_… \
   APP_URL=https://votre-domaine
-
-# 3 — fonctions
-supabase functions deploy stripe-checkout
-supabase functions deploy stripe-webhook --no-verify-jwt   # Stripe n’envoie pas de JWT
 ```
+
+Les fonctions se redéploient ensuite avec `supabase functions deploy <slug>`
+(`--no-verify-jwt` pour `stripe-webhook` uniquement).
 
 Puis, côté Stripe : créer le prix récurrent **10 $ / mois**, et pointer le
 webhook vers `https://<ref>.supabase.co/functions/v1/stripe-webhook` avec les
@@ -161,6 +170,11 @@ Isolation entre comptes
   ✓ écriture refusée après résiliation
 ```
 
+Sur le projet hébergé, la migration a été appliquée le 28 octobre 2026 et
+vérifiée par introspection : trois tables avec `relrowsecurity = true`
+(`entitlements` 1 politique, `entities` 4, `devices` 1) et sept fonctions
+`security definer` présentes dans `pg_proc`.
+
 Ce qui **reste non vérifié** : les deux Edge Functions Deno (`stripe-checkout`,
 `stripe-webhook`) n’ont jamais été exécutées — elles demandent un compte Stripe
 et un projet déployé. Leur contrat d’entrée/sortie est lisible et minimal, mais
@@ -204,25 +218,27 @@ Trois remarques honnêtes :
 
 ---
 
-## 8. Blocage actuel
+## 8. Ce qui reste ouvert
 
-`supabase projects create` a été refusé :
+Le blocage de la session précédente — quota de projets gratuits atteint — est
+levé : le projet `Einnote` existe et le schéma est appliqué. Trois points
+restent ouverts, et ils sont nommés plutôt que masqués :
 
-```
-400 — the organisation has reached its free project limit
-```
-
-L’organisation `zhjdbhreisskkzpxurwz` contient deux projets : un inactif
-(`jkqpoowxnerxqwnydeea`) et `Lumina-project` (`hhgovvrnalibhgpakswi`, actif).
-Deux issues, au choix du propriétaire du compte :
-
-1. **Libérer un emplacement** — supprimer le projet inactif ;
-2. **Passer l’organisation en plan payant** — projets illimités.
-
-Aucune des deux n’a été entreprise : ce sont des décisions qui coûtent de
-l’argent ou détruisent des données, et elles n’appartiennent pas à l’agent.
-En attendant, la migration est vérifiée hors Supabase, et le code client gère
-proprement l’absence de backend.
+1. **Aucun compte Stripe n’est branché.** Les deux fonctions tournent, mais la
+   création de session renvoie `503` et le webhook refuse faute de
+   `STRIPE_WEBHOOK_SECRET`. Conséquence assumée : **personne ne peut
+   s’abonner**, donc personne ne peut écrire dans le cloud. Le paywall est
+   cohérent jusque-là ; il ne devient commercial qu’avec ces trois secrets.
+2. **Les Edge Functions n’ont jamais traité un vrai paiement.** Leur contrat
+   est lisible et minimal, leur démarrage sans secret est testé (503, pas 500),
+   mais « écrit avec soin » n’est pas « exécuté ». Défaut connu :
+   `stripe-webhook` ne dédoublonne pas les événements rejoués — l’écriture
+   étant un `upsert` idempotent, le résultat est le même aujourd’hui, mais une
+   action non idempotente future demandera une table `processed_events`.
+3. **Le code e-mail du serveur fait 8 chiffres** (réglage Supabase par défaut
+   de ce projet), alors que le client supposait 6. Corrigé côté client : la
+   longueur acceptée va de 6 à 10 chiffres, puisque c’est un réglage serveur et
+   non une propriété du produit.
 
 ---
 
@@ -234,6 +250,7 @@ proprement l’absence de backend.
 | `supabase/functions/stripe-checkout/index.ts` | création de la session de paiement |
 | `supabase/functions/stripe-webhook/index.ts` | seule écriture des droits |
 | `supabase/verify/verify_migration.py` | vérification sur PostgreSQL réel |
+| `.env.local` (non versionné) | URL + clé publique du projet `Einnote` |
 | `src/lib/cloud/types.ts` | modèle de synchronisation |
 | `src/lib/cloud/merge.ts` | fusion pure local ↔ distant |
 | `src/lib/cloud/state.ts` | tombes déduites, état persistant, `known` |

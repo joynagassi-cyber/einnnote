@@ -3,8 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CalendarBlank,
+  CaretDown,
   CaretLeft,
   CaretRight,
+  CaretUp,
+  NotePencil,
+  ClockCounterClockwise,
+  Stack,
+  GraduationCap,
 } from "@phosphor-icons/react";
 import { Screen } from "@/components/Layout";
 import { useContentStore } from "@/stores/useContentStore";
@@ -18,6 +24,7 @@ import {
   type EventKind,
 } from "@/lib/calendar";
 import { useProjects } from "@/lib/useProjects";
+import { dayKey } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,6 +45,15 @@ const KINDS: { id: EventKind; label: string; dot: string }[] = [
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
+/* Le fil du bas nomme chaque événement : une pastille de couleur suffit dans la
+   grille, pas dans une liste qu’on lit. */
+const KIND_META: Record<EventKind, { label: string; icon: typeof NotePencil }> = {
+  note: { label: "Note", icon: NotePencil },
+  review: { label: "Révision", icon: ClockCounterClockwise },
+  due: { label: "Échéance", icon: Stack },
+  lesson: { label: "Leçon", icon: GraduationCap },
+};
+
 export default function Calendar() {
   const navigate = useNavigate();
   const notes = useContentStore((s) => s.notes);
@@ -52,6 +68,7 @@ export default function Calendar() {
   const [selected, setSelected] = useState(() => new Date(now));
   const [projectId, setProjectId] = useState<string | null>(null);
   const [hidden, setHidden] = useState<EventKind[]>([]);
+  const [showAll, setShowAll] = useState(false);
 
   /* Les événements du mois affiché, plus une marge d’une semaine de chaque
      côté : la grille montre les jours de débordement, ils doivent être remplis
@@ -76,6 +93,29 @@ export default function Calendar() {
       .filter((event) => event.kind === "due")
       .reduce((sum, event) => sum + (Number.parseInt(event.title, 10) || 0), 0),
   };
+
+  const projectNameOf = (id?: string) =>
+    projects.find((entry) => entry.id === id)?.name;
+
+  /* Le fil du mois : les mêmes événements que la grille, mais lus dans l’ordre
+     du temps, groupés par jour et détaillés. C’est la vue qui sert quand on
+     cherche « qu’est-ce que j’ai fait cette semaine », pas « quel jour ». */
+  const monthPrefix = `${cursor.getFullYear()}-${`${cursor.getMonth() + 1}`.padStart(2, "0")}`;
+  const timeline = useMemo(() => {
+    const inMonth = visible
+      .filter((event) => event.date.startsWith(monthPrefix))
+      .sort((a, b) => (a.date === b.date ? (b.time ?? "").localeCompare(a.time ?? "") : b.date.localeCompare(a.date)));
+    const groups: { date: string; events: CalendarEvent[] }[] = [];
+    for (const event of inMonth) {
+      const last = groups[groups.length - 1];
+      if (last && last.date === event.date) last.events.push(event);
+      else groups.push({ date: event.date, events: [event] });
+    }
+    return groups;
+  }, [visible, monthPrefix]);
+
+  const shownGroups = showAll ? timeline : timeline.slice(0, 8);
+  const hiddenCount = timeline.length - shownGroups.length;
 
   const shift = (delta: number) => {
     const next = new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1);
@@ -279,6 +319,7 @@ export default function Calendar() {
               <DayEvent
                 key={event.id}
                 event={event}
+                projectName={projectNameOf(event.projectId)}
                 onOpen={() => event.noteId && navigate(`/note/${event.noteId}`)}
               />
             ))}
@@ -293,12 +334,147 @@ export default function Calendar() {
         </aside>
       </div>
 
+      {/* ------------------------------------------------ fil du mois */}
+      {timeline.length > 0 && (
+        <section
+          aria-label="Fil du mois"
+          className="mt-3 rounded-card border border-line bg-surface p-4"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-serif text-[19px] font-semibold">Fil du mois</h2>
+            <p className="text-[12px] text-muted">
+              {timeline.reduce((sum, group) => sum + group.events.length, 0)} événements ·{" "}
+              {timeline.length} jour{timeline.length > 1 ? "s" : ""} actif
+              {timeline.length > 1 ? "s" : ""}
+            </p>
+          </div>
+
+          <ol className="mt-3 flex flex-col">
+            {shownGroups.map((group) => (
+              <li key={group.date} className="relative flex gap-3 pb-4 last:pb-0">
+                {/* le trait vertical relie les jours entre eux */}
+                <span
+                  className="absolute left-[7px] top-4 h-full w-px bg-line last:hidden"
+                  aria-hidden
+                />
+                <span
+                  className={cn(
+                    "relative z-[1] mt-1 h-[15px] w-[15px] shrink-0 rounded-full border-2",
+                    group.date === dayKey(now)
+                      ? "border-accent bg-accent"
+                      : "border-line-strong bg-surface",
+                  )}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-[13.5px] font-semibold">
+                      {dayLabelFromKey(group.date)}
+                      {group.date === dayKey(now) && (
+                        <span className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-accent-ink">
+                          aujourd’hui
+                        </span>
+                      )}
+                    </h3>
+                    <span className="shrink-0 text-[11.5px] tabular-nums text-muted">
+                      {group.events.length} événement{group.events.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+
+                  <ul className="mt-1.5 flex flex-col gap-1">
+                    {group.events.map((event) => {
+                      const meta = KIND_META[event.kind];
+                      const Icon = meta.icon;
+                      return (
+                        <li key={event.id}>
+                          <button
+                            type="button"
+                            onClick={() => event.noteId && navigate(`/note/${event.noteId}`)}
+                            disabled={!event.noteId}
+                            className="flex w-full items-start gap-2 rounded-field px-1.5 py-1 text-left transition-colors enabled:hover:bg-surface-2 disabled:cursor-default"
+                          >
+                            <Icon
+                              size={15}
+                              weight="duotone"
+                              className="mt-0.5 shrink-0 text-muted"
+                              aria-hidden
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex flex-wrap items-baseline gap-x-1.5">
+                                <span className="text-[12.5px] font-medium text-ink">
+                                  {meta.label}
+                                </span>
+                                <span className="truncate text-[12.5px] text-muted">
+                                  {event.title}
+                                </span>
+                                {event.time && (
+                                  <span className="text-[11px] tabular-nums text-muted">
+                                    {event.time}
+                                  </span>
+                                )}
+                              </span>
+                              {(event.detail || projectNameOf(event.projectId)) && (
+                                <span className="mt-0.5 block truncate text-[11.5px] text-muted">
+                                  {[event.detail, projectNameOf(event.projectId)]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              )}
+                            </span>
+                            {event.noteId && (
+                              <ArrowRight size={12} className="mt-1 shrink-0 text-muted" aria-hidden />
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          {(hiddenCount > 0 || showAll) && (
+            <button
+              type="button"
+              onClick={() => setShowAll((value) => !value)}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-field border border-line py-2 text-[12.5px] font-semibold text-accent hover:bg-surface-2"
+            >
+              {showAll ? (
+                <>
+                  <CaretUp size={13} weight="bold" aria-hidden /> Réduire
+                </>
+              ) : (
+                <>
+                  <CaretDown size={13} weight="bold" aria-hidden /> Afficher les{" "}
+                  {hiddenCount} autres jours
+                </>
+              )}
+            </button>
+          )}
+        </section>
+      )}
+
       <div className="h-6" aria-hidden />
     </Screen>
   );
 }
 
-function DayEvent({ event, onOpen }: { event: CalendarEvent; onOpen: () => void }) {
+/** `2026-10-08` → « Jeudi 8 octobre ». */
+function dayLabelFromKey(key: string): string {
+  const [year, month, day] = key.split("-").map(Number);
+  return dayLabel(new Date(year, month - 1, day));
+}
+
+function DayEvent({
+  event,
+  projectName,
+  onOpen,
+}: {
+  event: CalendarEvent;
+  projectName?: string;
+  onOpen: () => void;
+}) {
   const dot =
     event.kind === "note"
       ? "var(--accent)"
@@ -328,9 +504,9 @@ function DayEvent({ event, onOpen }: { event: CalendarEvent; onOpen: () => void 
               <span className="shrink-0 text-[11px] tabular-nums text-muted">{event.time}</span>
             )}
           </span>
-          {event.detail && (
+          {(event.detail || projectName) && (
             <span className="mt-0.5 block truncate text-[11.5px] text-muted">
-              {event.detail}
+              {[event.detail, projectName].filter(Boolean).join(" · ")}
             </span>
           )}
         </span>

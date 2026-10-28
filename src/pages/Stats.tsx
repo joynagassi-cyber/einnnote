@@ -14,10 +14,20 @@ import {
   retention,
   streak,
   weeklyRetention,
-  type ActivityPoint,
+  ratingBreakdown,
+  regularity,
+  weekdayRhythm,
   type Period,
 } from "@/lib/stats";
 import { METHODS } from "@/lib/methods";
+import {
+  ActivityChart,
+  ForecastChart,
+  RatingBar,
+  RegularityHeatmap,
+  RetentionChart,
+  RhythmChart,
+} from "@/components/stats/Charts";
 import { dueCards } from "@/lib/scheduler";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +72,9 @@ export default function Stats() {
     [cards, zettel, now],
   );
   const methods = useMemo(() => methodBreakdown(live), [live]);
+  const heatmap = useMemo(() => regularity(live, logs, 13, now), [live, logs, now]);
+  const rhythm = useMemo(() => weekdayRhythm(logs), [logs]);
+  const ratings = useMemo(() => ratingBreakdown(logs, since), [logs, since]);
   const rows = useMemo(
     () =>
       byProject({
@@ -79,8 +92,6 @@ export default function Stats() {
   const rate = retention(logs, since);
   const days = streak(logs, now);
   const due = summarize(items, now).due;
-  const maxActivity = Math.max(1, ...activity.map((point) => point.created + point.reviews));
-  const maxForecast = Math.max(1, ...forecast.map((point) => point.count));
   const maxMethod = Math.max(1, ...methods.map((row) => row.count));
 
   return (
@@ -130,13 +141,7 @@ export default function Stats() {
         title="Activité"
         hint={`${created} notes créées · ${reviews} révisions · ${period} derniers jours`}
       >
-        <ActivityChart points={activity} max={maxActivity} />
-        <Legend
-          items={[
-            { color: "var(--accent)", label: "Révisions" },
-            { color: "color-mix(in srgb, var(--accent) 34%, transparent)", label: "Notes créées" },
-          ]}
-        />
+        <ActivityChart points={activity} />
       </Panel>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -148,7 +153,29 @@ export default function Stats() {
           title="Charge à venir"
           hint={`${forecast.reduce((sum, point) => sum + point.count, 0)} cartes sur 14 jours`}
         >
-          <ForecastChart points={forecast} max={maxForecast} />
+          <ForecastChart points={forecast} />
+        </Panel>
+      </div>
+
+      <div className="mt-3">
+        <Panel
+          title="Régularité"
+          hint="une case par jour, trois mois — les trous comptent autant que les pics"
+        >
+          <RegularityHeatmap weeks={heatmap} />
+        </Panel>
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <Panel title="Rythme" hint="révisions par jour de la semaine, tout l’historique">
+          <RhythmChart rhythm={rhythm} />
+        </Panel>
+
+        <Panel
+          title="Notes de révision"
+          hint={`${ratings.reduce((sum, row) => sum + row.count, 0)} réponses sur ${period} jours`}
+        >
+          <RatingBar rows={ratings} />
         </Panel>
       </div>
 
@@ -207,8 +234,20 @@ export default function Stats() {
                     >
                       {row.due}
                     </td>
-                    <td className="py-1.5 text-right tabular-nums text-muted">
-                      {row.retention ? `${row.retention.rate} %` : "—"}
+                    <td className="py-1.5 pl-2 text-right tabular-nums text-muted">
+                      {row.retention ? (
+                        <span className="inline-flex items-center justify-end gap-1.5">
+                          <span className="h-1.5 w-10 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+                            <span
+                              className="block h-full rounded-full bg-accent"
+                              style={{ width: `${row.retention.rate}%` }}
+                            />
+                          </span>
+                          {row.retention.rate} %
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -312,168 +351,4 @@ function Panel({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-[13px] leading-[19px] text-muted">{children}</p>;
-}
-
-function Legend({ items }: { items: { color: string; label: string }[] }) {
-  return (
-    <ul className="mt-2 flex flex-wrap gap-3">
-      {items.map((item) => (
-        <li key={item.label} className="flex items-center gap-1.5 text-[11.5px] text-muted">
-          <span
-            className="h-2 w-2 rounded-sm"
-            style={{ background: item.color }}
-            aria-hidden
-          />
-          {item.label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Graphiques — SVG, jetons de couleur, aucune bibliothèque            */
-/* ------------------------------------------------------------------ */
-
-/**
- * Les graphiques sont écrits à la main pour une raison précise : ils doivent
- * prendre les couleurs du thème (`var(--accent)`), s’animer avec lui et rester
- * lisibles en contraste élevé. Une bibliothèque imposerait des couleurs en dur
- * et un conteneur qui mesure sa largeur — invisible dans les tests.
- */
-function ActivityChart({ points, max }: { points: ActivityPoint[]; max: number }) {
-  const total = points.reduce((sum, point) => sum + point.created + point.reviews, 0);
-  return (
-    <figure>
-      <div className="flex h-28 items-end gap-[2px]" aria-hidden>
-        {points.map((point) => {
-          const height = ((point.created + point.reviews) / max) * 100;
-          const reviewShare =
-            point.created + point.reviews === 0
-              ? 0
-              : (point.reviews / (point.created + point.reviews)) * 100;
-          return (
-            <span
-              key={point.date}
-              title={`${point.date} · ${point.created} créées · ${point.reviews} révisées`}
-              className="relative min-w-[2px] flex-1 rounded-t-sm bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]"
-              style={{ height: `${Math.max(height, point.created + point.reviews > 0 ? 3 : 1)}%` }}
-            >
-              <span
-                className="absolute inset-x-0 bottom-0 rounded-t-sm bg-accent"
-                style={{ height: `${reviewShare}%` }}
-              />
-            </span>
-          );
-        })}
-      </div>
-      <figcaption className="mt-1.5 flex justify-between text-[11px] text-muted">
-        <span>{points[0]?.date ?? ""}</span>
-        <span className="tabular-nums">{total} actions</span>
-        <span>{points[points.length - 1]?.date ?? ""}</span>
-      </figcaption>
-      <p className="sr-only">
-        Histogramme de l’activité : {total} actions sur {points.length} jours.
-      </p>
-    </figure>
-  );
-}
-
-function RetentionChart({
-  weeks,
-}: {
-  weeks: { week: string; rate: number; total: number }[];
-}) {
-  const width = 100;
-  const height = 40;
-  const points = weeks.map((week, index) => ({
-    x: weeks.length === 1 ? 0 : (index / (weeks.length - 1)) * width,
-    y: height - (week.rate / 100) * height,
-    ...week,
-  }));
-  const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-    .join(" ");
-  const average = weeks.filter((week) => week.total > 0);
-  const mean =
-    average.length > 0
-      ? Math.round(average.reduce((sum, week) => sum + week.rate, 0) / average.length)
-      : null;
-
-  return (
-    <figure>
-      {mean === null ? (
-        <Empty>Aucune révision enregistrée : la courbe apparaîtra à la première.</Empty>
-      ) : (
-        <>
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-            className="h-20 w-full"
-            role="img"
-            aria-label={`Rétention moyenne ${mean} % sur les semaines qui contiennent des révisions`}
-          >
-            <line
-              x1="0"
-              y1={height - (50 / 100) * height}
-              x2={width}
-              y2={height - (50 / 100) * height}
-              stroke="var(--line)"
-              strokeWidth="0.6"
-              strokeDasharray="2 2"
-            />
-            <path d={path} fill="none" stroke="var(--accent)" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
-            {points.map((point) => (
-              <circle
-                key={point.week}
-                cx={point.x}
-                cy={point.y}
-                r="1.6"
-                fill="var(--accent)"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
-          <figcaption className="mt-1 flex justify-between text-[11px] text-muted">
-            <span>{weeks[0]?.week}</span>
-            <span className="font-semibold text-ink">{mean} % de moyenne</span>
-            <span>{weeks[weeks.length - 1]?.week}</span>
-          </figcaption>
-        </>
-      )}
-    </figure>
-  );
-}
-
-function ForecastChart({
-  points,
-  max,
-}: {
-  points: { date: string; count: number }[];
-  max: number;
-}) {
-  return (
-    <figure>
-      <div className="flex h-20 items-end gap-1" aria-hidden>
-        {points.map((point) => (
-          <span
-            key={point.date}
-            title={`${point.date} · ${point.count} cartes`}
-            className={cn(
-              "flex-1 rounded-t-sm",
-              point.count === 0 ? "bg-surface-2" : "bg-accent",
-            )}
-            style={{
-              height: `${Math.max((point.count / max) * 100, point.count > 0 ? 6 : 2)}%`,
-              opacity: point.count === 0 ? 1 : 0.35 + (point.count / max) * 0.65,
-            }}
-          />
-        ))}
-      </div>
-      <figcaption className="mt-1.5 flex justify-between text-[11px] text-muted">
-        <span>aujourd’hui</span>
-        <span>{points[points.length - 1]?.date}</span>
-      </figcaption>
-    </figure>
-  );
 }

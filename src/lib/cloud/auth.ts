@@ -38,8 +38,8 @@ export async function requestCode(email: string): Promise<AuthOutcome> {
 
 export async function verifyCode(email: string, token: string): Promise<AuthOutcome> {
   const code = token.replace(/\s/g, "");
-  if (!/^\d{6}$/.test(code)) {
-    return { ok: false, message: "Le code comporte 6 chiffres." };
+  if (!/^\d{6,10}$/.test(code)) {
+    return { ok: false, message: "Le code comporte entre 6 et 10 chiffres." };
   }
 
   const supabase = await getSupabase();

@@ -22,9 +22,17 @@ export interface ActivityPoint {
 
 const DAY = 86_400_000;
 
-/** `YYYY-MM-DD` d’une date, en heure locale (pas en UTC : un jour est un jour). */
-export function dayKey(date: Date | string): string {
-  const value = typeof date === "string" ? new Date(date) : date;
+/**
+ * `YYYY-MM-DD` d’une date, en heure locale (pas en UTC : un jour est un jour).
+ *
+ * Renvoie `""` pour une date absente ou illisible. Une seule ligne corrompue
+ * dans le stockage ne doit pas vider tout l’écran de statistiques : les
+ * fonctions ci-dessous ignorent simplement la clé vide, qui n’existe dans
+ * aucune fenêtre.
+ */
+export function dayKey(date: Date | string | null | undefined): string {
+  const value = date instanceof Date ? date : date ? new Date(date) : null;
+  if (!value || Number.isNaN(value.getTime())) return "";
   const year = value.getFullYear();
   const month = `${value.getMonth() + 1}`.padStart(2, "0");
   const day = `${value.getDate()}`.padStart(2, "0");
@@ -273,3 +281,97 @@ export function periodStart(period: Period, now: Date = new Date()): Date {
 }
 
 export { DAY };
+
+/* ------------------------------------------------------------------ */
+/* Lectures complémentaires                                            */
+/* ------------------------------------------------------------------ */
+
+export interface HeatmapDay {
+  /** `YYYY-MM-DD` */
+  date: string;
+  /** actions du jour : notes créées + révisions */
+  count: number;
+}
+
+export interface HeatmapWeek {
+  days: HeatmapDay[];
+}
+
+/**
+ * Régularité : une case par jour, sept par colonne, sur `weeks` semaines.
+ *
+ * C’est la seule lecture qui montre les **trous**. Un total mensuel peut être
+ * excellent avec trois jours de travail intense ; une grille dit la vérité en
+ * un regard. Les semaines commencent le lundi et se terminent aujourd’hui.
+ */
+export function regularity(
+  notes: Note[],
+  logs: ReviewLog[],
+  weeks: number,
+  now: Date = new Date(),
+): HeatmapWeek[] {
+  const today = startOfLocalDay(now);
+  const offset = (today.getDay() + 6) % 7;
+  const end = addDays(today, 6 - offset); // dimanche de la semaine en cours
+
+  const counts = new Map<string, number>();
+  for (const note of notes) {
+    if (note.deletedAt) continue;
+    const key = dayKey(note.createdAt);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  for (const log of logs) {
+    const key = dayKey(log.reviewedAt);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const firstMonday = addDays(end, -7 * weeks + 1);
+  const result: HeatmapWeek[] = [];
+  for (let week = 0; week < weeks; week += 1) {
+    const days: HeatmapDay[] = [];
+    for (let day = 0; day < 7; day += 1) {
+      const date = addDays(firstMonday, week * 7 + day);
+      const key = dayKey(date);
+      days.push({
+        date: key,
+        count: date.getTime() > today.getTime() ? -1 : (counts.get(key) ?? 0),
+      });
+    }
+    result.push({ days });
+  }
+  return result;
+}
+
+export interface WeekdayRhythm {
+  /** 0 = lundi … 6 = dimanche */
+  weekday: number;
+  reviews: number;
+}
+
+/** Rythme : combien de révisions par jour de la semaine, sur tout l’historique. */
+export function weekdayRhythm(logs: ReviewLog[]): WeekdayRhythm[] {
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  for (const log of logs) {
+    const day = (new Date(log.reviewedAt).getDay() + 6) % 7;
+    counts[day] += 1;
+  }
+  return counts.map((reviews, weekday) => ({ weekday, reviews }));
+}
+
+export interface RatingCount {
+  rating: ReviewLog["rating"];
+  count: number;
+}
+
+/** Distribution des quatre notes FSRS : ce que vos réponses disent vraiment. */
+export function ratingBreakdown(logs: ReviewLog[], since?: Date): RatingCount[] {
+  const order: ReviewLog["rating"][] = ["again", "hard", "good", "easy"];
+  const from = since ? startOfLocalDay(since).getTime() : null;
+  const window = from === null
+    ? logs
+    : logs.filter((log) => new Date(log.reviewedAt).getTime() >= from);
+  return order.map((rating) => ({
+    rating,
+    count: window.filter((log) => log.rating === rating).length,
+  }));
+}

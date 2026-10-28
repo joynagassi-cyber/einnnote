@@ -9,6 +9,9 @@ import {
   retention,
   streak,
   weeklyRetention,
+  regularity,
+  weekdayRhythm,
+  ratingBreakdown,
 } from "@/lib/stats";
 import type { Note, ReviewCard, ReviewLog, ZettelCard } from "@/types";
 
@@ -232,5 +235,66 @@ describe("tableau par projet", () => {
 
   it("écrit les jours en heure locale", () => {
     expect(dayKey(new Date(2026, 9, 28, 23, 30))).toBe("2026-10-28");
+  });
+});
+
+describe("régularité et rythme", () => {
+  it("survit à une date illisible sans vider l’écran", () => {
+    /* Une ligne corrompue dans le stockage ne doit pas casser tout un panneau. */
+    expect(dayKey(undefined)).toBe("");
+    expect(dayKey("")).toBe("");
+    expect(dayKey("pas une date")).toBe("");
+    const log = { id: "x", cardId: "c", rating: "good", reviewedAt: "??", scheduledDays: 1, elapsedDays: 0 } as unknown as ReviewLog;
+    expect(streak([log], new Date(2026, 9, 8))).toBe(0);
+    expect(regularity([], [log], 2, new Date(2026, 9, 8))).toHaveLength(2);
+    expect(weekdayRhythm([log]).reduce((sum, day) => sum + day.reviews, 0)).toBe(0);
+  });
+
+  it("grille de 7 jours par semaine, du lundi au dimanche", () => {
+    const weeks = regularity([], [], 4, new Date(2026, 9, 8, 12));
+    expect(weeks).toHaveLength(4);
+    expect(weeks[0].days).toHaveLength(7);
+    /* le 8 octobre 2026 est un jeudi : la dernière colonne commence un lundi */
+    expect(weeks[0].days[0].date).toBe("2026-09-14");
+    expect(weeks[3].days[6].date).toBe("2026-10-11");
+  });
+
+  it("compte les notes et les révisions du même jour", () => {
+    const day = new Date(2026, 9, 8, 10).toISOString();
+    const weeks = regularity(
+      [note("n1", day)],
+      [log("l1", day)],
+      1,
+      new Date(2026, 9, 8, 20),
+    );
+    const flat = weeks.flatMap((week) => week.days);
+    expect(flat.find((entry) => entry.date === "2026-10-08")?.count).toBe(2);
+  });
+
+  it("marque les jours à venir d’un -1, jamais d’un zéro trompeur", () => {
+    const weeks = regularity([], [], 1, new Date(2026, 9, 8));
+    const flat = weeks.flatMap((week) => week.days);
+    expect(flat.find((entry) => entry.date === "2026-10-10")?.count).toBe(-1);
+    expect(flat.find((entry) => entry.date === "2026-10-07")?.count).toBe(0);
+  });
+
+  it("répartit les révisions par jour de la semaine", () => {
+    const rhythm = weekdayRhythm([
+      log("a", new Date(2026, 9, 5, 9).toISOString()),
+      log("b", new Date(2026, 9, 5, 10).toISOString()),
+      log("c", new Date(2026, 9, 6, 10).toISOString()),
+    ]);
+    expect(rhythm[0].reviews).toBe(2); // lundi
+    expect(rhythm[1].reviews).toBe(1); // mardi
+    expect(rhythm.reduce((sum, entry) => sum + entry.reviews, 0)).toBe(3);
+  });
+
+  it("donne les quatre notes dans l’ordre FSRS", () => {
+    const rows = ratingBreakdown([
+      log("a", new Date(2026, 9, 5).toISOString(), "good"),
+      log("b", new Date(2026, 9, 5).toISOString(), "again"),
+    ]);
+    expect(rows.map((row) => row.rating)).toEqual(["again", "hard", "good", "easy"]);
+    expect(rows.find((row) => row.rating === "good")?.count).toBe(1);
   });
 });

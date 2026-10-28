@@ -267,24 +267,6 @@ export default function Library() {
           <h1 className="font-serif text-[30px] font-semibold leading-tight">
             Bibliothèque
           </h1>
-          {/* Sur téléphone, le rail n’existe pas : ces deux raccourcis sont
-              le seul chemin vers les projets et les vaults. */}
-          <div className="mt-2 flex gap-1.5 lg:hidden">
-            <button
-              type="button"
-              onClick={() => navigate("/spaces")}
-              className="flex h-8 items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[12.5px] font-medium"
-            >
-              Projets
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/spaces")}
-              className="flex h-8 items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[12.5px] font-medium"
-            >
-              Vaults
-            </button>
-          </div>
           <p className="mt-1 text-[14px] text-muted" data-testid="library-count">
             {constrained
               ? `${filtered.length} sur ${live.length} note${live.length > 1 ? "s" : ""}`

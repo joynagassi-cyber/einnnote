@@ -1,5 +1,5 @@
 -- ============================================================
--- Engram Cloud — schéma de synchronisation
+-- Einnote Cloud — schéma de synchronisation
 --
 -- Principes :
 --

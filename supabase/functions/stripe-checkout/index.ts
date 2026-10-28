@@ -1,5 +1,5 @@
 /**
- * Engram Cloud — Edge Function « stripe-checkout »
+ * Einnote Cloud — Edge Function « stripe-checkout »
  *
  * Crée une session Stripe Checkout pour l'abonnement à 10 $/mois et renvoie
  * l'URL de paiement. L'utilisateur est identifié par son JWT Supabase.
