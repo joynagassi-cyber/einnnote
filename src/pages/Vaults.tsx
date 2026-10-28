@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   Books,
@@ -37,11 +37,19 @@ export default function Vaults() {
   const setGraphStyle = useAppStore((s) => s.setGraphStyle);
   const toast = useToast((s) => s.show);
 
-  const [sheetOpen, setSheetOpen] = useState(false);
+  /* Le parcours mobile arrive ici avec le projet déjà choisi :
+     « Espaces → Créer un coffre » ne doit pas reposer deux fois la question. */
+  const [params, setParams] = useSearchParams();
+  const fromSpaces = params.get("project");
+  const [sheetOpen, setSheetOpen] = useState(params.get("new") === "1");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [memo, setMemo] = useState("");
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(
+    projects.some((project) => project.id === fromSpaces)
+      ? (fromSpaces as string)
+      : (projects[0]?.id ?? ""),
+  );
   const [templateId, setTemplateId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
@@ -256,7 +264,14 @@ export default function Vaults() {
       {/* Nouveau coffre */}
       <Sheet
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={() => {
+          setSheetOpen(false);
+          if (params.get("new")) {
+            const next = new URLSearchParams(params);
+            next.delete("new");
+            setParams(next, { replace: true });
+          }
+        }}
         title="Nouveau coffre"
       >
         <p className="mb-1.5 block text-[14px] font-semibold text-muted">

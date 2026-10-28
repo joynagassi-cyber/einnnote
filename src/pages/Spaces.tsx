@@ -4,8 +4,10 @@ import {
   ArrowRight,
   Books,
   ClockCounterClockwise,
+  FolderPlus,
   FolderSimple,
   NotePencil,
+  Plus,
   Stack,
 } from "@phosphor-icons/react";
 import { Screen } from "@/components/Layout";
@@ -127,6 +129,86 @@ export default function Spaces() {
         <span>Carte</span>
       </div>
 
+      {/* ------------------------------------------------ créer, dans l’ordre */}
+      {/* Le parcours réel, en trois gestes, visible sur téléphone comme sur
+          bureau. Avant, « créer un projet » n’était atteignable qu’en passant
+          par une autre page, elle-même absente de la barre du bas : le
+          parcours existait, il était juste introuvable. */}
+      <section className="mt-4 rounded-big border border-line bg-surface p-4">
+        <h2 className="font-serif text-[18px] font-semibold">Créer, dans l’ordre</h2>
+        <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">
+          Un projet, puis un coffre dedans, puis des notes. Chaque étape sait
+          déjà à quoi elle appartient.
+        </p>
+        <ol className="mt-3 grid gap-2 sm:grid-cols-3">
+          <li>
+            <button
+              type="button"
+              aria-label="Étape 1 — créer un projet"
+              onClick={() => navigate("/projects?new=1")}
+              className="flex h-full w-full flex-col items-start gap-1 rounded-card border border-line bg-bg p-3 text-left transition-colors hover:border-line-strong"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-[12.5px] font-bold text-accent-ink">
+                1
+              </span>
+              <span className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold">
+                <FolderPlus size={15} weight="bold" className="text-accent" aria-hidden />
+                Nouveau projet
+              </span>
+              <span className="text-[12px] leading-[17px] text-muted">
+                Ouvre directement le formulaire de création.
+              </span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              aria-label="Étape 2 — créer un coffre"
+              onClick={() =>
+                navigate(
+                  rows[0]
+                    ? `/vaults?new=1&project=${rows[0].project.id}`
+                    : "/vaults?new=1",
+                )
+              }
+              className="flex h-full w-full flex-col items-start gap-1 rounded-card border border-line bg-bg p-3 text-left transition-colors hover:border-line-strong"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-[12.5px] font-bold text-accent-ink">
+                2
+              </span>
+              <span className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold">
+                <Stack size={15} weight="bold" className="text-accent" aria-hidden />
+                Nouveau coffre
+              </span>
+              <span className="text-[12px] leading-[17px] text-muted">
+                {rows[0]
+                  ? `Rattaché à « ${rows[0].project.name} », changeable sur place.`
+                  : "Créez d’abord un projet : un coffre y est rattaché."}
+              </span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              aria-label="Étape 3 — créer une note"
+              onClick={() => navigate("/new")}
+              className="flex h-full w-full flex-col items-start gap-1 rounded-card border border-line bg-bg p-3 text-left transition-colors hover:border-line-strong"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-[12.5px] font-bold text-accent-ink">
+                3
+              </span>
+              <span className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold">
+                <Plus size={15} weight="bold" className="text-accent" aria-hidden />
+                Nouvelle note
+              </span>
+              <span className="text-[12px] leading-[17px] text-muted">
+                Quatre méthodes, ou une simple lecture.
+              </span>
+            </button>
+          </li>
+        </ol>
+      </section>
+
       <div className="mt-6 flex items-baseline justify-between gap-3">
         <h2 className="font-serif text-[20px] font-semibold">Vos projets</h2>
         <button
@@ -208,6 +290,27 @@ export default function Spaces() {
                 className="pill h-9 px-3 text-[12.5px]"
               >
                 Ouvrir ses notes
+              </button>
+              <button
+                type="button"
+                aria-label={`Nouveau coffre dans ${row.project.name}`}
+                onClick={() => navigate(`/vaults?new=1&project=${row.project.id}`)}
+                className="pill h-9 px-3 text-[12.5px]"
+              >
+                <Stack size={13} weight="bold" aria-hidden />
+                Nouveau coffre
+              </button>
+              <button
+                type="button"
+                aria-label={`Nouvelle note dans ${row.project.name}`}
+                onClick={() => {
+                  setActiveProject(row.project.id);
+                  navigate("/new");
+                }}
+                className="pill h-9 px-3 text-[12.5px]"
+              >
+                <NotePencil size={13} weight="bold" aria-hidden />
+                Nouvelle note
               </button>
               <button
                 type="button"

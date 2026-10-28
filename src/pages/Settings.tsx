@@ -5,6 +5,7 @@ import {
   CardsThree,
   ChartLineUp,
   CloudArrowUp,
+  SquaresFour,
   DownloadSimple,
   Info,
   PaintBrush,
@@ -39,6 +40,12 @@ export default function Settings() {
       icon: DownloadSimple,
       title: "Données et sauvegarde",
       hint: "Fichier protégé, restauration, export",
+    },
+    {
+      to: "/settings/navigation",
+      icon: SquaresFour,
+      title: "Navigation",
+      hint: "Quelles pages dans la barre du bas et dans le rail, dans quel ordre",
     },
     {
       to: "/settings/cards",

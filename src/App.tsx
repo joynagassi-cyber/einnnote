@@ -18,6 +18,7 @@ import ReviewSession from "@/pages/ReviewSession";
 import ReviewSettingsPage from "@/pages/ReviewSettings";
 import CloudSettingsPage from "@/pages/CloudSettings";
 import CardStudio from "@/pages/CardStudio";
+import NavSettingsPage from "@/pages/NavSettings";
 import MindMap from "@/pages/MindMap";
 import Zettelkasten from "@/pages/Zettelkasten";
 import ZettelForm from "@/pages/ZettelForm";
@@ -73,6 +74,7 @@ const App = () => (
           <Route path="/settings/review" element={<ReviewSettingsPage />} />
           <Route path="/settings/cloud" element={<CloudSettingsPage />} />
           <Route path="/settings/cards" element={<CardStudio />} />
+          <Route path="/settings/navigation" element={<NavSettingsPage />} />
           <Route path="/settings/trash" element={<Trash />} />
           <Route path="/settings/about" element={<About />} />
           {/* Anciennes adresses : conservées pour ne pas casser un lien */}

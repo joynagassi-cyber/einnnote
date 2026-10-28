@@ -38,6 +38,7 @@ npm run lint
 | `/vault/:id/graph` | Graphe du coffre : carte ouverte et voisines, extensible à 2 niveaux |
 | `/learn` · `/learn/:id` | Apprendre : 6 tutoriels + 9 leçons du cours « Lire pour retenir » |
 | `/settings` | Réglages, dont **Cloud**, **Apparence**, **Personnalisation**, **Données**, **Progrès**, **Corbeille**, **À propos** |
+| `/settings/navigation` | Navigation : quelles pages dans la barre du bas et dans le rail, dans quel ordre |
 | `/settings/cards` | Studio des cartes : éventail 3D, relief, carte image — appliqués à vos fiches |
 | `/settings/cloud` | Cloud : connexion par code, abonnement, synchro manuelle ou automatique, appareils, effacement distant |
 | `/settings/personalization` | Personnalisation avancée : densité, rayons, bordures, relief, papier, interligne, largeur, canevas |
@@ -46,10 +47,13 @@ npm run lint
 ## Deux mises en page, une seule application
 
 - **Mobile (< 1024 px)** : coque téléphone pleine largeur (max 440 px), barre
-  d’onglets en bas (Notes · Réviser · **+** · Apprendre · Réglages).
+  d’onglets en bas (Notes · Espaces · **+** · Réviser · Apprendre · Réglages par
+  défaut — **configurable**, le surplus passe derrière « Plus »).
 - **Bureau (≥ 1024 px)** : rail de navigation fixe de 264 px (marque, thème
-  clair/sombre, « Nouvelle note », Notes / Réviser / Apprendre, réglages,
-  carte de révision du jour) et colonne « papier » centrée qui s’élargit —
+  clair/sombre, « Nouvelle note », Notes / Espaces / Réviser / Apprendre /
+  Projets / Coffres / Studio des cartes, réglages, carte de révision du jour ;
+  ces pages se réordonnent d’un clic via « Ordre ») et colonne « papier »
+  centrée qui s’élargit —
   720 px pour lire et écrire, 1060 px pour la bibliothèque, les réglages et
   l’apprentissage. La barre d’onglets disparaît, les barres d’action et les
   feuilles du bas se recentrent sur la colonne.

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   FolderSimple,
@@ -59,7 +59,10 @@ export default function Projects() {
   const activeProjectId = useAppStore((s) => s.activeProjectId);
   const { prefs: display } = useSurfacePrefs("projects");
   const desktop = useIsDesktop();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  /* « Créer un projet » depuis Espaces arrive avec `?new=1` : la feuille de
+     création est déjà ouverte, il n’y a plus qu’à taper le nom. */
+  const [params, setParams] = useSearchParams();
+  const [sheetOpen, setSheetOpen] = useState(params.get("new") === "1");
 
   const rows: ProjectRow[] = useMemo(() => {
     const due = dueCards(cards);

@@ -1,15 +1,18 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Cards,
   CheckCircle,
   ClockCounterClockwise,
+  DotsThree,
   Gear,
   GraduationCap,
   House,
   Plus,
+  SlidersHorizontal,
   X,
+  type Icon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useContentStore } from "@/stores/useContentStore";
@@ -17,6 +20,8 @@ import { useRail } from "@/lib/useMediaQuery";
 import { dueCards } from "@/lib/scheduler";
 import { useToast } from "@/stores/useToast";
 import { applySettingsToDom, useAppStore } from "@/stores/useAppStore";
+import { useNavItems } from "@/stores/useNavStore";
+import { resolveItems, splitMobile } from "@/lib/navigation";
 
 /* ------------------------------------------------------------------ */
 /* Coquille d’écran                                                    */
@@ -112,52 +117,121 @@ export function BottomNav() {
   const navigate = useNavigate();
   const cards = useContentStore((s) => s.cards);
   const due = dueCards(cards).length;
+  const items = useNavItems("mobile");
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const items = [
-    { to: "/", label: "Notes", icon: House },
-    { to: "/review", label: "Réviser", icon: ClockCounterClockwise, badge: due },
-    { to: "/learn", label: "Apprendre", icon: GraduationCap },
-    { to: "/settings", label: "Réglages", icon: Gear },
-  ];
+  const { bar, overflow } = splitMobile(items);
+  const destinations = resolveItems(bar);
+  const parked = resolveItems(overflow);
 
   const isActive = (to: string) =>
-    to === "/"
-      ? location.pathname === "/"
-      : location.pathname.startsWith(to);
+    to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
 
   if (rail) return null;
 
-  return (
-    <nav className="bottom-nav" aria-label="Navigation principale">
-      <div className="bottom-nav-inner">
-        {items.slice(0, 2).map((item) => (
-          <NavButton
-            key={item.to}
-            {...item}
-            active={isActive(item.to)}
-            onClick={() => navigate(item.to)}
-          />
-        ))}
+  /* Le bouton « + » reste au centre : il se place après la moitié de la
+     barre, deux entrées à gauche quand il y en a cinq. */
+  const half = Math.ceil(destinations.length / 2);
 
+  return (
+    <>
+      <nav className="bottom-nav" aria-label="Navigation principale">
+        <div className="bottom-nav-inner" data-count={destinations.length}>
+          {destinations.slice(0, half).map((item) => (
+            <NavButton
+              key={item.id}
+              label={item.short}
+              icon={item.icon}
+              badge={item.id === "review" ? due : undefined}
+              active={isActive(item.to)}
+              onClick={() => navigate(item.to)}
+            />
+          ))}
+
+          <button
+            type="button"
+            onClick={() => navigate("/new")}
+            aria-label="Nouvelle note — choisir une méthode"
+            className="-mt-5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent shadow-accent transition-transform active:scale-95"
+          >
+            <Plus size={28} weight="bold" />
+          </button>
+
+          {destinations.slice(half).map((item) => (
+            <NavButton
+              key={item.id}
+              label={item.short}
+              icon={item.icon}
+              badge={item.id === "review" ? due : undefined}
+              active={isActive(item.to)}
+              onClick={() => navigate(item.to)}
+            />
+          ))}
+
+          {parked.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-haspopup="dialog"
+              className="nav-item"
+              data-active={parked.some((item) => isActive(item.to))}
+            >
+              <span className="relative">
+                <DotsThree size={24} weight="bold" />
+              </span>
+              <span>Plus</span>
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* Les entrées activées qui ne tiennent pas dans la barre ne
+          disparaissent pas : elles sont là, nommées, à un appui. */}
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Toutes les pages">
+        <ul className="flex flex-col gap-1">
+          {parked.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    navigate(item.to);
+                  }}
+                  aria-current={isActive(item.to) ? "page" : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-field border px-3 py-2.5 text-left text-[14.5px]",
+                    isActive(item.to)
+                      ? "border-accent bg-accent-soft font-semibold text-accent-ink"
+                      : "border-line bg-surface hover:border-line-strong",
+                  )}
+                >
+                  <Icon size={19} weight="duotone" aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{item.label}</span>
+                    <span className="block text-[12px] font-normal leading-[17px] text-muted">
+                      {item.hint}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
         <button
           type="button"
-          onClick={() => navigate("/new")}
-          aria-label="Nouvelle note — choisir une méthode"
-          className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-on-accent shadow-accent transition-transform active:scale-95"
+          onClick={() => {
+            setMoreOpen(false);
+            navigate("/settings/navigation");
+          }}
+          className="mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-field border border-line bg-bg text-[13.5px] font-medium"
         >
-          <Plus size={28} weight="bold" />
+          <SlidersHorizontal size={16} weight="bold" aria-hidden />
+          Choisir les pages de la barre
         </button>
-
-        {items.slice(2).map((item) => (
-          <NavButton
-            key={item.to}
-            {...item}
-            active={isActive(item.to)}
-            onClick={() => navigate(item.to)}
-          />
-        ))}
-      </div>
-    </nav>
+      </Sheet>
+    </>
   );
 }
 
@@ -169,7 +243,7 @@ function NavButton({
   onClick,
 }: {
   label: string;
-  icon: typeof House;
+  icon: Icon;
   badge?: number;
   active: boolean;
   onClick: () => void;

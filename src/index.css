@@ -630,8 +630,19 @@
     @apply flex items-start justify-around px-2 pb-1 pt-2;
     min-height: 72px;
   }
+  /* La barre basse est configurable : jusqu’à cinq entrées autour du bouton
+     « + ». Les largeurs sont donc souples — une largeur fixe de 70 px
+     débordait dès la cinquième. */
   .nav-item {
-    @apply flex h-14 w-[70px] flex-col items-center justify-center gap-1 rounded-rect text-muted transition-colors;
+    @apply flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-rect text-muted transition-colors;
+    max-width: 78px;
+  }
+  .bottom-nav-inner[data-count="5"] .nav-item {
+    max-width: 66px;
+  }
+  .bottom-nav-inner[data-count="5"] .nav-item > span:last-child {
+    font-size: 10.5px;
+    letter-spacing: -0.01em;
   }
   .nav-item[data-active="true"] {
     @apply font-semibold text-accent;
