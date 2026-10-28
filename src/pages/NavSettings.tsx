@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowClockwise,
   ArrowDown,
@@ -44,14 +44,25 @@ import {
  * invisible sans moyen de la faire revenir. Le réordonnancement, lui, reste
  * partout — c’est un goût, pas un arbitrage de place.
  */
+/**
+ * Sur bureau, cet écran n’a plus d’objet : le rail montre toutes les pages et se
+ * réordonne directement, poignée en main. L’adresse reste valide (elle vient
+ * d’un signet ou d’un ancien lien) mais renvoie aux réglages plutôt que
+ * d’afficher une liste qui ne déciderait de rien.
+ */
 export default function NavSettingsPage() {
+  const railVisible = useRail();
+  if (railVisible) return <Navigate to="/settings" replace />;
+  return <MobileNavSettings />;
+}
+
+function MobileNavSettings() {
   const navigate = useNavigate();
   const showToast = useToast((s) => s.show);
 
-  /* La surface est celle de l’écran en cours : `useRail` répond exactement à
-     « y a-t-il une navigation latérale ? ». Aucun état local, donc rien à
-     synchroniser. */
-  const surface: NavSurface = useRail() ? "desktop" : "mobile";
+  /* Cet écran ne s’ouvre que sans rail : la surface est donc toujours la barre
+     du bas. Aucun état local, donc rien à synchroniser. */
+  const surface: NavSurface = "mobile";
   const picker = needsPicker(surface);
 
   const stored = useNavStore((s) => s[surface]);

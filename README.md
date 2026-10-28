@@ -40,7 +40,7 @@ npm run lint
 | `/vault/:id/graph` | Graphe du coffre : carte ouverte et voisines, extensible à 2 niveaux |
 | `/learn` · `/learn/:id` | Apprendre : le socle Espaces (5 leçons : projet → coffre → note), 6 tutoriels par outil, 9 leçons du cours « Lire pour retenir » |
 | `/settings` | Réglages, dont **Cloud**, **Apparence**, **Personnalisation**, **Données**, **Progrès**, **Corbeille**, **À propos** |
-| `/settings/navigation` | Navigation : les pages de **l’appareil que vous utilisez** — ordre toujours, affichage/masquage seulement quand la place manque |
+| `/settings/navigation` | Navigation — **téléphone uniquement** : la barre du bas n’a que cinq places. Sur bureau, le rail se réordonne sur place et l’adresse renvoie aux réglages |
 | `/settings/cards` | Studio des cartes : éventail 3D, relief, carte image — appliqués à vos fiches |
 | `/settings/cloud` | Cloud : connexion par code, abonnement, synchro manuelle ou automatique, appareils, effacement distant |
 | `/settings/personalization` | Personnalisation avancée : densité, rayons, bordures, relief, papier, interligne, largeur, canevas |
@@ -124,6 +124,10 @@ Toute la logique est pure et testée à part dans `src/lib/libraryFilters.ts`.
   passage. Le pont est testé (`src/lib/editor/blocks.test.ts`).
 - **Sécurité** : le HTML stocké est assaini (scripts, iframes, `on*`,
   `javascript:`) avant d’entrer dans l’éditeur.
+- **Refonte spécifiée, pas encore codée** : le pupitre mobile (quatre gestes
+  rangés sur place), la palette `Ctrl/⌘ K` et la fiche de note remplacent à
+  terme cette barre — voir [`docs/PUPITRE.md`](docs/PUPITRE.md), qui cartographie
+  les 96 commandes relevées dans Obsidian, une par une.
 
 ## Thème et accents
 

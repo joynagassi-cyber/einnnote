@@ -15,12 +15,19 @@ import {
   WifiSlash,
 } from "@phosphor-icons/react";
 import { Screen } from "@/components/Layout";
+import { useRail } from "@/lib/useMediaQuery";
 import { useContentStore } from "@/stores/useContentStore";
 
 export default function Settings() {
   const navigate = useNavigate();
   const notes = useContentStore((s) => s.notes);
   const trashCount = notes.filter((n) => n.deletedAt).length;
+
+  /* Sur bureau, le rail se réordonne **sur place** (poignée de chaque ligne) et
+     contient toutes les pages : un écran de réglages pour choisir ce qu’on
+     affiche n’aurait plus rien à décider. Il ne reste donc que sur téléphone,
+     où la barre du bas n’a que cinq places. */
+  const railVisible = useRail();
 
   const rows = [
     {
@@ -86,7 +93,7 @@ export default function Settings() {
       title: "À propos",
       hint: "Version, promesses, licences",
     },
-  ];
+  ].filter((row) => !(railVisible && row.to === "/settings/navigation"));
 
   return (
     <Screen withNav className="screen-wide px-5 lg:px-8">

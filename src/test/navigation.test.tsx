@@ -262,6 +262,26 @@ describe("Rail du bureau", () => {
   });
 });
 
+describe("Réglages de navigation — surface bureau", () => {
+  it("n’apparaît plus dans les réglages quand le rail est là", async () => {
+    await withDesktop(async () => {
+      open("/settings");
+      expect(await screen.findByRole("button", { name: /Apparence/ })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Navigation/ })).toBeNull();
+    });
+  });
+
+  it("renvoie aux réglages si l’adresse est ouverte quand même", async () => {
+    await withDesktop(() => {
+      open("/settings/navigation");
+      /* Pas d’écran fantôme : on retombe sur Réglages. */
+      return waitFor(() =>
+        expect(screen.getByRole("heading", { name: "Réglages" })).toBeTruthy(),
+      );
+    });
+  });
+});
+
 describe("Réglages de navigation", () => {
   it("ne propose aucun sélecteur d’appareil : l’écran parle de la surface en cours", async () => {
     open("/settings/navigation");
@@ -309,25 +329,6 @@ describe("Réglages de navigation", () => {
       ]),
     );
     expect(useNavStore.getState().desktop).toEqual(desktopBefore);
-  });
-
-  it("sur bureau, montre le rail et réordonne sa liste", async () => {
-    await withDesktop(async () => {
-      const user = userEvent.setup();
-      open("/settings/navigation");
-
-      expect(await screen.findByText(/Aperçu — rail latéral/)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: /^Retirer / })).toBeNull();
-
-      await user.click(screen.getByRole("button", { name: "Monter Apprendre" }));
-      await waitFor(() =>
-        expect(useNavStore.getState().desktop.indexOf("learn")).toBeLessThan(
-          useNavStore.getState().desktop.indexOf("review"),
-        ),
-      );
-      // « Réglages » n’est jamais dans la liste du bureau : il est en pied de rail
-      expect(useNavStore.getState().desktop).not.toContain("settings");
-    });
   });
 
   it("rétablit l’ordre par défaut", async () => {
