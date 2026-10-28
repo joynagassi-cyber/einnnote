@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cards, CaretRight, Graph, PencilSimple, Plus } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen } from "@/components/Layout";
+import { Hint } from "@/components/Hint";
 import { CardFan } from "@/components/ui/card-fan-carousel";
 import { TiltCard } from "@/components/ui/3d-card";
 import { ZettelLeaf } from "@/components/zettel/ZettelLeaf";
@@ -94,7 +95,7 @@ export default function Zettelkasten() {
         <EmptyState
           icon={Graph}
           title="Aucune fiche dans ce vault"
-          description="Une carte par idée, écrite avec vos mots, avec sa source. Commencez par la première."
+          description="Aucune fiche dans ce vault pour l’instant."
           action={
             <button
               type="button"
@@ -268,6 +269,15 @@ export default function Zettelkasten() {
         <p className="mt-0.5 text-[15px] text-muted">
           Éventail · {cards.length} fiche{cards.length > 1 ? "s" : ""}
         </p>
+
+        <Hint
+          hintId="fiches-une-idee"
+          href="/learn/t-zettel"
+          hrefLabel="La leçon"
+          className="mt-3"
+        >
+          Une fiche porte une seule idée, reformulée avec vos mots, avec sa source.
+        </Hint>
 
         <CardFan
           className="mt-3"

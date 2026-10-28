@@ -72,7 +72,8 @@ export default function Learn() {
       <header className="pb-4 pt-7">
         <h1 className="font-serif text-[30px] font-semibold leading-tight">Apprendre</h1>
         <p className="mt-1 text-[15px] leading-[22px] text-muted">
-          Leçons de 2 à 4 minutes, toujours terminées par un geste réel.
+          Leçons de quatre à six minutes : une idée, le geste qui l’applique, le
+          critère qui dit qu’elle est acquise.
         </p>
       </header>
 
@@ -212,6 +213,9 @@ export default function Learn() {
                         <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
                           <Clock size={13} aria-hidden="true" />
                           {lesson.minutes} min · {lesson.steps.length} étapes
+                        </span>
+                        <span className="mt-1 block text-[13px] leading-[19px] text-muted">
+                          {lesson.outcome}
                         </span>
                       </span>
                       <CaretRight size={16} className="text-muted" aria-hidden="true" />

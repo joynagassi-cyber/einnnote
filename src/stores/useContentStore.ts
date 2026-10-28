@@ -17,17 +17,7 @@ import type {
   ZettelCard,
   ZettelVault,
 } from "@/types";
-import {
-  seedCards,
-  seedLessons,
-  seedProjects,
-  seedLinks,
-  seedMindMaps,
-  seedNotes,
-  seedQuestions,
-  seedVaults,
-  seedZettel,
-} from "@/data/seed";
+import { seedLessons } from "@/data/lessons";
 import { nextCardState } from "@/lib/scheduler";
 import { DEFAULT_MINDMAP_TEMPLATE } from "@/lib/templates/mindmaps";
 import {
@@ -171,9 +161,22 @@ export function migrateContentData(persisted: unknown, version: number) {
   if (!state) return state as never;
   if (version >= 2) return state as never;
 
-  const projects =
-    state.projects && state.projects.length > 0 ? state.projects : seedProjects;
-  const projectId = projects[0]?.id ?? DEFAULT_PROJECT_ID;
+  const existing = state.projects ?? [];
+  const projectId = existing[0]?.id ?? DEFAULT_PROJECT_ID;
+  /* Une sauvegarde ancienne sans projet mais avec du contenu ne doit pas
+     perdre ce contenu : on lui crée son espace de rattachement. */
+  const hasContent =
+    (state.notes?.length ?? 0) + (state.vaults?.length ?? 0) > 0;
+  const projects: Project[] =
+    existing.length === 0 && hasContent
+      ? [
+          {
+            id: DEFAULT_PROJECT_ID,
+            name: "Mon espace",
+            createdAt: new Date().toISOString(),
+          },
+        ]
+      : existing;
 
   return {
     ...state,
@@ -192,15 +195,16 @@ export function migrateContentData(persisted: unknown, version: number) {
 export const useContentStore = create<ContentState>()(
   persist(
     (set, get) => ({
-      projects: seedProjects,
-      notes: seedNotes,
-      questions: seedQuestions,
-      links: seedLinks,
-      cards: seedCards,
+      /* Aucun exemple : un nouveau compte s’ouvre sur des espaces vides. */
+      projects: [],
+      notes: [],
+      questions: [],
+      links: [],
+      cards: [],
       logs: [],
-      vaults: seedVaults,
-      zettel: seedZettel,
-      mindmaps: seedMindMaps,
+      vaults: [],
+      zettel: [],
+      mindmaps: [],
       progress: [],
 
       createProject: (name, description) => {
@@ -778,16 +782,13 @@ export const useContentStore = create<ContentState>()(
           throw new Error("Sauvegarde illisible : aucune note trouvée.");
         }
         set({
-          projects:
-            data.projects && data.projects.length > 0
-              ? data.projects
-              : seedProjects,
+          projects: data.projects ?? [],
           notes: data.notes ?? [],
           questions: data.questions ?? [],
           links: data.links ?? [],
           cards: data.cards ?? [],
           logs: data.logs ?? [],
-          vaults: data.vaults ?? seedVaults,
+          vaults: data.vaults ?? [],
           zettel: data.zettel ?? [],
           mindmaps: data.mindmaps ?? [],
           progress: data.progress ?? [],

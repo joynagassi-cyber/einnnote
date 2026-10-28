@@ -4,7 +4,7 @@ import { ChartLineUp } from "@phosphor-icons/react";
 import { useContentStore } from "@/stores/useContentStore";
 import { dueCards, RATINGS } from "@/lib/scheduler";
 import { METHODS, METHOD_ORDER } from "@/lib/methods";
-import { seedLessons } from "@/data/seed";
+import { seedLessons } from "@/data/lessons";
 import { timeAgo } from "@/lib/time";
 
 export default function Progress() {

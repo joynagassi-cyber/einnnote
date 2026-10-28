@@ -1,23 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { buildMarkdown, type MarkdownSource } from "@/lib/markdown";
 import {
-  seedLinks,
-  seedMindMaps,
-  seedNotes,
-  seedProjects,
-  seedQuestions,
-  seedVaults,
-  seedZettel,
-} from "@/data/seed";
+  demoLinks,
+  demoMindMaps,
+  demoNotes,
+  demoProjects,
+  demoQuestions,
+  demoVaults,
+  demoZettel,
+} from "@/test/fixtures";
 
 const source: MarkdownSource = {
-  projects: seedProjects,
-  notes: seedNotes,
-  questions: seedQuestions,
-  links: seedLinks,
-  vaults: seedVaults,
-  zettel: seedZettel,
-  mindmaps: seedMindMaps,
+  projects: demoProjects,
+  notes: demoNotes,
+  questions: demoQuestions,
+  links: demoLinks,
+  vaults: demoVaults,
+  zettel: demoZettel,
+  mindmaps: demoMindMaps,
 };
 
 describe("export Markdown du vault", () => {
@@ -26,12 +26,12 @@ describe("export Markdown du vault", () => {
     expect(file.filename).toMatch(/^einnote-bibliotheque-\d{4}-\d{2}-\d{2}\.md$/);
     expect(file.content.startsWith("---\n")).toBe(true);
     expect(file.content).toContain("# Bibliothèque Einnote");
-    expect(file.notes).toBe(seedNotes.filter((n) => !n.deletedAt).length);
+    expect(file.notes).toBe(demoNotes.filter((n) => !n.deletedAt).length);
   });
 
   it("inclut chaque note avec ses métadonnées", () => {
     const file = buildMarkdown(source);
-    for (const note of seedNotes) {
+    for (const note of demoNotes) {
       expect(file.content).toContain(`# ${note.title}`);
       expect(file.content).toContain(`title: ${note.title}`);
     }
@@ -50,7 +50,7 @@ describe("export Markdown du vault", () => {
   });
 
   it("rend la carte mentale en arborescence", () => {
-    const file = buildMarkdown({ ...source, notes: seedNotes.filter((n) => n.method === "mindmap") });
+    const file = buildMarkdown({ ...source, notes: demoNotes.filter((n) => n.method === "mindmap") });
     expect(file.content).toContain("## Carte mentale");
     expect(file.content).toMatch(/^- /m);
   });
@@ -65,7 +65,7 @@ describe("export Markdown du vault", () => {
     const file = buildMarkdown(source, { kind: "project", projectId: "p-these" });
     expect(file.filename).toContain("einnote-these-");
     expect(file.content).toContain("# Thèse");
-    const contrats = seedNotes.find((n) => n.id === "n-contrats")!;
+    const contrats = demoNotes.find((n) => n.id === "n-contrats")!;
     expect(contrats.projectId).toBe("p-general");
     expect(file.content).not.toContain(`# ${contrats.title}`);
   });
@@ -81,13 +81,13 @@ describe("export Markdown du vault", () => {
   it("ignore les notes en corbeille", () => {
     const withTrash = {
       ...source,
-      notes: seedNotes.map((note, index) =>
+      notes: demoNotes.map((note, index) =>
         index === 0 ? { ...note, deletedAt: new Date().toISOString() } : note,
       ),
     };
     const file = buildMarkdown(withTrash);
-    expect(file.content).not.toContain(`# ${seedNotes[0].title}`);
-    expect(file.notes).toBe(seedNotes.length - 1);
+    expect(file.content).not.toContain(`# ${demoNotes[0].title}`);
+    expect(file.notes).toBe(demoNotes.length - 1);
   });
 
   it("ne produit pas un fichier vide pour un vault inconnu", () => {

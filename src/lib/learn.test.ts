@@ -8,7 +8,7 @@ import {
   lessonsOf,
   nextLesson,
 } from "@/lib/learn";
-import { seedLessons } from "@/data/seed";
+import { seedLessons } from "@/data/lessons";
 import type { LessonProgress } from "@/types";
 
 /**
@@ -54,12 +54,16 @@ describe("parcours", () => {
   });
 
   it("ne propose que des gestes qui mènent à une page réelle", () => {
-    const routes = ["/spaces", "/projects", "/vaults", "/new", "/review", "/learn"];
+    /* Les seules pages où un geste de leçon peut envoyer : la bibliothèque,
+       Espaces, l’éditeur, la révision, une autre leçon. */
+    const roots = ["", "spaces", "new", "review", "learn"];
     for (const lesson of seedLessons) {
       for (const step of lesson.steps) {
         if (!step.practice?.href) continue;
-        const href = step.practice.href.split("?")[0];
-        expect(routes).toContain(href);
+        const path = step.practice.href.split("?")[0];
+        /* La première barre du chemin suffit : `/learn/x-2` reste une leçon. */
+        const [root = ""] = path.split("/").filter(Boolean);
+        expect(roots).toContain(root);
         // un bouton sans libellé serait un bouton muet
         expect(step.practice.hrefLabel).toBeTruthy();
       }

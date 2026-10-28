@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "@/App";
+import { demoContent } from "@/test/fixtures";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useLibraryFilters } from "@/stores/useLibraryFilters";
@@ -45,18 +46,7 @@ beforeEach(() => {
   useAppStore.setState({ activeProjectId: null });
   useDisplayStore.getState().resetAll();
   useSessionStore.getState().resetSession();
-  useContentStore.setState({
-    projects: useContentStore.getInitialState().projects,
-    notes: useContentStore.getInitialState().notes,
-    questions: useContentStore.getInitialState().questions,
-    links: useContentStore.getInitialState().links,
-    cards: useContentStore.getInitialState().cards,
-    mindmaps: useContentStore.getInitialState().mindmaps,
-    vaults: useContentStore.getInitialState().vaults,
-    zettel: useContentStore.getInitialState().zettel,
-    logs: [],
-    progress: [],
-  });
+  useContentStore.setState({ ...demoContent });
 });
 
 describe("Barre de mise en forme", () => {

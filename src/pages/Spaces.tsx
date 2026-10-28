@@ -5,7 +5,6 @@ import {
   ClockCounterClockwise,
   FolderPlus,
   FolderSimple,
-  GraduationCap,
   Graph,
   NotePencil,
   PencilSimple,
@@ -13,6 +12,7 @@ import {
   Stack,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen } from "@/components/Layout";
+import { Hint } from "@/components/Hint";
 import { ProjectSheet } from "@/components/spaces/ProjectSheet";
 import { useContentStore } from "@/stores/useContentStore";
 import { dueCards } from "@/lib/scheduler";
@@ -108,27 +108,26 @@ export default function Spaces() {
 
       <header className="mt-1">
         <h1 className="font-serif text-[32px] font-semibold leading-tight">Espaces</h1>
-        <p className="mt-1.5 max-w-[60ch] text-[15px] leading-[22px] text-muted">
-          Un projet se découpe en <strong className="text-ink">vaults</strong> :
-          des catégories, une par partie du sujet. Chaque vault range les{" "}
-          <strong className="text-ink">notes</strong> écrites sur cette partie. Tout
-          part d’ici.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate("/learn/x-1")}
-          className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-accent"
-        >
-          <GraduationCap size={16} weight="duotone" aria-hidden />
-          Apprendre en 3 minutes : un projet, des vaults, des notes
-        </button>
       </header>
+
+      {/* Une indication, une fois, puis le silence : la page se contente de
+          montrer la hiérarchie réelle. L’explication complète est dans
+          Apprendre, et nulle part ailleurs. */}
+      <Hint
+        hintId="spaces-hierarchie"
+        href="/learn/x-1"
+        hrefLabel="La leçon"
+        className="mt-3"
+      >
+        Un projet contient des vaults — des catégories ; chaque vault range les
+        notes de cette partie du sujet.
+      </Hint>
 
       {rows.length === 0 ? (
         <EmptyState
           icon={SquaresFour}
           title="Aucun projet"
-          description="Un projet délimite un travail : « Mémoire », « Droit des affaires », « Maison ». Créez le premier, vous y ajouterez des vaults."
+          description="Créez un projet : il délimite un travail, puis se découpe en vaults."
           action={
             <button type="button" className="btn-primary" onClick={() => setSheetOpen(true)}>
               <FolderPlus size={18} weight="bold" /> Créer un projet

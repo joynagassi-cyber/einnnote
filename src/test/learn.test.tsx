@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "@/App";
+import { demoContent } from "@/test/fixtures";
 import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useContentStore } from "@/stores/useContentStore";
 import { useDisplayStore } from "@/stores/useDisplayStore";
@@ -25,19 +26,8 @@ beforeEach(() => {
   useAppStore.setState({ settings: DEFAULT_SETTINGS });
   useDisplayStore.getState().resetAll();
   useNavStore.getState().resetAll();
-  const initial = useContentStore.getInitialState();
-  useContentStore.setState({
-    projects: initial.projects,
-    notes: initial.notes,
-    questions: initial.questions,
-    links: initial.links,
-    cards: initial.cards,
-    mindmaps: initial.mindmaps,
-    vaults: initial.vaults,
-    zettel: initial.zettel,
-    logs: [],
-    progress: [],
-  });
+  /* Les leçons n’ont besoin d’aucun contenu : c’est justement le sujet. */
+  useContentStore.setState({ ...demoContent });
 });
 
 describe("Apprendre, centré sur Espaces", () => {
@@ -90,15 +80,30 @@ describe("Apprendre, centré sur Espaces", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/spaces"));
   });
 
-  it("renvoie d’Espaces vers la leçon qui explique le rangement", async () => {
+  it("n’explique pas le rangement sur Espaces : une indication, une fois", async () => {
     const user = userEvent.setup();
     open("/spaces");
 
-    const link = screen.getByRole("button", {
-      name: /Apprendre en 3 minutes/,
-    });
-    await user.click(link);
+    /* La page de travail ne porte plus de paragraphe pédagogique : une seule
+       indication, légère, avec un lien vers la leçon. */
+    const hint = await screen.findByRole("status");
+    expect(hint.textContent).toMatch(/vault/i);
+    expect(screen.queryByText(/Un projet se découpe/)).toBeNull();
+
+    await user.click(within(hint).getByRole("button", { name: /La leçon/ }));
     await waitFor(() => expect(window.location.pathname).toBe("/learn/x-1"));
+  });
+
+  it("ne remontre jamais l’indication une fois vue", async () => {
+    const user = userEvent.setup();
+    const view = open("/spaces");
+    const hint = await screen.findByRole("status");
+    await user.click(within(hint).getByRole("button", { name: "Masquer l’indication" }));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+
+    view.unmount();
+    open("/spaces");
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
   it("garde les six tutoriels et le cours de lecture intacts", async () => {

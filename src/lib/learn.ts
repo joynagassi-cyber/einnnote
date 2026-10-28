@@ -1,4 +1,4 @@
-import { seedLessons } from "@/data/seed";
+import { seedLessons } from "@/data/lessons";
 import type { Lesson, LessonProgress } from "@/types";
 
 /**

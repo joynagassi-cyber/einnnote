@@ -1492,6 +1492,43 @@
 }
 
 /* ------------------------------------------------------------
+   Indication à usage unique : elle entre, se laisse lire, s’efface
+   ------------------------------------------------------------ */
+
+.hint-enter {
+  animation: hint-in 240ms ease-out;
+}
+.hint-leave {
+  animation: hint-out 320ms ease-in forwards;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes hint-out {
+  to {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hint-enter,
+  .hint-leave {
+    animation: none;
+  }
+  .hint-leave {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------
    Chercher / remplacer dans la note
    ------------------------------------------------------------ */
 

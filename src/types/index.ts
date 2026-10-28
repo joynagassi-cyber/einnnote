@@ -188,8 +188,15 @@ export interface MindMap {
 
 export interface LessonStep {
   title: string;
+  /** Le cœur de l’idée — deux à quatre phrases, jamais une puce déguisée. */
   body: string;
   illustration: "book" | "question" | "map" | "cards" | "review" | "timer";
+  /** Ce qu’il faut retenir, en trois à cinq lignes courtes. */
+  points?: string[];
+  /** Les erreurs qui coûtent le plus cher, formulées comme des pièges. */
+  mistakes?: string[];
+  /** Le critère qui dit « c’est acquis ». Affiché en fin de leçon. */
+  check?: string;
   /**
    * Le geste à faire tout de suite. `href` mène à la page où le faire — sans
    * lui, une pratique est un conseil ; avec lui, c’est un bouton.
@@ -208,8 +215,16 @@ export interface Lesson {
   index: number;
   title: string;
   subtitle: string;
+  /** Durée honnête : elle inclut la pratique, pas seulement la lecture. */
   minutes: number;
   method?: Method;
+  /** « À la fin, vous saurez… » — une phrase, à l’infinitif. */
+  outcome: string;
+  /**
+   * Le parcours de la leçon, en trois temps : comprendre, faire, vérifier.
+   * Sans cette carte, une leçon de six étapes se lit comme six conseils.
+   */
+  phases?: [string, string, string];
   steps: LessonStep[];
 }
 

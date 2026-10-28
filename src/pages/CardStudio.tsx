@@ -75,19 +75,16 @@ export default function CardStudio() {
       <AppBar back onBack={() => navigate("/settings")} title="Studio des cartes" />
 
       <p className="mt-1 max-w-[62ch] text-[13.5px] leading-[20px] text-muted">
-        Les cartes de vault peuvent se présenter de cinq façons. Voici les deux
-        nouvelles, appliquées à{" "}
-        <strong className="text-ink">
-          vos fiches réelles{vault ? ` du vault ${vault.name}` : ""}
-        </strong>
-        . Rien n’est décoratif : chaque bouton écrit le réglage du vault.
+        Cinq présentations possibles pour les fiches
+        {vault ? ` du vault ${vault.name}` : ""} — chaque bouton écrit le réglage
+        du vault.
       </p>
 
       {cards.length === 0 && (
         <p className="mt-4 flex items-start gap-2 rounded-card border border-line bg-surface p-3 text-[13px] leading-[19px] text-muted">
           <Info size={16} weight="duotone" className="mt-0.5 shrink-0" />
-          Aucune fiche pour l’instant : créez-en une dans un vault, le studio
-          utilisera vos propres cartes au lieu d’exemples.
+          Aucune fiche pour l’instant : le studio s’affichera dès la première
+          fiche créée dans un vault.
         </p>
       )}
 

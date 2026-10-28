@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "@/App";
+import { demoContent } from "@/test/fixtures";
 import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useContentStore } from "@/stores/useContentStore";
 import { useDisplayStore } from "@/stores/useDisplayStore";
@@ -46,18 +47,7 @@ beforeEach(() => {
   localStorage.clear();
   useAppStore.setState({ settings: DEFAULT_SETTINGS });
   useDisplayStore.getState().resetAll();
-  useContentStore.setState({
-    projects: useContentStore.getInitialState().projects,
-    notes: useContentStore.getInitialState().notes,
-    questions: useContentStore.getInitialState().questions,
-    links: useContentStore.getInitialState().links,
-    cards: useContentStore.getInitialState().cards,
-    mindmaps: useContentStore.getInitialState().mindmaps,
-    vaults: useContentStore.getInitialState().vaults,
-    zettel: useContentStore.getInitialState().zettel,
-    logs: [],
-    progress: [],
-  });
+  useContentStore.setState({ ...demoContent });
 });
 
 const vaultCards = () =>

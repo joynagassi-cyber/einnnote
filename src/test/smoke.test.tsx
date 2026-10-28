@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "@/App";
+import { demoContent, demoNotes } from "@/test/fixtures";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useLibraryFilters } from "@/stores/useLibraryFilters";
@@ -73,18 +74,7 @@ beforeEach(() => {
   useSessionStore.getState().resetSession();
   /* Tout le contenu de démonstration est remis en place : un test qui vide le
      magasin ne doit pas laisser les suivants devant un vault vide. */
-  useContentStore.setState({
-    projects: useContentStore.getInitialState().projects,
-    notes: useContentStore.getInitialState().notes,
-    questions: useContentStore.getInitialState().questions,
-    links: useContentStore.getInitialState().links,
-    cards: useContentStore.getInitialState().cards,
-    mindmaps: useContentStore.getInitialState().mindmaps,
-    vaults: useContentStore.getInitialState().vaults,
-    zettel: useContentStore.getInitialState().zettel,
-    logs: [],
-    progress: [],
-  });
+  useContentStore.setState({ ...demoContent });
 });
 
 describe("Einnote — écrans", () => {
@@ -265,7 +255,7 @@ describe("Einnote — écrans", () => {
     cleanup();
     open("/learn/t-cornell");
     expect(screen.getByText(/Leçon 2 sur 6/)).toBeTruthy();
-    expect(screen.getByText("Écrivez d’abord, normalement")).toBeTruthy();
+    expect(screen.getByText("Écrire d’abord, normalement")).toBeTruthy();
   });
 
   it("affiche les réglages et l’apparence", async () => {
@@ -752,7 +742,7 @@ describe("Einnote — écrans", () => {
 
   it("trie réellement la corbeille", async () => {
     const user = userEvent.setup();
-    const seed = useContentStore.getInitialState().notes;
+    const seed = demoNotes;
     const contrats = seed.find((note) => note.id === "n-contrats")!;
     const plan = seed.find((note) => note.id === "n-plan")!;
     // Contrats supprimée le plus récemment → elle arrive en second au tri par défaut

@@ -161,7 +161,7 @@ export default function ProjectGraph() {
         <EmptyState
           icon={Stack}
           title="Rien à relier"
-          description="Ce projet n’a pas encore de vault. Créez-en un, puis citez ses fiches entre elles : le graphe apparaît ici."
+          description="Ce projet n’a pas encore de vault, donc pas de fiches à relier."
           action={
             <button
               type="button"

@@ -185,7 +185,7 @@ export default function ProjectSpace() {
             <EmptyState
               icon={Stack}
               title="Aucun vault dans ce projet"
-              description="Découpez le sujet en catégories : une par notion à apprendre. Les notes viendront ensuite, une par concept."
+              description="Ce projet n’a pas encore de catégorie."
               action={
                 <button type="button" className="btn-primary" onClick={() => setVaultSheet(true)}>
                   <Plus size={18} weight="bold" /> Créer le premier vault

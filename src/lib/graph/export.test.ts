@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seedZettel } from "@/data/seed";
+import { demoZettel as seedZettel } from "@/test/fixtures";
 import { layoutZettelGraph, zettelGraph } from "@/lib/graph/zettel";
 import { graphStyleById } from "@/lib/graph/styles";
 import {

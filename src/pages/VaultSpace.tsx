@@ -216,7 +216,7 @@ export default function VaultSpace() {
             <EmptyState
               icon={NotePencil}
               title="Aucune note dans cette catégorie"
-              description="Écrivez la première : un concept, une page, sa source. Les suivantes s’y accrocheront."
+              description="Écrivez la première note de ce vault."
               action={
                 <button
                   type="button"

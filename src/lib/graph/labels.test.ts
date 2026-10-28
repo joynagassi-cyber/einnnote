@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seedZettel } from "@/data/seed";
+import { demoZettel as seedZettel } from "@/test/fixtures";
 import type { ZettelCard } from "@/types";
 import { citationIndex, linkLabel, relationCounts } from "@/lib/graph/labels";
 import { zettelGraph } from "@/lib/graph/zettel";

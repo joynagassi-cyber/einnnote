@@ -136,8 +136,7 @@ export default function ChooseMethod() {
             Comment voulez-vous l’écrire ?
           </h1>
           <p className="mt-1.5 text-[15px] leading-[22px] text-muted">
-            La note sera rangée dans cette catégorie, sans autre geste. La
-            méthode se change plus tard.
+            La note sera rangée dans cette catégorie.
           </p>
         </header>
       ) : (
@@ -146,8 +145,7 @@ export default function ChooseMethod() {
             Que voulez-vous faire ?
           </h1>
           <p className="mt-1.5 text-[15px] leading-[22px] text-muted">
-            Choisissez selon votre besoin. Vous pourrez changer de méthode plus
-            tard.
+            Choisissez une méthode.
           </p>
         </>
       )}
