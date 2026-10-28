@@ -181,7 +181,7 @@ describe("Einnote — écrans", () => {
   });
 
   it("affiche la pile Zettelkasten", () => {
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
     expect(screen.getByText("Économie")).toBeTruthy();
     expect(screen.getByText("L’inflation et l’épargne")).toBeTruthy();
     expect(screen.getByText(/Glissez la carte/)).toBeTruthy();
@@ -742,7 +742,7 @@ describe("Einnote — écrans", () => {
     expect(useDisplayStore.getState().get("library").view).toBe("list");
 
     cleanup();
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
     await user.click(screen.getByRole("button", { name: /^Affichage/ }));
     await user.click(screen.getByRole("button", { name: /^Grille/ }));
     expect(useDisplayStore.getState().get("vault").view).toBe("grid");
@@ -961,34 +961,33 @@ describe("Einnote — écrans", () => {
     expect(screen.getByRole("button", { name: "Ouvrir le vault Économie" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /Nouveau vault/ }));
-    await user.type(screen.getByLabelText("Nom du vault"), "Séminaire");
+    await user.type(screen.getByLabelText("Nom de la catégorie"), "Séminaire");
     await user.click(screen.getByRole("button", { name: "Créer et ouvrir" }));
     await waitFor(() => expect(window.location.pathname).toMatch(/^\/vault\/v-/));
     const vaults = useContentStore.getState().vaults;
     expect(vaults.some((vault) => vault.name === "Séminaire")).toBe(true);
   });
 
-  it("crée un vault entier depuis un modèle, en un geste", async () => {
+  it("crée un vault comme une catégorie : un nom, une intention, rien de plus", async () => {
     const user = userEvent.setup();
     open("/spaces/p-these");
     await user.click(screen.getByRole("button", { name: /Nouveau vault/ }));
-    await user.click(screen.getByRole("button", { name: /Carte conceptuelle/ }));
+
+    /* Plus de galerie de modèles : un vault n’est pas une méthode de graphe.
+       La feuille ne propose donc ni style, ni fiches pré-écrites. */
+    expect(screen.queryByText(/Partir d’un modèle/)).toBeNull();
+
+    await user.type(screen.getByLabelText("Nom de la catégorie"), "Carte conceptuelle");
+    await user.click(screen.getByRole("button", { name: "Créer et ouvrir" }));
 
     const state = useContentStore.getState();
     const vault = state.vaults.find((item) => item.name === "Carte conceptuelle");
     expect(vault).toBeTruthy();
-    const cards = state.zettel.filter((card) => card.vaultId === vault!.id);
-    expect(cards).toHaveLength(5);
-    // les codes du modèle sont rendus tels quels, sinon les références pendent
-    expect(cards.map((card) => card.code).sort()).toEqual(["#1A", "#1A1", "#1A2", "#1A3", "#1B"]);
-    const codes = new Set(cards.map((card) => card.code));
-    for (const card of cards) {
-      for (const ref of card.refs) expect(codes.has(ref)).toBe(true);
-    }
-    // style et étiquettes qui vont avec le modèle
-    expect(useAppStore.getState().settings.graphStyle).toBe("carte-conceptuelle");
-    expect(useAppStore.getState().settings.graphLabels).toBe(true);
-    await waitFor(() => expect(window.location.pathname).toBe(`/vault/${vault!.id}/graph`));
+    // la catégorie naît vide : les notes viendront après, une par concept
+    expect(state.zettel.filter((card) => card.vaultId === vault!.id)).toHaveLength(0);
+    // et elle ne change pas le style du graphe au passage
+    expect(useAppStore.getState().settings.graphStyle).not.toBe("carte-conceptuelle");
+    await waitFor(() => expect(window.location.pathname).toBe(`/vault/${vault!.id}`));
   });
 
   it("choisit un style par ses liens nommés, pas par hasard", async () => {

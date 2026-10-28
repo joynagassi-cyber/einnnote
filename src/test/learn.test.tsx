@@ -58,13 +58,20 @@ describe("Apprendre, centré sur Espaces", () => {
   it("dessine la hiérarchie avec les données réelles, pas un exemple", async () => {
     open("/learn");
 
-    const vault = useContentStore.getState().vaults[0];
-    const cards = useContentStore.getState().zettel.filter((c) => c.vaultId === vault.id);
-    // le schéma nomme le projet et compte les fiches du vault
+    /* Le schéma montre le projet qui porte le plus de vaults : on recalcule
+       ce choix, puis on vérifie qu’il affiche bien ses vrais chiffres. */
+    const state = useContentStore.getState();
+    const ranked = [...state.projects].sort(
+      (a, b) =>
+        state.vaults.filter((v) => v.projectId === b.id).length -
+        state.vaults.filter((v) => v.projectId === a.id).length,
+    );
+    const project = ranked[0];
+    const vault = state.vaults.find((v) => v.projectId === project.id)!;
+    const notes = state.notes.filter((n) => n.vaultId === vault.id && !n.deletedAt);
+    expect(screen.getAllByText(project.name).length).toBeGreaterThan(0);
     expect(screen.getAllByText(vault.name).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(new RegExp(`${cards.length} fiche`)).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(new RegExp(`${notes.length} note`)).length).toBeGreaterThan(0);
   });
 
   it("ouvre la leçon du socle d’un geste, et cette leçon mène aux Espaces", async () => {

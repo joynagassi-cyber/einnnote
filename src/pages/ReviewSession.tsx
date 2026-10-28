@@ -354,7 +354,7 @@ export default function ReviewSession() {
                   {item.kind === "fiche" && item.vaultId && (
                     <button
                       type="button"
-                      onClick={() => navigate(`/vault/${item.vaultId}?card=${encodeURIComponent(item.code ?? "")}`)}
+                      onClick={() => navigate(`/vault/${item.vaultId}/fiches?card=${encodeURIComponent(item.code ?? "")}`)}
                       className="btn-secondary h-10 px-3 text-[13.5px]"
                     >
                       Ouvrir le vault

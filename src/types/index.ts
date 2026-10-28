@@ -112,11 +112,16 @@ export interface ReviewLog {
   elapsedDays: number;
 }
 
+/**
+ * Un vault n’est **pas** une méthode : c’est une catégorie du projet
+ * (« Superposition quantique »), où l’on range des notes et leurs fiches.
+ */
 export interface ZettelVault {
   id: string;
   projectId?: string;
   name: string;
   note?: string;
+  createdAt?: string;
 }
 
 export interface ZettelCard {

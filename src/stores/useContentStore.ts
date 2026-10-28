@@ -70,6 +70,11 @@ interface ContentState {
       blocks?: Block[];
       /** carte mentale de départ (modèle choisi) ; sinon modèle par défaut */
       mindmap?: MindmapSeed;
+      /**
+       * Vault (catégorie) où ranger la note. Le projet s'en déduit : une note
+       * ne peut pas vivre dans la catégorie d'un autre projet.
+       */
+      vaultId?: string;
     },
   ) => Note;
   updateNote: (id: string, patch: Partial<Note>) => void;
@@ -247,13 +252,20 @@ export const useContentStore = create<ContentState>()(
 
       createNote: (method, options) => {
         const now = new Date().toISOString();
+        /* Le vault, s'il est donné, commande le projet : une note ne peut pas
+           être rangée dans la catégorie d'un autre projet. */
+        const target = options?.vaultId
+          ? get().vaults.find((vault) => vault.id === options.vaultId)
+          : undefined;
         const projectId =
+          target?.projectId ??
           options?.projectId ??
           get().projects[0]?.id ??
           DEFAULT_PROJECT_ID;
         const note: Note = {
           id: uid("n"),
           projectId,
+          ...(target ? { vaultId: target.id } : {}),
           method,
           title: options?.title ?? "Note sans titre",
           collection: options?.collection ?? "Bac à sable",
@@ -287,10 +299,10 @@ export const useContentStore = create<ContentState>()(
           return note;
         }
 
-        if (method === "zettelkasten") {
-          /* Un vault appartient à un projet. S’il n’en existe pas encore,
-             on le crée : sinon la note tombe dans le vault d’un autre
-             projet, ce qui est le bug le plus déroutant de l’écran. */
+        if (method === "zettelkasten" && !note.vaultId) {
+          /* Hors d’un vault, on rattache la note à la première catégorie du
+             projet — ou on en crée une, sinon la note tombe dans le vault
+             d’un autre projet, ce qui est le bug le plus déroutant de l’écran. */
           const existing = get().vaults.find((v) => v.projectId === projectId);
           if (existing) {
             note.vaultId = existing.id;
@@ -571,6 +583,7 @@ export const useContentStore = create<ContentState>()(
         const vault: ZettelVault = {
           id: uid("v"),
           projectId,
+          createdAt: new Date().toISOString(),
           name: name.trim() || "Nouveau vault",
           note: note?.trim() || undefined,
         };
@@ -604,10 +617,11 @@ export const useContentStore = create<ContentState>()(
         const remaining = get().vaults.filter((vault) => vault.id !== id);
         set((s) => ({
           vaults: remaining,
+          /* Les notes survivent à leur catégorie : elles redeviennent des
+             notes du projet, sans être poussées dans une autre catégorie que
+             personne n’a choisie. */
           notes: s.notes.map((note) =>
-            note.vaultId === id
-              ? { ...note, vaultId: remaining[0]?.id }
-              : note,
+            note.vaultId === id ? { ...note, vaultId: undefined } : note,
           ),
         }));
         return { ok: true };

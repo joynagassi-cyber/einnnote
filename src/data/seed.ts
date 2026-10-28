@@ -50,6 +50,12 @@ export const seedProjects: Project[] = [
     description: "Recherche, lectures, fiches",
     createdAt: iso(45 * D),
   },
+  {
+    id: "p-quantum",
+    name: "Ordinateur quantique",
+    description: "Cours et notes de recherche",
+    createdAt: iso(30 * D),
+  },
 ];
 
 export const seedNotes: Note[] = [
@@ -157,6 +163,89 @@ export const seedNotes: Note[] = [
       b("m4", "Taux de chômage = chômeurs / population active.", { bullet: true }),
       b("m5", "Halo autour du chômage : temps partiel subi, découragement.", {
         bullet: true,
+      }),
+    ],
+  },
+  /* Un projet découpé en catégories : c’est l’exemple qui explique le modèle
+     mieux qu’un texte d’aide — deux vaults, trois notes, aucun graphe. */
+  {
+    id: "n-superposition",
+    projectId: "p-quantum",
+    vaultId: "v-superposition",
+    method: "cornell",
+    title: "Superposition : définition",
+    collection: "Physique quantique",
+    status: "done",
+    createdAt: iso(21 * D),
+    updatedAt: iso(2 * D),
+    blocks: [
+      b("s1", "Un état superposé n’est pas « les deux à la fois »", { kind: "h2" }),
+      b("s2", "|ψ⟩ = α|0⟩ + β|1⟩ : deux amplitudes, pas deux réalités.", {
+        bullet: true,
+      }),
+      b("s3", "Mesurer projette l’état ; c’est l’appareil qui choisit la base.", {
+        bullet: true,
+      }),
+      b("s4", "α et β sont complexes : la phase relative est observable.", {
+        bullet: true,
+        indent: 1,
+      }),
+      b("s5", "Question : pourquoi la décohérence ne se voit-elle pas à notre échelle ?", {
+        kind: "quote",
+      }),
+    ],
+  },
+  {
+    id: "n-fentes",
+    projectId: "p-quantum",
+    vaultId: "v-superposition",
+    method: "outline",
+    title: "L’expérience des deux fentes",
+    collection: "Physique quantique",
+    status: "captured",
+    createdAt: iso(18 * D),
+    updatedAt: iso(4 * D),
+    blocks: [
+      b("f1", "Le dispositif", { kind: "h2" }),
+      b("f2", "Une source, un écran percé de deux fentes, une plaque sensible.", {
+        bullet: true,
+      }),
+      b("f3", "Fentes ouvertes : franges d’interférence. Une fente fermée : une bande.", {
+        bullet: true,
+      }),
+      b("f4", "Ce que cela montre", { kind: "h2" }),
+      b("f5", "L’amplitude passe par les deux chemins ; la probabilité est son carré.", {
+        bullet: true,
+      }),
+      b("f6", "Mesurer le chemin détruit les franges : l’information compte.", {
+        bullet: true,
+      }),
+    ],
+  },
+  {
+    id: "n-epr",
+    projectId: "p-quantum",
+    vaultId: "v-intrication",
+    method: "cornell",
+    title: "Le paradoxe EPR",
+    collection: "Physique quantique",
+    status: "questioned",
+    createdAt: iso(12 * D),
+    updatedAt: iso(1 * D),
+    blocks: [
+      b("e1", "Einstein, Podolsky, Rosen (1935)", { kind: "h2" }),
+      b("e2", "Si l’on mesure l’un, l’autre est déterminé instantanément.", {
+        bullet: true,
+      }),
+      b("e3", "EPR en conclut que la mécanique quantique est incomplète.", {
+        bullet: true,
+      }),
+      b("e4", "Réponse : aucune information ne voyage ; les corrélations sont locales au sens de Bell.", {
+        bullet: true,
+        indent: 1,
+      }),
+      b("e5", "À vérifier : l’inégalité de Bell, et ce que son violation interdit.", {
+        kind: "quote",
       }),
     ],
   },
@@ -353,6 +442,21 @@ export const seedVaults: ZettelVault[] = [
     projectId: "p-these",
     name: "Économie",
     note: "Monnaie, prix, travail",
+    createdAt: iso(34 * D),
+  },
+  {
+    id: "v-superposition",
+    projectId: "p-quantum",
+    name: "Superposition quantique",
+    note: "Définition, expériences, paradoxes",
+    createdAt: iso(24 * D),
+  },
+  {
+    id: "v-intrication",
+    projectId: "p-quantum",
+    name: "Intrication quantique",
+    note: "Corrélations à distance, EPR, Bell",
+    createdAt: iso(20 * D),
   },
 ];
 
@@ -599,15 +703,15 @@ export const seedLessons: Lesson[] = [
         },
       },
       {
-        title: "Un vault est un sujet à l’intérieur du projet",
+        title: "Un vault est une catégorie à l’intérieur du projet",
         body:
-          "Dans « Thèse », le vault « Économie » rassemble les fiches sur la monnaie, les prix et le travail. Un projet porte plusieurs vaults : un par question, jamais un par source. Deux lectures du même sujet partagent un vault ; deux sujets voisins n’en partagent pas.",
+          "Dans le projet « Ordinateur quantique », les vaults sont « Superposition quantique » et « Intrication quantique » : une catégorie par partie du sujet, jamais une par source. Les notes écrites sur cette partie se rangent là — plusieurs notes par vault, une par concept.",
         illustration: "cards",
       },
       {
         title: "Une note raconte, une fiche relie",
         body:
-          "Une note — outline, Cornell, carte mentale — garde la trace d’un moment de lecture, avec son contexte. Une fiche de vault isole une seule idée et la cite par son code : #1A appelle #1A1. Les deux vivent dans le même projet ; seules les fiches se rangent en vaults, et c’est ce qui rend le graphe lisible.",
+          "Une note — outline, Cornell, carte mentale — garde la trace d’un moment de lecture, avec son contexte, et se range dans un vault comme une page dans une catégorie. Une fiche isole une seule idée et la cite par son code : #1A appelle #1A1. Les fiches sortent des notes et servent à réviser ; c’est ce qui garde le graphe lisible.",
         illustration: "book",
       },
     ],
@@ -645,25 +749,25 @@ export const seedLessons: Lesson[] = [
     track: 3,
     index: 3,
     title: "Ouvrir un vault dans ce projet",
-    subtitle: "Un vault relie, un dossier range",
+    subtitle: "Une catégorie, pas une méthode",
     minutes: 2,
     steps: [
       {
-        title: "Le vault est le seul endroit qui relie",
+        title: "Le vault nomme une partie du sujet",
         body:
-          "Les fiches d’un vault se citent entre elles et le graphe montre ce qui revient d’une source à l’autre. C’est pour cela qu’il ne se crée pas « à part » : il appartient à un projet, et il emprunte son nom à une question, pas à un auteur.",
+          "Un vault s’appelle comme une catégorie — « Superposition quantique » — jamais comme un auteur ni comme une méthode. Il appartient à un projet, il range les notes de cette partie du sujet, et les fiches qui en sortent se citent entre elles dans le graphe.",
         illustration: "map",
       },
       {
-        title: "Deux fiches qui ne se parlent pas",
+        title: "Deux sujets qui ne se parlent pas",
         body:
-          "Si deux fiches ne se citeront jamais, elles n’ont rien à faire dans le même vault. Si trois sources disent la même chose autrement, elles en ont besoin : ce sont ces recoupements que vous relirez dans six mois.",
+          "Si deux notes ne s’éclaireront jamais, elles n’ont rien à faire dans la même catégorie. Si trois sources disent la même chose autrement, elles en ont besoin : ce sont ces recoupements que vous relirez dans six mois.",
         illustration: "cards",
       },
       {
         title: "Le vault se crée depuis le projet",
         body:
-          "Espaces, étape 2 : choisissez le projet, nommez le vault. La page des vaults garde le projet d’origine, si bien que vous n’avez jamais à le re-sélectionner. Un projet sans vault reste possible : toutes ses notes y vivent à plat.",
+          "Espaces, étape 2 : entrez dans le projet, nommez la catégorie. Un nom et une phrase suffisent — il n’y a ni modèle à choisir ni style de graphe à régler. Un projet sans vault reste possible : ses notes y vivent à plat.",
         illustration: "book",
         practice: {
           title: "À vous",

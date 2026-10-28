@@ -66,7 +66,7 @@ const vaultCards = () =>
 describe("Éventail du vault", () => {
   it("s’ouvre en mode éventail, avec ses commandes", async () => {
     useDisplayStore.getState().set("vault", { view: "fan" });
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
 
     expect(await screen.findByText(/Éventail ·/)).toBeTruthy();
     expect(
@@ -79,7 +79,7 @@ describe("Éventail du vault", () => {
   it("met une autre fiche au centre quand on avance", async () => {
     const user = userEvent.setup();
     useDisplayStore.getState().set("vault", { view: "fan" });
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
 
     const cards = vaultCards();
     const first = cards[0];
@@ -101,7 +101,7 @@ describe("Éventail du vault", () => {
   it("ouvre la fiche centrale dans la pile", async () => {
     const user = userEvent.setup();
     useDisplayStore.getState().set("vault", { view: "fan" });
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
 
     const cards = vaultCards();
     const first = cards[0];
@@ -117,7 +117,7 @@ describe("Éventail du vault", () => {
 
   it("pose l’arc même avant que GSAP ne soit chargé", async () => {
     useDisplayStore.getState().set("vault", { view: "fan" });
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
     await screen.findByText(/Éventail ·/);
 
     /* La géométrie est écrite en variables CSS : si le morceau GSAP tarde (ou
@@ -135,7 +135,7 @@ describe("Éventail du vault", () => {
   it("propose aussi l’éventail en bureau", async () => {
     await withDesktop(async () => {
       useDisplayStore.getState().set("vault", { view: "fan" });
-      open("/vault/v-eco");
+      open("/vault/v-eco/fiches");
       expect(await screen.findByText(/Éventail ·/)).toBeTruthy();
       expect(screen.getByRole("heading", { name: "Économie" })).toBeTruthy();
     });
@@ -146,7 +146,7 @@ describe("Relief et grille en bureau", () => {
   it("affiche la grille au lieu des deux panneaux", async () => {
     await withDesktop(async () => {
       useDisplayStore.getState().set("vault", { view: "relief" });
-      open("/vault/v-eco");
+      open("/vault/v-eco/fiches");
       // le panneau de lecture (liste + fiche) n’est plus là…
       expect(screen.queryByPlaceholderText(/Chercher dans \d+ fiches/)).toBeNull();
       // …mais les fiches sont bien rendues, en cartes inclinables
@@ -212,7 +212,7 @@ describe("Carte de révision", () => {
 describe("Fiche de vault, une seule implémentation", () => {
   it("la pile du téléphone borne le cadre et fait défiler le corps seul", async () => {
     useDisplayStore.getState().set("vault", { view: "stack" });
-    open("/vault/v-eco");
+    open("/vault/v-eco/fiches");
 
     const sheets = await waitFor(() => {
       const found = document.querySelectorAll<HTMLElement>('[data-sheet="zettel"]');
@@ -239,7 +239,7 @@ describe("Fiche de vault, une seule implémentation", () => {
   it("le lecteur du bureau rend la même fiche, avec ses actions", async () => {
     await withDesktop(async () => {
       useDisplayStore.getState().set("vault", { view: "stack" });
-      open("/vault/v-eco");
+      open("/vault/v-eco/fiches");
 
       const sheet = await waitFor(() => {
         const found = document.querySelector<HTMLElement>('[data-sheet="zettel"]');

@@ -59,7 +59,7 @@ export default function ZettelForm() {
         image,
       });
       toast("Carte mise à jour", "accent");
-      navigate(`/vault/${id}?card=${encodeURIComponent(editing.code)}`, { replace: true });
+      navigate(`/vault/${id}/fiches?card=${encodeURIComponent(editing.code)}`, { replace: true });
       return;
     } else {
       const created = addZettelCard({
@@ -70,10 +70,10 @@ export default function ZettelForm() {
         refs: finalRefs,
       });
       toast("Carte ajoutée au vault", "accent");
-      navigate(`/vault/${id}?card=${encodeURIComponent(created.code)}`, { replace: true });
+      navigate(`/vault/${id}/fiches?card=${encodeURIComponent(created.code)}`, { replace: true });
       return;
     }
-    navigate(`/vault/${id}`, { replace: true });
+    navigate(`/vault/${id}/fiches`, { replace: true });
   };
 
   if (!vault) {
@@ -89,7 +89,7 @@ export default function ZettelForm() {
       <header className="flex h-14 items-center justify-between">
         <button
           type="button"
-          onClick={() => navigate(`/vault/${id}`)}
+          onClick={() => navigate(`/vault/${id}/fiches`)}
           className="-ml-0 h-11 text-[16px] font-medium"
         >
           Annuler

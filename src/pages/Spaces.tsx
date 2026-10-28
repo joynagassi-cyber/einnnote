@@ -109,9 +109,10 @@ export default function Spaces() {
       <header className="mt-1">
         <h1 className="font-serif text-[32px] font-semibold leading-tight">Espaces</h1>
         <p className="mt-1.5 max-w-[60ch] text-[15px] leading-[22px] text-muted">
-          Un projet contient des <strong className="text-ink">notes</strong> et
-          plusieurs <strong className="text-ink">vaults</strong> ; un vault contient
-          des fiches qui se citent entre elles. Tout part d’ici.
+          Un projet se découpe en <strong className="text-ink">vaults</strong> :
+          des catégories, une par partie du sujet. Chaque vault range les{" "}
+          <strong className="text-ink">notes</strong> écrites sur cette partie. Tout
+          part d’ici.
         </p>
         <button
           type="button"
@@ -236,12 +237,12 @@ export default function Spaces() {
             {
               icon: Stack,
               title: "Vault",
-              text: "La question : des fiches qui se citent, avec leurs sources.",
+              text: "La catégorie : « Superposition quantique », où l’on range ses notes.",
             },
             {
               icon: NotePencil,
-              title: "Fiche",
-              text: "Une idée, une source, des renvois vers ses voisines.",
+              title: "Note",
+              text: "Le concept : une page, avec sa source, révisable en fiches.",
             },
           ].map((role) => (
             <li key={role.title} className="flex items-start gap-2">

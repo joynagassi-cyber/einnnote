@@ -7,6 +7,7 @@ import {
   DotsThree,
   DownloadSimple,
   Sparkle,
+  Stack,
   Trash,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
@@ -33,6 +34,7 @@ export default function Editor() {
   const allQuestions = useContentStore((s) => s.questions);
   const allLinks = useContentStore((s) => s.links);
   const updateNote = useContentStore((s) => s.updateNote);
+  const allVaults = useContentStore((s) => s.vaults);
   const replaceBlocks = useContentStore((s) => s.replaceBlocks);
   const addQuestion = useContentStore((s) => s.addQuestion);
   const deleteQuestion = useContentStore((s) => s.deleteQuestion);
@@ -40,6 +42,13 @@ export default function Editor() {
   const canvas = useAppStore((s) => s.settings.canvas);
   const desktop = useIsDesktop();
   const toast = useToast((s) => s.show);
+
+  /* Les catégories du projet de la note : on ne propose que celles-là, sinon
+     une note changerait de projet par un simple select. */
+  const projectVaults = useMemo(
+    () => allVaults.filter((vault) => vault.projectId === note?.projectId),
+    [allVaults, note?.projectId],
+  );
 
   const [sheet, setSheet] = useState<
     "none" | "ask" | "questions" | "menu" | "templates"
@@ -401,6 +410,41 @@ export default function Editor() {
         title="Cette note"
       >
         <div className="flex flex-col">
+          {/* Ranger la note dans une catégorie du projet : la même note peut
+              changer de vault sans être réécrite, et une note libre cesse de
+              l’être. */}
+          {projectVaults.length > 0 && (
+            <div className="border-b border-line py-3">
+              <label
+                htmlFor="note-vault"
+                className="flex items-center gap-2 text-[13px] font-semibold text-muted"
+              >
+                <Stack size={17} weight="duotone" aria-hidden />
+                Vault (catégorie)
+              </label>
+              <select
+                id="note-vault"
+                value={note.vaultId ?? ""}
+                onChange={(event) => {
+                  const vaultId = event.target.value || undefined;
+                  updateNote(note.id, { vaultId });
+                  const target = projectVaults.find((vault) => vault.id === vaultId);
+                  toast(
+                    target ? `Note rangée dans « ${target.name} »` : "Note retirée du vault",
+                    target ? "accent" : undefined,
+                  );
+                }}
+                className="field mt-1.5 h-11"
+              >
+                <option value="">Aucun — note du projet</option>
+                {projectVaults.map((vault) => (
+                  <option key={vault.id} value={vault.id}>
+                    {vault.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <button
             type="button"
             className="flex min-h-[52px] items-center gap-3 border-b border-line text-left text-[16px]"

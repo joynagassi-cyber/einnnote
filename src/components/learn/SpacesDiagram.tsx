@@ -19,7 +19,7 @@ export function SpacesDiagram({
 }: {
   projectName: string;
   noteCount: number;
-  vaults: { id: string; name: string; cardCount: number }[];
+  vaults: { id: string; name: string; noteCount: number; cardCount: number }[];
 }) {
   return (
     <div className="rounded-card border border-line-strong bg-bg p-3">
@@ -57,7 +57,9 @@ export function SpacesDiagram({
                   {vault.name}
                 </span>
                 <span className="tabnum shrink-0 text-[11.5px] text-muted">
-                  {vault.cardCount} fiche{vault.cardCount > 1 ? "s" : ""}
+                  {vault.noteCount} note{vault.noteCount > 1 ? "s" : ""}
+                  {vault.cardCount > 0 &&
+                    ` · ${vault.cardCount} fiche${vault.cardCount > 1 ? "s" : ""}`}
                 </span>
               </div>
               {/* Les fiches du vault, suggérées : une bande, pas une liste. */}
@@ -69,7 +71,11 @@ export function SpacesDiagram({
                   />
                 ))}
                 {vault.cardCount === 0 && (
-                  <span className="text-[11px] text-muted">vault vide — prêt pour la première fiche</span>
+                  <span className="text-[11px] text-muted">
+                    {vault.noteCount === 0
+                      ? "catégorie vide — prête pour la première note"
+                      : "les fiches viendront des notes"}
+                  </span>
                 )}
               </div>
             </li>

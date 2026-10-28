@@ -34,6 +34,7 @@ import Spaces from "@/pages/Spaces";
 import CalendarPage from "@/pages/Calendar";
 import Stats from "@/pages/Stats";
 import ProjectSpace from "@/pages/ProjectSpace";
+import VaultSpace from "@/pages/VaultSpace";
 import ProjectGraph from "@/pages/ProjectGraph";
 import DataBackup from "@/pages/DataBackup";
 import Trash from "@/pages/Trash";
@@ -60,7 +61,9 @@ const App = () => (
           <Route path="/new" element={<ChooseMethod />} />
           <Route path="/note/:id" element={<Editor />} />
           <Route path="/mindmap/:id" element={<MindMap />} />
-          <Route path="/vault/:id" element={<Zettelkasten />} />
+          {/* Un vault = une catégorie : les notes d’abord, les fiches à part. */}
+          <Route path="/vault/:id" element={<VaultSpace />} />
+          <Route path="/vault/:id/fiches" element={<Zettelkasten />} />
           <Route path="/vault/:id/new" element={<ZettelForm />} />
           <Route path="/vault/:id/graph" element={<ZettelGraph />} />
           <Route path="/learn" element={<Learn />} />
@@ -138,7 +141,7 @@ function LegacyEditorRedirect() {
 }
 function LegacyZettelRedirect() {
   const id = window.location.pathname.split("/").pop() ?? "";
-  return <Navigate to={`/vault/${id}`} replace />;
+  return <Navigate to={`/vault/${id}/fiches`} replace />;
 }
 function LegacyGraphRedirect() {
   const parts = window.location.pathname.split("/");

@@ -148,7 +148,7 @@ describe("Espaces, une seule hiérarchie", () => {
     cleanup();
     open("/vault/v-eco");
     // le graphe du vault reste à sa place
-    expect(screen.getAllByRole("button", { name: "Graphe du vault" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Graphe du vault/ }).length).toBeGreaterThan(0);
   });
 });
 
@@ -159,7 +159,8 @@ describe("Bouton de création flottant", () => {
       ["/learn", "Nouvelle note"],
       ["/spaces", "Nouveau projet"],
       ["/spaces/p-these", "Nouveau vault"],
-      ["/vault/v-eco", "Nouvelle fiche"],
+      ["/vault/v-eco", "Nouvelle note"],
+      ["/vault/v-eco/fiches", "Nouvelle fiche"],
     ];
     for (const [path, label] of cases) {
       cleanup();

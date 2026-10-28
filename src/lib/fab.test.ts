@@ -21,8 +21,11 @@ describe("bouton de création", () => {
     ]);
   });
 
-  it("crée une fiche dans un vault", () => {
+  it("crée une note dans un vault, une fiche dans la page des fiches", () => {
     expect(fabFor("/vault/v-eco")).toEqual([
+      { kind: "note", label: "Nouvelle note", to: "/new?vault=v-eco" },
+    ]);
+    expect(fabFor("/vault/v-eco/fiches")).toEqual([
       { kind: "card", label: "Nouvelle fiche", to: "/vault/v-eco/new" },
     ]);
   });

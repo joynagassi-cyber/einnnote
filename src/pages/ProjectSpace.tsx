@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
-  Books,
   FolderSimple,
   Graph,
   NotePencil,
   PencilSimple,
   Plus,
+  Stack,
   Trash,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
@@ -43,6 +43,7 @@ export default function ProjectSpace() {
   const [params, setParams] = useSearchParams();
   const [vaultSheet, setVaultSheet] = useState(params.get("new") === "1");
   const [renameOpen, setRenameOpen] = useState(false);
+  const [editVault, setEditVault] = useState<string | null>(null);
   const [confirmVault, setConfirmVault] = useState<string | null>(null);
   const [confirmProject, setConfirmProject] = useState(false);
 
@@ -61,6 +62,9 @@ export default function ProjectSpace() {
     }
   };
 
+  /* Un vault = une catégorie : on compte donc ses **notes** d’abord, ses
+     fiches ensuite, et on garde les méthodes employées pour que la carte dise
+     ce qu’elle contient sans avoir à l’ouvrir. */
   const rows = useMemo(() => {
     return vaults
       .filter((vault) => vault.projectId === id)
@@ -68,15 +72,24 @@ export default function ProjectSpace() {
         const owned = zettel
           .filter((card) => card.vaultId === vault.id)
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        const ownNotes = notes
+          .filter((note) => note.vaultId === vault.id && !note.deletedAt)
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        const methods = [...new Set(ownNotes.map((note) => METHODS[note.method].label))];
         return {
           vault,
           count: owned.length,
-          last: owned[0]?.updatedAt,
+          noteCount: ownNotes.length,
+          methods,
+          last: [owned[0]?.updatedAt, ownNotes[0]?.updatedAt]
+            .filter(Boolean)
+            .sort()
+            .pop(),
           sample: owned.slice(0, 3).map((card) => card.title),
         };
       })
       .sort((a, b) => (b.last ?? "").localeCompare(a.last ?? ""));
-  }, [vaults, zettel, id]);
+  }, [vaults, zettel, notes, id]);
 
   const ownNotes = useMemo(
     () =>
@@ -84,6 +97,14 @@ export default function ProjectSpace() {
         .filter((note) => note.projectId === id && !note.deletedAt)
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [notes, id],
+  );
+
+  /* Les notes rangées dans une catégorie s’affichent **dans** le vault : les
+     répéter ici ferait deux fois le même contenu, avec deux chemins pour y
+     aller. Cette section ne garde donc que les notes encore sans catégorie. */
+  const looseNotes = useMemo(
+    () => ownNotes.filter((note) => !note.vaultId),
+    [ownNotes],
   );
 
   if (!project) {
@@ -148,21 +169,23 @@ export default function ProjectSpace() {
       <section className="mt-5">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="flex items-center gap-2 font-serif text-[19px] font-semibold">
-            <Books size={18} weight="duotone" className="text-accent" aria-hidden />
+            <Stack size={18} weight="duotone" className="text-accent" aria-hidden />
             Vaults
             <span className="text-[13px] font-normal text-muted">{rows.length}</span>
           </h2>
         </div>
         <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">
-          Un vault = une question. Les fiches qu’il contient se citent entre elles.
+          Un vault est une <strong className="text-ink">catégorie</strong> du projet :
+          « Superposition quantique », « Intrication quantique ». Chacune range les
+          notes écrites sur cette partie du sujet.
         </p>
 
         {rows.length === 0 ? (
           <div className="mt-3">
             <EmptyState
-              icon={Books}
+              icon={Stack}
               title="Aucun vault dans ce projet"
-              description="Créez-en un pour y ranger des fiches qui se citent. Les notes, elles, peuvent vivre sans vault."
+              description="Découpez le sujet en catégories : une par notion à apprendre. Les notes viendront ensuite, une par concept."
               action={
                 <button type="button" className="btn-primary" onClick={() => setVaultSheet(true)}>
                   <Plus size={18} weight="bold" /> Créer le premier vault
@@ -174,72 +197,99 @@ export default function ProjectSpace() {
           <ul className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {rows.map((row) => (
               <li key={row.vault.id} className="h-full">
-                <div className="flex h-full flex-col rounded-card border border-line bg-surface p-3.5 transition-colors hover:border-line-strong">
+                <div className="group flex h-full flex-col rounded-card border border-line bg-surface p-3.5 transition-colors hover:border-line-strong">
                   <button
                     type="button"
                     onClick={() => navigate(`/vault/${row.vault.id}`)}
                     aria-label={`Ouvrir le vault ${row.vault.name}`}
-                    className="group flex flex-1 flex-col text-left"
+                    className="flex flex-1 flex-col text-left"
                   >
-                    <span className="flex items-center gap-2">
-                      <span className="tile h-8 w-8" aria-hidden>
-                        <Books size={16} weight="duotone" className="text-accent" />
+                    <span className="flex items-start gap-2.5">
+                      <span className="tile h-9 w-9" aria-hidden>
+                        <Stack size={17} weight="duotone" className="text-accent" />
                       </span>
-                      <span className="min-w-0 flex-1 truncate font-serif text-[16.5px] font-semibold">
-                        {row.vault.name}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-serif text-[17px] font-semibold leading-tight">
+                          {row.vault.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[12.5px] text-muted">
+                          {row.vault.note || "Sans description"}
+                        </span>
                       </span>
                       <ArrowRight
                         size={15}
-                        className="shrink-0 text-muted transition-transform group-hover:translate-x-0.5"
+                        className="mt-1.5 shrink-0 text-muted transition-transform group-hover:translate-x-0.5"
                         aria-hidden
                       />
                     </span>
-                    {row.vault.note && (
-                      <span className="mt-1.5 line-clamp-2 text-[12.5px] leading-[18px] text-muted">
-                        {row.vault.note}
-                      </span>
-                    )}
-                    <span className="mt-2 flex flex-wrap gap-1.5 text-[11.5px]">
+
+                    <span className="mt-3 flex flex-wrap gap-1.5 text-[11.5px]">
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 font-medium",
-                          row.count > 0
+                          row.noteCount > 0
                             ? "bg-accent-soft text-accent-ink"
                             : "bg-surface-2 text-muted",
                         )}
                       >
+                        {row.noteCount} note{row.noteCount > 1 ? "s" : ""}
+                      </span>
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-muted">
                         {row.count} fiche{row.count > 1 ? "s" : ""}
                       </span>
-                      {row.last && (
-                        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-muted">
-                          modifié {timeAgo(row.last)}
+                      {row.methods.slice(0, 2).map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full border border-line px-2 py-0.5 text-muted"
+                        >
+                          {label}
                         </span>
-                      )}
+                      ))}
                     </span>
-                    {row.sample.length > 0 && (
-                      <span className="mt-2 line-clamp-2 text-[11.5px] leading-[17px] text-muted">
-                        {row.sample.join(" · ")}
+
+                    {row.last && (
+                      <span className="mt-2 block text-[11.5px] text-muted">
+                        Modifié {timeAgo(row.last)}
                       </span>
                     )}
                   </button>
-                  <div className="mt-2 flex items-center justify-end gap-1 border-t border-line pt-2">
+
+                  <div className="mt-3 flex items-center gap-1 border-t border-line pt-2">
                     <button
                       type="button"
-                      onClick={() => navigate(`/vault/${row.vault.id}/graph`)}
-                      aria-label={`Graphe du vault ${row.vault.name}`}
-                      className="flex h-8 items-center gap-1.5 rounded-field px-2 text-[12.5px] font-medium text-muted hover:bg-surface-2 hover:text-ink"
+                      onClick={() => navigate(`/new?vault=${row.vault.id}`)}
+                      aria-label={`Écrire une note dans ${row.vault.name}`}
+                      className="flex h-8 items-center gap-1.5 rounded-field px-2 text-[12.5px] font-semibold text-accent hover:bg-surface-2"
                     >
-                      <Graph size={15} weight="duotone" aria-hidden />
-                      Graphe
+                      <Plus size={14} weight="bold" aria-hidden />
+                      Nouvelle note
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmVault(row.vault.id)}
-                      aria-label={`Supprimer le vault ${row.vault.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-field text-muted hover:bg-surface-2 hover:text-ink"
-                    >
-                      <Trash size={15} aria-hidden />
-                    </button>
+                    <div className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/vault/${row.vault.id}/graph`)}
+                        aria-label={`Graphe du vault ${row.vault.name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-field text-muted hover:bg-surface-2 hover:text-ink"
+                      >
+                        <Graph size={15} weight="duotone" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditVault(row.vault.id)}
+                        aria-label={`Renommer le vault ${row.vault.name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-field text-muted hover:bg-surface-2 hover:text-ink"
+                      >
+                        <PencilSimple size={15} aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmVault(row.vault.id)}
+                        aria-label={`Supprimer le vault ${row.vault.name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-field text-muted hover:bg-surface-2 hover:text-ink"
+                      >
+                        <Trash size={15} aria-hidden />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </li>
@@ -253,12 +303,12 @@ export default function ProjectSpace() {
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="flex items-center gap-2 font-serif text-[19px] font-semibold">
             <NotePencil size={18} weight="duotone" className="text-accent" aria-hidden />
-            Notes du projet
-            <span className="text-[13px] font-normal text-muted">{ownNotes.length}</span>
+            Notes sans catégorie
+            <span className="text-[13px] font-normal text-muted">{looseNotes.length}</span>
           </h2>
           <button
             type="button"
-            onClick={() => navigate("/new")}
+            onClick={() => navigate(`/new?project=${project.id}`)}
             className="flex items-center gap-1 text-[12.5px] font-semibold text-accent"
           >
             <Plus size={14} weight="bold" aria-hidden />
@@ -266,15 +316,16 @@ export default function ProjectSpace() {
           </button>
         </div>
 
-        {ownNotes.length === 0 ? (
+        {looseNotes.length === 0 ? (
           <p className="mt-2 text-[12.5px] leading-[18px] text-muted">
-            Aucune note dans ce projet. Une note peut aussi vivre sans projet : le bouton
-            flottant de la bibliothèque en crée une, à rattacher plus tard.
+            {ownNotes.length > 0
+              ? `Les ${ownNotes.length} notes du projet sont rangées dans un vault. Créez-en une hors catégorie si elle sert à tout le projet.`
+              : "Aucune note hors catégorie. Le plus simple : ouvrez un vault et écrivez-y vos notes."}
           </p>
         ) : (
           <>
             <ul className="mt-2 flex flex-col gap-1">
-              {ownNotes.slice(0, 6).map((note) => {
+              {looseNotes.slice(0, 6).map((note) => {
                 const Icon = METHODS[note.method]?.icon ?? NotePencil;
                 return (
                   <li key={note.id}>
@@ -298,13 +349,13 @@ export default function ProjectSpace() {
                 );
               })}
             </ul>
-            {ownNotes.length > 6 && (
+            {looseNotes.length > 6 && (
               <button
                 type="button"
                 onClick={() => navigate(`/?project=${project.id}`)}
                 className="mt-2 text-[12.5px] font-semibold text-accent"
               >
-                Voir les {ownNotes.length} notes du projet
+                Voir les {looseNotes.length} notes hors catégorie
               </button>
             )}
           </>
@@ -331,6 +382,12 @@ export default function ProjectSpace() {
       <div className="h-24" />
 
       <VaultSheet open={vaultSheet} onClose={closeVaultSheet} projectId={project.id} />
+      <VaultSheet
+        open={Boolean(editVault)}
+        onClose={() => setEditVault(null)}
+        projectId={project.id}
+        vaultId={editVault ?? undefined}
+      />
       <ProjectSheet
         open={renameOpen}
         onClose={() => setRenameOpen(false)}
@@ -343,10 +400,11 @@ export default function ProjectSpace() {
         title="Supprimer ce vault ?"
       >
         <p className="text-[15px] leading-[22px] text-muted">
-          « {target?.vault.name} » contient {target?.count ?? 0} fiche
+          « {target?.vault.name} » contient {target?.noteCount ?? 0} note
+          {(target?.noteCount ?? 0) > 1 ? "s" : ""} et {target?.count ?? 0} fiche
           {(target?.count ?? 0) > 1 ? "s" : ""}.{" "}
-          {(target?.count ?? 0) > 0
-            ? "Un vault qui contient des fiches ne peut pas être supprimé : déplacez-les d’abord."
+          {(target?.count ?? 0) > 0 || (target?.noteCount ?? 0) > 0
+            ? "Un vault qui contient encore quelque chose ne peut pas être supprimé : déplacez ou supprimez d’abord."
             : "Cette action est définitive."}
         </p>
         <div className="mt-4 flex gap-2">

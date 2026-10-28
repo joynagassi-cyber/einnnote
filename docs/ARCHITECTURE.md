@@ -359,6 +359,14 @@ description, date de création, nombre de notes, méthodes**. Rien d’autre. Ni
 « Zettelkasten », ni « graphe » — le graphe est une action du coffre, pas son
 identité.
 
+**Fait le 28 octobre 2026 (soir).** La carte de `ProjectSpace` affiche
+désormais le nom, la description, `n notes`, `m fiches`, les méthodes présentes
+et l’activité, avec quatre actions : **Nouvelle note** (ouvre `/new?vault=…`,
+la note naît rangée), graphe, renommer, supprimer. Le formulaire de création ne
+propose plus de galerie de modèles : c’était elle qui faisait d’un vault une
+méthode de graphe. Un vault se nomme, s’explique, et naît **vide**
+(`createdAt` ajouté à `ZettelVault`).
+
 ## 9. Vault → Notes
 
 ```
@@ -378,6 +386,22 @@ identité.
 Règles : la méthode est une **colonne et un filtre**, pas une page. Créer une
 note demande la méthode — c’est le seul choix imposé, parce qu’il change
 l’éditeur.
+
+**Fait le 28 octobre 2026 (soir).** Cette page vit sur `/vault/:id` et porte
+l’en-tête de la catégorie (projet, description, date, `n notes`, `m fiches`,
+méthodes). Les notes y sont la section principale ; les fiches de révision
+suivent, en second. La pile Zettelkasten — feuilleter, code, renvois — a
+déménagé sur **`/vault/:id/fiches`**, avec les mêmes gestes qu’avant.
+
+Écart assumé avec le schéma d’adresses : la route reste `/vault/:id` plutôt que
+`/spaces/:p/:v`. Elle est plus courte, elle existait déjà, et un signet
+antérieur ne casse pas ; le projet se déduit du vault et le fil d’Ariane le
+montre. `/zettel/:id` redirige vers `/vault/:id/fiches`.
+
+Le lien manquant a été ajouté côté note : la feuille « Cette note » de
+l’éditeur contient un sélecteur **Vault (catégorie)** limité aux vaults du
+projet de la note. Supprimer un vault ne supprime pas ses notes : elles
+redeviennent des notes du projet, sans catégorie.
 
 ---
 
@@ -481,7 +505,7 @@ Contraintes déjà en place, qu’aucune refonte n’a le droit de casser :
 | **P0 · Nom** | Einnote → Einnote (76 occurrences), `index.html`, `package.json`, docs, notifications | `grep -ri engram src` = 0 |
 | **P1 · Overlays** | `overlay-root`, `<Overlay>` portalé, échelle de plans, dialogue bureau / feuille mobile, piège de focus | un test monte deux pages et vérifie que le dialogue est **enfant de `body`** ; aucune capture « encastrée » possible |
 | **P2 · Coquille** | trois zones, `--screen-max 1024`, en-tête de page, variantes `grid`, panneau de contexte | un écran de 1440 px montre 3 colonnes de cartes, pas une colonne de 720 |
-| **P3 · Espaces → Vault → Notes** | nettoyage de `Spaces`, carte de coffre (nom, date, notes, méthodes), route `/spaces/:p/:v`, filtre par méthode | un vault contenant 3 méthodes l’affiche ; le graphe reste accessible aux deux échelles |
+| ~~**P3 · Espaces → Vault → Notes**~~ | fait : carte de coffre (nom, date, notes, méthodes), page catégorie, fiches déplacées sur `/vault/:id/fiches`, sélecteur de catégorie dans l’éditeur. Reste : route `/spaces/:p/:v` (écart assumé) et filtre par méthode | un vault contenant 3 méthodes l’affiche ; le graphe reste accessible aux deux échelles |
 | **P4 · Calendrier** | `/calendar`, dérivation des événements, panneau du jour | mois navigable, filtres, 4 types d’événements dérivés |
 | **P5 · Statistiques** | `/stats`, 4 KPI, 5 graphiques, table par projet | chaque chiffre traçable à une source ; `Progress` redirigé |
 | **P6 · Modèle unifié** | M2/M3 de §6 (fusion `ZettelCard` → `Note`) | migration testée sur une sauvegarde réelle + export cloud |

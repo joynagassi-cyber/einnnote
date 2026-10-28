@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FilePlus, Sparkle } from "@phosphor-icons/react";
 import { AppBar, Screen, Sheet } from "@/components/Layout";
 import {
@@ -40,21 +40,32 @@ import {
  */
 export default function ChooseMethod() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const createNote = useContentStore((s) => s.createNote);
   const addZettelCard = useContentStore((s) => s.addZettelCard);
   const activeProjectId = useAppStore((s) => s.activeProjectId) ?? undefined;
   const toast = useToast((s) => s.show);
   const [method, setMethod] = useState<Method | null>(null);
 
-  const openWith = (note: { id: string; mindmapId?: string; vaultId?: string }) => {
+  /* On peut créer une note **dans une catégorie** : la note naît alors rangée,
+     au lieu de naître libre puis d’être déplacée à la main. */
+  const vaultId = params.get("vault") ?? undefined;
+  const vault = useContentStore((s) => s.vaults.find((v) => v.id === vaultId));
+  const projectId =
+    vault?.projectId ?? params.get("project") ?? activeProjectId;
+
+  const openWith = (note: { id: string; method: Method; mindmapId?: string; vaultId?: string }) => {
     if (note.mindmapId) navigate(`/mindmap/${note.mindmapId}`, { replace: true });
-    else if (note.vaultId) navigate(`/vault/${note.vaultId}`, { replace: true });
+    else if (note.method === "zettelkasten" && note.vaultId)
+      navigate(`/vault/${note.vaultId}/fiches`, { replace: true });
     else navigate(`/note/${note.id}`, { replace: true });
   };
 
   const blank = (target: Method) => {
     const note = createNote(target, {
-      projectId: activeProjectId,
+      projectId,
+      vaultId,
+
       title:
         target === "cornell"
           ? "Nouvelle note Cornell"
@@ -70,7 +81,8 @@ export default function ChooseMethod() {
   const fromNoteTemplate = (template: NoteTemplate) => {
     const seed = noteFromTemplate(template);
     const note = createNote(template.method, {
-      projectId: activeProjectId,
+      projectId,
+      vaultId,
       title: seed.title,
       collection: seed.collection,
       blocks: seed.blocks,
@@ -82,7 +94,8 @@ export default function ChooseMethod() {
 
   const fromMindmapTemplate = (template: MindmapTemplate) => {
     const note = createNote("mindmap", {
-      projectId: activeProjectId,
+      projectId,
+      vaultId,
       title: template.name,
       mindmap: mindmapFromTemplate(template),
     });
@@ -93,7 +106,8 @@ export default function ChooseMethod() {
 
   const fromZettelTemplate = (template: ZettelTemplate) => {
     const note = createNote("zettelkasten", {
-      projectId: activeProjectId,
+      projectId,
+      vaultId,
       title: template.name,
     });
     if (note.vaultId) {
@@ -110,15 +124,33 @@ export default function ChooseMethod() {
 
   return (
     <Screen className="screen-wide px-5 lg:px-8">
-      <AppBar close onBack={() => navigate("/")} />
+      <AppBar close onBack={() => navigate(vaultId ? `/vault/${vaultId}` : "/")} />
 
-      <h1 className="mt-1 font-serif text-[28px] font-semibold leading-tight">
-        Que voulez-vous faire ?
-      </h1>
-      <p className="mt-1.5 text-[15px] leading-[22px] text-muted">
-        Choisissez selon votre besoin. Vous pourrez changer de méthode plus
-        tard.
-      </p>
+      {vault ? (
+        <header className="mt-1">
+          <p className="text-[12.5px] font-medium text-muted">
+            Nouvelle note dans le vault{" "}
+            <span className="text-ink">« {vault.name} »</span>
+          </p>
+          <h1 className="mt-1 font-serif text-[28px] font-semibold leading-tight">
+            Comment voulez-vous l’écrire ?
+          </h1>
+          <p className="mt-1.5 text-[15px] leading-[22px] text-muted">
+            La note sera rangée dans cette catégorie, sans autre geste. La
+            méthode se change plus tard.
+          </p>
+        </header>
+      ) : (
+        <>
+          <h1 className="mt-1 font-serif text-[28px] font-semibold leading-tight">
+            Que voulez-vous faire ?
+          </h1>
+          <p className="mt-1.5 text-[15px] leading-[22px] text-muted">
+            Choisissez selon votre besoin. Vous pourrez changer de méthode plus
+            tard.
+          </p>
+        </>
+      )}
 
       <div className="mt-5 flex flex-col gap-2.5 lg:grid lg:grid-cols-2">
         {METHOD_ORDER.map((id) => {

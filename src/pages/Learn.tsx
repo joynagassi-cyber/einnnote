@@ -56,6 +56,8 @@ export default function Learn() {
       vaults: own.map((vault) => ({
         id: vault.id,
         name: vault.name,
+        noteCount: notes.filter((note) => note.vaultId === vault.id && !note.deletedAt)
+          .length,
         cardCount: zettel.filter((card) => card.vaultId === vault.id).length,
       })),
     };
@@ -86,8 +88,9 @@ export default function Learn() {
           Un projet, des vaults, des notes
         </h2>
         <p className="mt-1 text-[13.5px] leading-[20px] text-muted">
-          Un projet contient des notes et plusieurs vaults ; un vault contient des
-          fiches — vos notes d’une seule idée, qui se citent entre elles.
+          Un projet se découpe en vaults, c’est-à-dire en catégories : chaque vault
+          range les notes d’une partie du sujet, et les fiches qui en sortent pour
+          la révision.
         </p>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">

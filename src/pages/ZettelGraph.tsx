@@ -193,7 +193,7 @@ export default function ZettelGraph() {
   if (!cards.length) {
     return (
       <Screen className="px-5">
-        <AppBar back onBack={() => navigate(`/vault/${id}`)} title={`Vault · ${vault.name}`} />
+        <AppBar back onBack={() => navigate(`/vault/${id}/fiches`)} title={`Vault · ${vault.name}`} />
         <EmptyState
           icon={Graph}
           title="Pas encore de réseau"
@@ -217,7 +217,7 @@ export default function ZettelGraph() {
       <div className="sticky top-0 z-20 glass">
         <AppBar
           back
-          onBack={() => navigate(`/vault/${id}`)}
+          onBack={() => navigate(`/vault/${id}/fiches`)}
           center={false}
           title={`Graphe · ${vault.name}`}
           action={
@@ -336,7 +336,7 @@ export default function ZettelGraph() {
               setEpoch((value) => value + 1);
               return;
             }
-            navigate(`/vault/${id}?card=${encodeURIComponent(code)}`);
+            navigate(`/vault/${id}/fiches?card=${encodeURIComponent(code)}`);
           }}
           proOptions={{ hideAttribution: true }}
           aria-label={`Graphe du vault ${vault.name} — ${cards.length} fiches, racine ${graph.rootCode}, style ${style.label}`}
@@ -391,7 +391,7 @@ export default function ZettelGraph() {
           className="btn-primary pointer-events-auto h-14 flex-[1.6] rounded-big text-[16px]"
           onClick={() =>
             navigate(
-              `/vault/${id}?card=${encodeURIComponent(rootCard?.code ?? cards[0].code)}`,
+              `/vault/${id}/fiches?card=${encodeURIComponent(rootCard?.code ?? cards[0].code)}`,
             )
           }
         >

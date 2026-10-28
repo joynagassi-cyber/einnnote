@@ -93,7 +93,7 @@ export default function Zettelkasten() {
         <AppBar back title="" />
         <EmptyState
           icon={Graph}
-          title="Ce vault est vide"
+          title="Aucune fiche dans ce vault"
           description="Une carte par idée, écrite avec vos mots, avec sa source. Commencez par la première."
           action={
             <button
@@ -245,7 +245,7 @@ export default function Zettelkasten() {
       <Screen className={cn("px-5", desktop && "screen-wide")}>
         <AppBar
           back
-          onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
+          onBack={() => navigate(`/vault/${id}`)}
           title={undefined}
           action={
             <div className="flex items-center gap-1.5">
@@ -303,9 +303,9 @@ export default function Zettelkasten() {
         <div className="sticky top-0 z-20 glass">
           <AppBar
             back
-            onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
+            onBack={() => navigate(`/vault/${id}`)}
             center={false}
-            title={`Vault · ${vault.name}`}
+            title={`Fiches · ${vault.name}`}
             action={
               <div className="flex items-center gap-1.5">
                 {menu}
@@ -342,9 +342,9 @@ export default function Zettelkasten() {
         <div className="sticky top-0 z-20 glass">
           <AppBar
             back
-            onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
+            onBack={() => navigate(`/vault/${id}`)}
             center={false}
-            title={`Vault · ${vault.name}`}
+            title={`Fiches · ${vault.name}`}
             action={
               <div className="flex items-center gap-1.5">
                 {menu}
@@ -464,7 +464,7 @@ export default function Zettelkasten() {
     <Screen className="px-5">
       <AppBar
         back
-        onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
+        onBack={() => navigate(`/vault/${id}`)}
         title={undefined}
         action={
           <div className="flex items-center gap-1.5">

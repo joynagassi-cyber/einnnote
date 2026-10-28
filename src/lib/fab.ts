@@ -29,8 +29,14 @@ export function fabFor(pathname: string): FabAction[] {
      faire, ou de regarder. */
   if (segments.includes("new") || segments.includes("graph")) return [];
 
-  /* Un vault : la fiche est l'unité de travail. */
+  /* Un vault (une catégorie) : on y écrit des **notes**. C’est l’unité de
+     travail de la page ; les fiches de révision sont un second geste. */
   if (segments[0] === "vault" && segments.length === 2) {
+    return [{ kind: "note", label: "Nouvelle note", to: `/new?vault=${segments[1]}` }];
+  }
+
+  /* La page des fiches, elle, ajoute une fiche. */
+  if (segments[0] === "vault" && segments[2] === "fiches") {
     return [{ kind: "card", label: "Nouvelle fiche", to: `/vault/${segments[1]}/new` }];
   }
 

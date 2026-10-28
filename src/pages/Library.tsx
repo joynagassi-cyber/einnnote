@@ -223,7 +223,7 @@ export default function Library() {
     if (note.method === "mindmap" && note.mindmapId) {
       navigate(`/mindmap/${note.mindmapId}`);
     } else if (note.method === "zettelkasten" && note.vaultId) {
-      navigate(`/vault/${note.vaultId}`);
+      navigate(`/vault/${note.vaultId}/fiches`);
     } else {
       navigate(`/note/${note.id}`);
     }
