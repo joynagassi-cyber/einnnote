@@ -516,13 +516,16 @@ export function NoteEditor({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      /* En lecture, la palette n’a rien à formater : on ne l’ouvre pas. Échap
+         quitte la lecture, c’est le seul raccourci qui y sert. */
+      if (reading) return;
       event.preventDefault();
       setPaletteMode("run");
       setPaletteOpen(true);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [reading]);
 
   /* ----------------------------- MENU « / » ----------------------------- */
   const slashItems = useMemo(() => {

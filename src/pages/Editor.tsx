@@ -254,6 +254,9 @@ export default function Editor() {
       }}
       onFind={(mode) => {
         setSheet("none");
+        /* La barre de recherche vit dans le compositeur : en lecture, elle est
+           masquée. Chercher doit donc sortir de la lecture d’abord. */
+        setReading(false);
         setFindMode(mode);
         setFindOpen(true);
       }}
