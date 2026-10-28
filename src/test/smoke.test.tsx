@@ -610,16 +610,16 @@ describe("Einnote — écrans", () => {
     });
   });
 
-  it("ouvre le menu « / » et insère un titre", async () => {
+  it("ouvre la palette d’insertion avec « / » et insère un titre", async () => {
     const user = userEvent.setup();
     open("/note/n-plan");
     const prose = screen.getByLabelText("Contenu de la note");
     (prose as HTMLElement).focus();
     caretAtEnd(prose);
     await user.keyboard("{Enter}/");
-    const menu = await screen.findByRole("menu", { name: "Insérer un bloc" });
-    expect(menu).toBeTruthy();
-    await user.click(screen.getByRole("menuitem", { name: /Titre 1/ }));
+    const palette = await screen.findByRole("dialog", { name: "Insérer" });
+    expect(palette).toBeTruthy();
+    await user.click(within(palette).getByRole("option", { name: /Titre 1/ }));
     await waitFor(() => {
       const blocks = useContentStore.getState().notes.find(
         (n) => n.id === "n-plan",

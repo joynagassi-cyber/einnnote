@@ -1,6 +1,8 @@
 # Le pupitre et la fiche — barre d’outils mobile et menu de document
 
-> **Statut : spécification. Aucun code de cette page n’est encore écrit.**
+> **Statut : spécification livrée.** Les cinq lots sont codés, testés et
+> poussés (§14). Ce document reste le contrat : ce qui est écrit ici est ce
+> qui tourne, et les deux écarts assumés sont listés au §14.3.
 > Ce document est la réponse à la demande « mapper tout ça avec un document
 > Markdown et décrire comment ça fonctionnera **avant** de coder ».
 > Il se lit comme un contrat : ce qui est écrit ici est ce qui sera construit,
@@ -458,7 +460,10 @@ Un refus n’est pas un manque, c’est une promesse tenue :
   au plus**, sans doublon.
 - Lecture : les identifiants inconnus (commande retirée d’une version future)
   sont **ignorés**, pas remplacés ; la place se referme.
-- Si moins de 4 entrées : on complète avec les gestes par défaut, dans l’ordre.
+- Si moins de 4 entrées : **on ne réinjecte rien.** Un pupitre de trois gestes
+  reste un pupitre de trois gestes — la place rendue reste rendue. Seule une
+  liste **vide ou illisible** rend les quatre gestes par défaut, parce qu’un
+  pupitre sans gestes est un écran mort.
 - Écriture : à chaque `×`, `⋮⋮`, « Ajouter », « Réinitialiser » — pas de bouton
   « Enregistrer ».
 - Synchronisation cloud : hors périmètre du premier lot (le schéma `engram`
@@ -536,13 +541,51 @@ chaque nouveau composant présent dans au moins un test de rendu.
 
 ---
 
-## 13. Trois questions ouvertes (à trancher avant le lot 1)
+## 13. Les trois questions — tranchées
 
-1. **Quatre gestes, ou cinq ?** Quatre tient dans le pouce et laisse « Tout »
-   visible ; cinq donne un geste de plus mais rapproche les cibles de 36 px sur
-   un écran de 360 px. Recommandation : **quatre**.
-2. **La fiche bureau remplace-t-elle le `⋮` ?** Recommandation : **oui**, un seul
-   endroit pour les actions de note, sinon on rejoue le défaut d’Obsidian.
-3. **Les gestes suivent-ils la note ou l’appareil ?** Recommandation :
-   **l’appareil**, comme `settings.rail` — un pupitre réglé sur téléphone ne doit
-   pas réorganiser une barre qui n’existe pas au bureau.
+| Question | Décision | Effet dans le code |
+|---|---|---|
+| Quatre gestes ou cinq ? | **Quatre**, plus « Tout ». À cinq, les cibles tombent sous 36 px sur un écran de 360 px. | `PUPITRE_MAX = 4` (`lib/commands/pupitre.ts`) |
+| La fiche bureau remplace-t-elle le `⋮` ? | **Oui.** Un seul endroit pour les actions de note. | Le `⋮` n’existe plus qu’en dessous de 1024 px ; au bureau, bouton « Fiche » + `Ctrl/⌘ .` |
+| Les gestes suivent-ils la note ou l’appareil ? | **L’appareil**, comme `settings.rail`. Un pupitre réglé au téléphone n’a aucune raison de réorganiser un bureau. | une seule clé `engram.pupitre.v1`, lue au téléphone seulement |
+
+## 14. État de livraison
+
+### 14.1 Les cinq lots
+
+| Lot | État | Fichiers | Tests |
+|---|---|---|---|
+| 1 · Registre + palette | **livré** | `lib/commands/registry.ts` (~55 commandes, 6 familles), `lib/commands/recent.ts`, `components/commands/Palette.tsx` | `lib/commands/registry.test.ts` (13), `test/commands.test.tsx` |
+| 2 · Pupitre + Ranger | **livré** | `components/commands/Pupitre.tsx`, `lib/commands/pupitre.ts` | `lib/commands/pupitre.test.ts` (10) |
+| 3 · Fiche | **livré** | `components/note/Fiche.tsx`, `components/note/FicheWindow.tsx` | `test/fiche.test.tsx` (7) |
+| 4 · Liens de notes | **livré** | `lib/links/notes.ts`, `lib/editor/note-links.ts`, `components/note/NotePicker.tsx` | `lib/links/notes.test.ts` (6), `test/links.test.tsx` (5) |
+| 5 · Nettoyage | **livré** | menu `/` supprimé de `NoteEditor.tsx` (−120 lignes), `/` ouvre la palette en mode `insert` | `test/smoke.test.tsx` (le test du `/` passe par la palette) |
+
+Bilan : **665 tests / 63 fichiers**, `tsc` 0 erreur, `eslint` 0 erreur,
+`vite build` vert, `impeccable detect src/` **0 anti-patron**.
+
+### 14.2 Ce que le code ajoute au document
+
+- **Les liens de notes ne sont pas stockés.** `[[Titre]]` reste du texte ; une
+  décoration TipTap le rend cliquable. Conséquences : rien à synchroniser, rien
+  à migrer, export Markdown fidèle, et un lien mort reste **visible** (pointillé
+  + « Lien mort vers … » pour le lecteur d’écran) au lieu de disparaître.
+- **Rétro-liens calculés**, pas indexés : la fiche recompte qui cite la note à
+  chaque rendu. À l’échelle d’un carnet, c’est instantané, et aucune table ne
+  peut se désynchroniser du texte.
+- **Accès clavier aux liens** : une décoration n’est pas focusable, donc
+  « Ouvrir le lien sous le curseur » est une commande de palette. Sans elle, un
+  lien de note aurait été un geste de souris — inacceptable.
+
+### 14.3 Deux écarts assumés
+
+1. **Le bureau garde sa barre de mise en forme.** Le §3 annonçait « aucune barre
+   permanente ». La construire ainsi aurait retiré vingt gestes visibles d’un
+   écran qui n’a pas été vérifié visuellement, dans le même lot que trois
+   surfaces neuves. La palette reste le chemin rapide (`Ctrl/⌘ K`), le pupitre
+   est masqué au-delà de 768 px, et la barre ne réapparaît pas en lecture. Si la
+   suppression est souhaitée, c’est un lot à part, avec une capture avant/après.
+2. **Le pupitre ne se reremplit pas tout seul.** Le §10 disait « on complète à
+   quatre ». À l’usage, retirer un geste et voir un autre arriver à sa place est
+   une négation du geste. Corrigé dans le document **et** dans le code.
+

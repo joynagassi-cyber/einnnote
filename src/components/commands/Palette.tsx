@@ -39,11 +39,15 @@ export interface PaletteProps {
   snapshot: EditorSnapshot;
   onRun: (command: Command) => void;
   /** choisir un geste à ranger plutôt que l’exécuter */
-  mode?: "run" | "add";
+  mode?: "run" | "add" | "insert";
   title?: string;
 }
 
 const ADD_MOMENTS = new Set(["texte", "selection", "liste"]);
+/* « insert » : la palette ouverte par « / ». On n’y montre que ce qui ajoute
+   quelque chose au document — un « Annuler » sous la barre oblique serait un
+   contresens. */
+const INSERT_GROUPS = new Set(["Blocs", "Listes", "Insérer"]);
 
 export function Palette({
   open,
@@ -70,7 +74,12 @@ export function Palette({
   const recent = useMemo(() => (open ? readRecent() : []), [open]);
 
   const pool = useMemo(() => {
-    const base = mode === "add" ? COMMANDS.filter((command) => ADD_MOMENTS.has(command.moment)) : COMMANDS;
+    const base =
+      mode === "add"
+        ? COMMANDS.filter((command) => ADD_MOMENTS.has(command.moment))
+        : mode === "insert"
+          ? COMMANDS.filter((command) => INSERT_GROUPS.has(command.group))
+          : COMMANDS;
     return sortedCommands(base);
   }, [mode]);
 

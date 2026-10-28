@@ -26,6 +26,7 @@ import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
 import { METHODS } from "@/lib/methods";
 import { blocksToMarkdown } from "@/lib/editor/blocks";
+import { backlinksTo, outgoingFrom } from "@/lib/links/notes";
 import { noteTemplatesFor, type NoteTemplate } from "@/lib/templates/notes";
 import { blocksFromTemplate } from "@/lib/templates/apply";
 import type { Block } from "@/types";
@@ -40,6 +41,19 @@ export default function Editor() {
   const updateNote = useContentStore((s) => s.updateNote);
   const allVaults = useContentStore((s) => s.vaults);
   const projects = useContentStore((s) => s.projects);
+  const allNotes = useContentStore((s) => s.notes);
+  const createNote = useContentStore((s) => s.createNote);
+  /* Les notes qu’on peut lier : pas soi-même, pas la corbeille. */
+  /* Le texte d’une note, sans balises : c’est ce que lisent les liens. */
+  const plainText = (blocks: Block[]) =>
+    blocks.map((block) => block.html.replace(/<[^>]+>/g, " ")).join("\n");
+  const liveNotes = useMemo(
+    () =>
+      allNotes
+        .filter((candidate) => candidate.id !== id && !candidate.deletedAt)
+        .map((candidate) => ({ id: candidate.id, title: candidate.title })),
+    [allNotes, id],
+  );
   const replaceBlocks = useContentStore((s) => s.replaceBlocks);
   const addQuestion = useContentStore((s) => s.addQuestion);
   const deleteQuestion = useContentStore((s) => s.deleteQuestion);
@@ -227,6 +241,28 @@ export default function Editor() {
     toast("Note déplacée", "accent");
   };
 
+  const noteRefs = useMemo(
+    () =>
+      allNotes
+        .filter((candidate) => !candidate.deletedAt)
+        .map((candidate) => ({ id: candidate.id, title: candidate.title })),
+    [allNotes],
+  );
+  const backlinks = useMemo(() => {
+    if (!note) return [];
+    const sources = allNotes
+      .filter((candidate) => !candidate.deletedAt && candidate.id !== note.id)
+      .map((candidate) => ({
+        note: { id: candidate.id, title: candidate.title },
+        text: plainText(candidate.blocks),
+      }));
+    return backlinksTo({ id: note.id, title: note.title }, sources);
+  }, [allNotes, note]);
+  const outgoing = useMemo(
+    () => (note ? outgoingFrom(plainText(note.blocks), noteRefs) : []),
+    [note, noteRefs],
+  );
+
   const fiche = (
     <Fiche
       title={note.title}
@@ -268,6 +304,16 @@ export default function Editor() {
           ? () => setSheet("templates")
           : undefined
       }
+      backlinks={backlinks.map((link) => ({
+        id: link.from.id,
+        title: link.from.title,
+        excerpt: link.excerpt,
+      }))}
+      outgoing={outgoing.map((link) => ({ title: link.title, id: link.note?.id }))}
+      onOpenLink={(noteId) => {
+        setSheet("none");
+        navigate(`/note/${noteId}`);
+      }}
       onArrange={
         desktop
           ? undefined
@@ -420,6 +466,18 @@ export default function Editor() {
           key={`${note.id}:${editorEpoch}`}
           blocks={note.blocks}
           reading={reading}
+          noteId={note.id}
+          notes={liveNotes}
+          onOpenNote={(target) => navigate(`/note/${target.id}`)}
+          onCreateNote={(title) => {
+            const created = createNote(note.method, {
+              title,
+              projectId: note.projectId,
+              ...(note.vaultId ? { vaultId: note.vaultId } : {}),
+            });
+            toast(`Note « ${title} » créée`, "accent");
+            return { id: created.id, title: created.title };
+          }}
           onFiche={() => setSheet("menu")}
           onToggleReading={() => setReading((value) => !value)}
           ranging={ranging}

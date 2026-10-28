@@ -14,6 +14,7 @@ import {
   Highlighter,
   IdentificationCard,
   LinkSimple,
+  ArrowSquareOut,
   ListBullets,
   ListChecks,
   ListNumbers,
@@ -93,6 +94,10 @@ export interface CommandContext {
   fiche: () => void;
   /** bascule le mode lecture */
   reading: () => void;
+  /** ouvre le sélecteur de note pour écrire `[[Titre]]` */
+  link: () => void;
+  /** suit le lien de note où se trouve le curseur (chemin clavier) */
+  openLinkAtCursor: () => void;
 }
 
 interface IconProps {
@@ -500,6 +505,26 @@ export const COMMANDS: Command[] = [
       if (!ctx.editor) return;
       ctx.editor.chain().focus().insertContent(todayLabel()).run();
     },
+  },
+  {
+    id: "note-link-open",
+    label: "Ouvrir le lien sous le curseur",
+    hint: "Accès clavier aux liens",
+    group: "Se déplacer",
+    moment: "texte",
+    icon: ArrowSquareOut,
+    keywords: ["lien", "note", "suivre", "wiki"],
+    run: (ctx) => ctx.openLinkAtCursor(),
+  },
+  {
+    id: "note-link",
+    label: "Lier une note",
+    hint: "[[Titre]]",
+    group: "Insérer",
+    moment: "texte",
+    icon: LinkSimple,
+    keywords: ["lien", "wiki", "renvoi", "rétro-lien"],
+    run: (ctx) => ctx.link(),
   },
   {
     id: "time",

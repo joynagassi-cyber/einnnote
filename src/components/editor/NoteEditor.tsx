@@ -16,7 +16,6 @@ import {
   TextStrikethrough,
   TextUnderline,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/stores/useToast";
 import { useAppStore } from "@/stores/useAppStore";
 import { blocksToHtml, docToBlocks, type PmNode } from "@/lib/editor/blocks";
@@ -27,11 +26,11 @@ import {
   blockKindOf,
   currentBlockAttrs,
   selectedText,
-  toggleMeta,
-  toggleTask,
-  turnInto,
-  type BlockTarget,
+        type BlockTarget,
 } from "@/lib/editor/extensions";
+import { NoteLinks } from "@/lib/editor/note-links";
+import { NotePicker } from "@/components/note/NotePicker";
+import { normalizeTitle, resolveLink, type NoteRef } from "@/lib/links/notes";
 import { SearchHighlight } from "@/lib/editor/search";
 import { HIGHLIGHTS } from "@/lib/editor/highlights";
 import {
@@ -54,54 +53,6 @@ export { HIGHLIGHTS };
 /* Menu « / » — tout ce qu’on peut insérer ou transformer              */
 /* ------------------------------------------------------------------ */
 
-type SlashId =
-  | "p"
-  | "h1"
-  | "h2"
-  | "h3"
-  | "quote"
-  | "rule"
-  | "bullet"
-  | "ordered"
-  | "task"
-  | "bold"
-  | "italic"
-  | "strike"
-  | "code"
-  | "highlight"
-  | "link"
-  | "clear";
-
-interface SlashItem {
-  id: SlashId;
-  label: string;
-  hint: string;
-  group: string;
-}
-
-/**
- * Le menu « / » est le frère de la barre d’outils : les mêmes gestes, mais
- * sans quitter le clavier. Il est **groupé** (blocs, listes, mise en forme) et
- * **filtrable** — taper « cit » ne laisse que la citation.
- */
-const SLASH_ITEMS: SlashItem[] = [
-  { id: "p", label: "Texte", hint: "Paragraphe normal", group: "Blocs" },
-  { id: "h1", label: "Titre 1", hint: "Section principale", group: "Blocs" },
-  { id: "h2", label: "Titre 2", hint: "Sous-section", group: "Blocs" },
-  { id: "h3", label: "Titre 3", hint: "Détail", group: "Blocs" },
-  { id: "quote", label: "Citation", hint: "Passage mis en avant", group: "Blocs" },
-  { id: "rule", label: "Filet", hint: "Séparateur horizontal", group: "Blocs" },
-  { id: "bullet", label: "Liste à puces", hint: "Puces et retrait", group: "Listes" },
-  { id: "ordered", label: "Liste numérotée", hint: "1. 2. 3.", group: "Listes" },
-  { id: "task", label: "Case à cocher", hint: "À faire, coché d’un geste", group: "Listes" },
-  { id: "bold", label: "Gras", hint: "Ctrl+B", group: "Mise en forme" },
-  { id: "italic", label: "Italique", hint: "Ctrl+I", group: "Mise en forme" },
-  { id: "strike", label: "Barré", hint: "Ctrl+Maj+X", group: "Mise en forme" },
-  { id: "code", label: "Code en ligne", hint: "Ctrl+E", group: "Mise en forme" },
-  { id: "highlight", label: "Surlignage", hint: "Jaune par défaut", group: "Mise en forme" },
-  { id: "link", label: "Lien", hint: "Ctrl+K", group: "Mise en forme" },
-  { id: "clear", label: "Effacer la mise en forme", hint: "Texte nu", group: "Mise en forme" },
-];
 
 /* ------------------------------------------------------------------ */
 
@@ -116,6 +67,11 @@ export function NoteEditor({
   reading = false,
   ranging: rangingProp,
   onRangingChange: onRangingChangeProp,
+  notes = [],
+  noteId,
+  onOpenNote,
+  onCreateNote,
+  onDeleteLink,
 }: {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
@@ -131,23 +87,42 @@ export function NoteEditor({
   /** état du rangement du pupitre, quand l’écran le pilote aussi (fiche) */
   ranging?: boolean;
   onRangingChange?: (open: boolean) => void;
+  /** toutes les notes : c’est ce qui rend `[[Titre]]` cliquable */
+  notes?: NoteRef[];
+  /** la note ouverte — on ne se lie pas à soi-même */
+  noteId?: string;
+  onOpenNote?: (note: NoteRef) => void;
+  /** crée la note manquante et rend sa référence, pour lier aussitôt */
+  onCreateNote?: (title: string) => NoteRef | undefined;
+  onDeleteLink?: () => void;
 }) {
   const toast = useToast((s) => s.show);
-  const [slashAt, setSlashAt] = useState<number | null>(null);
-  const [slashQuery, setSlashQuery] = useState("");
-  const [slashIndex, setSlashIndex] = useState(0);
   const [findOpen, setFindOpen] = useState(false);
   const [findMode, setFindMode] = useState<"find" | "replace">("find");
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [paletteMode, setPaletteMode] = useState<"run" | "add">("run");
+  const [paletteMode, setPaletteMode] = useState<"run" | "add" | "insert">("run");
   /* L’état du rangement est partagé : l’écran peut l’ouvrir depuis la fiche,
      au clavier, sans passer par un appui long de 500 ms. */
+  const [linkOpen, setLinkOpen] = useState(false);
   const [rangingLocal, setRangingLocal] = useState(false);
   const ranging = rangingProp ?? rangingLocal;
   const setRanging = (open: boolean) => {
     setRangingLocal(open);
     onRangingChangeProp?.(open);
   };
+
+  /* Le registre de notes est lu par des décorations créées une seule fois :
+     une ref évite de reconstruire l’extension à chaque rendu. */
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const onOpenNoteRef = useRef(onOpenNote);
+  onOpenNoteRef.current = onOpenNote;
+  const titleIndex = useMemo(
+    () => new Set(notes.map((note) => normalizeTitle(note.title))),
+    [notes],
+  );
+  const titleIndexRef = useRef(titleIndex);
+  titleIndexRef.current = titleIndex;
 
   const saveTimer = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -158,11 +133,6 @@ export function NoteEditor({
   onBadgeClickRef.current = onBadgeClick;
   const onAskRef = useRef(onAsk);
   onAskRef.current = onAsk;
-
-  /* Le menu « / » s’écoute dans le champ de saisie lui-même : au niveau du
-     document, ProseMirror aurait déjà coupé le paragraphe sur `Entrée`. */
-  const slashUi = useRef({ open: false, items: [] as SlashItem[], index: 0 });
-  const applySlashRef = useRef<(id: SlashId) => void>(() => {});
 
   const editable = !reading;
 
@@ -203,6 +173,14 @@ export function NoteEditor({
       Superscript,
       Subscript,
       SearchHighlight,
+      NoteLinks.configure({
+        exists: (title) => titleIndexRef.current.has(normalizeTitle(title)),
+        onOpen: (title) => {
+          const target = resolveLink(title, notesRef.current);
+          if (target) onOpenNoteRef.current?.(target);
+          else toast(`Aucune note ne porte « ${title} »`);
+        },
+      }),
     ],
     content: blocksToHtml(blocks),
     autofocus: false,
@@ -274,29 +252,6 @@ export function NoteEditor({
           return true;
         }
 
-        const slash = slashUi.current;
-        if (slash.open) {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            setSlashAt(null);
-            setSlashQuery("");
-            return true;
-          }
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            const count = slash.items.length;
-            if (!count) return true;
-            const delta = event.key === "ArrowDown" ? 1 : -1;
-            setSlashIndex((index) => (index + delta + count) % count);
-            return true;
-          }
-          if (event.key === "Enter" || event.key === "Tab") {
-            event.preventDefault();
-            const item = slash.items[Math.min(slash.index, slash.items.length - 1)];
-            if (item) applySlashRef.current(item.id);
-            return true;
-          }
-        }
         return false;
       },
     },
@@ -306,18 +261,20 @@ export function NoteEditor({
         persist(instance.getJSON() as PmNode);
       }, 350);
 
-      /* Menu « / » : un paragraphe dont le texte commence par « / ». La suite
-         du texte filtre les entrées, comme dans Notion. */
+      /* « / » dans un paragraphe vide : on retire le caractère et on ouvre la
+         palette sur les gestes d’insertion. Un seul catalogue de commandes
+         pour toutes les surfaces — c’est le point du registre. */
       const { $from } = instance.state.selection;
-      const text = $from.parent.textContent;
-      const typing =
+      if (
         instance.state.selection.empty &&
         $from.parent.type.name === "paragraph" &&
-        text.startsWith("/") &&
-        $from.parentOffset === text.length;
-      setSlashAt(typing ? instance.state.selection.from : null);
-      setSlashQuery(typing ? text.slice(1) : "");
-      setSlashIndex(0);
+        $from.parentOffset === 1 &&
+        $from.parent.textContent === "/"
+      ) {
+        instance.chain().deleteRange({ from: $from.pos - 1, to: $from.pos }).run();
+        setPaletteMode("insert");
+        setPaletteOpen(true);
+      }
     },
   });
 
@@ -486,6 +443,23 @@ export function NoteEditor({
 
   /* Une seule porte d’exécution : la palette et le pupitre passent par ici,
      donc l’enregistrement est fait une seule fois, au même endroit. */
+  /* Écrire un lien : si `[[` a été tapé, on remplace les deux crochets plutôt
+     que d’en ajouter deux autres. Le curseur reste après le lien, prêt à
+     continuer la phrase. */
+  const insertLink = useCallback(
+    (note: NoteRef) => {
+      if (!editor) return;
+      const { from } = editor.state.selection;
+      if (from >= 2 && editor.state.doc.textBetween(from - 2, from, "\n", "\n") === "[[") {
+        editor.chain().focus().deleteRange({ from: from - 2, to: from }).run();
+      }
+      editor.chain().focus().insertContent(`[[${note.title}]] `).run();
+      persist(editor.getJSON() as PmNode);
+      setLinkOpen(false);
+    },
+    [editor, persist],
+  );
+
   const runCommand = useCallback(
     (command: Command) => {
       if (!editor) return;
@@ -499,6 +473,29 @@ export function NoteEditor({
         },
         fiche: () => onFiche?.(),
         reading: () => onToggleReading?.(),
+        link: () => setLinkOpen(true),
+        openLinkAtCursor: () => {
+          /* Le curseur peut être *dans* les crochets : on regarde le bloc de
+             texte courant, où les décalages sont exacts, et on retient le lien
+             dont l’intervalle contient le curseur. */
+          const { $from } = editor.state.selection;
+          const text = $from.parent.textContent;
+          const offset = $from.parentOffset;
+          const hit = [...text.matchAll(/\[\[([^[\]\n]{1,160})\]\]/g)].find(
+            (match) => {
+              const at = match.index ?? 0;
+              return offset >= at && offset <= at + match[0].length;
+            },
+          );
+          const raw = hit?.[1]?.trim();
+          if (!raw) {
+            toast("Aucun lien de note sous le curseur");
+            return;
+          }
+          const target = resolveLink(raw, notesRef.current);
+          if (target) onOpenNoteRef.current?.(target);
+          else toast(`Aucune note ne porte « ${raw} »`);
+        },
       };
       command.run(context);
       persist(editor.getJSON() as PmNode);
@@ -506,7 +503,7 @@ export function NoteEditor({
     [editor, onFiche, onToggleReading, persist, toast],
   );
 
-  const openPalette = useCallback((mode: "run" | "add" = "run") => {
+  const openPalette = useCallback((mode: "run" | "add" | "insert" = "run") => {
     setPaletteMode(mode);
     setPaletteOpen(true);
   }, []);
@@ -527,66 +524,6 @@ export function NoteEditor({
     return () => document.removeEventListener("keydown", onKey);
   }, [reading]);
 
-  /* ----------------------------- MENU « / » ----------------------------- */
-  const slashItems = useMemo(() => {
-    const needle = slashQuery.trim().toLowerCase();
-    if (!needle) return SLASH_ITEMS;
-    return SLASH_ITEMS.filter(
-      (item) =>
-        item.label.toLowerCase().includes(needle) ||
-        item.hint.toLowerCase().includes(needle) ||
-        item.group.toLowerCase().includes(needle),
-    );
-  }, [slashQuery]);
-
-  const applySlash = (id: SlashId) => {
-    if (!editor || slashAt === null) return;
-    const chain = editor
-      .chain()
-      .focus()
-      .deleteRange({ from: slashAt - 1, to: slashAt });
-
-    if (id === "p" || id === "h1" || id === "h2" || id === "h3" || id === "quote" || id === "rule") {
-      chain.setParagraph().run();
-      turnInto(editor, id);
-    } else if (id === "bullet") {
-      chain.setParagraph().run();
-      toggleMeta(editor, "bullet");
-    } else if (id === "ordered") {
-      chain.setParagraph().run();
-      toggleMeta(editor, "ordered");
-    } else if (id === "task") {
-      chain.setParagraph().run();
-      toggleTask(editor);
-    } else if (id === "bold") {
-      chain.toggleBold().run();
-    } else if (id === "italic") {
-      chain.toggleItalic().run();
-    } else if (id === "strike") {
-      chain.toggleStrike().run();
-    } else if (id === "code") {
-      chain.toggleCode().run();
-    } else if (id === "highlight") {
-      chain.toggleHighlight({ color: HIGHLIGHTS[0].color }).run();
-    } else if (id === "link") {
-      chain.run();
-      setLink();
-    } else if (id === "clear") {
-      chain.setParagraph().unsetAllMarks().run();
-    }
-
-    setSlashAt(null);
-    setSlashQuery("");
-    persist(editor.getJSON() as PmNode);
-  };
-
-  slashUi.current = {
-    open: slashAt !== null,
-    items: slashItems,
-    index: slashIndex,
-  };
-  applySlashRef.current = applySlash;
-
   return (
     <div className="note-editor">
       {/* Compositeur : en haut sur bureau, en bas au-dessus du clavier sur mobile */}
@@ -595,6 +532,22 @@ export function NoteEditor({
         {/* Téléphone : le pupitre (quatre gestes choisis). Bureau : la barre
             complète. Le CSS décide laquelle est visible ; les deux lisent le
             même état, donc aucune divergence possible. */}
+        <NotePicker
+          open={linkOpen}
+          onClose={() => setLinkOpen(false)}
+          notes={notes}
+          currentId={noteId}
+          onPick={insertLink}
+          onCreate={
+            onCreateNote
+              ? (title) => {
+                  const created = onCreateNote(title);
+                  if (created) insertLink(created);
+                  else setLinkOpen(false);
+                }
+              : undefined
+          }
+        />
         <Pupitre
           snapshot={snapshot}
           onRun={runCommand}
@@ -622,7 +575,13 @@ export function NoteEditor({
         onClose={() => setPaletteOpen(false)}
         snapshot={snapshot}
         mode={paletteMode}
-        title={paletteMode === "add" ? "Ajouter un geste au pupitre" : undefined}
+        title={
+          paletteMode === "add"
+            ? "Ajouter un geste au pupitre"
+            : paletteMode === "insert"
+              ? "Insérer"
+              : undefined
+        }
         onRun={runCommand}
       />
 
@@ -712,42 +671,6 @@ export function NoteEditor({
         </div>
       )}
 
-      {/* Menu « / » */}
-      {slashAt !== null && (
-        <div className="dock dock-above-composer fixed inset-x-0 z-40 mx-auto px-4">
-          <div
-            role="menu"
-            aria-label="Insérer un bloc"
-            className="max-h-[52vh] overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-lift"
-          >
-            {slashItems.length === 0 && (
-              <p className="px-3 py-2 text-[13px] text-muted">Aucun bloc ne correspond.</p>
-            )}
-            {slashItems.map((item, index) => (
-              <div key={item.id}>
-                {(index === 0 || slashItems[index - 1].group !== item.group) && (
-                  <p className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    {item.group}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onMouseEnter={() => setSlashIndex(index)}
-                  onClick={() => applySlash(item.id)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-field px-3 py-2 text-left",
-                    index === slashIndex ? "bg-surface-2" : "hover:bg-surface-2",
-                  )}
-                >
-                  <span className="text-[15px] font-medium">{item.label}</span>
-                  <span className="text-[12.5px] text-muted">{item.hint}</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

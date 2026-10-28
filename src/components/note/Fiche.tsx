@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ArrowRight,
+  ArrowSquareOut,
   BookOpen,
   ClockCounterClockwise,
   Copy,
@@ -56,6 +57,12 @@ export interface FicheProps {
   /** absent sur bureau : le pupitre est un geste de téléphone */
   onArrange?: () => void;
   onTrash: () => void;
+  /** qui cite cette note */
+  backlinks?: { id: string; title: string; excerpt: string }[];
+  /** ce que cette note cite, avec les liens morts distingués */
+  outgoing?: { title: string; id?: string }[];
+  onOpenLink?: (id: string) => void;
+  onLinkNote?: () => void;
 }
 
 export function Fiche({
@@ -76,6 +83,10 @@ export function Fiche({
   onTemplate,
   onArrange,
   onTrash,
+  backlinks = [],
+  outgoing = [],
+  onOpenLink,
+  onLinkNote,
 }: FicheProps) {
   const [confirming, setConfirming] = useState(false);
 
@@ -143,6 +154,76 @@ export function Fiche({
           </div>
         )}
       </Section>
+
+      {/* -------------------------------------------------------- Liens */}
+      {(onLinkNote || backlinks.length > 0 || outgoing.length > 0) && (
+        <Section title="Liens">
+          {onLinkNote && (
+            <Action
+              icon={LinkSimple}
+              label="Lier une note"
+              hint="Écrit [[Titre]] dans le texte"
+              onClick={onLinkNote}
+            />
+          )}
+
+          {outgoing.length > 0 && (
+            <div className="px-2.5 py-1.5">
+              <p className="text-[11.5px] font-medium uppercase tracking-[0.1em] text-muted">
+                Cette note cite
+              </p>
+              <ul className="mt-1 flex flex-col">
+                {outgoing.map((link) => (
+                  <li key={link.title}>
+                    {link.id && onOpenLink ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenLink(link.id!)}
+                        className="flex min-h-[32px] w-full items-center gap-1.5 text-left text-[13.5px] text-accent-ink"
+                      >
+                        <ArrowSquareOut size={13} aria-hidden />
+                        <span className="truncate">{link.title}</span>
+                      </button>
+                    ) : (
+                      <span
+                        className="flex min-h-[32px] items-center gap-1.5 text-[13.5px] text-muted"
+                        title="Aucune note ne porte ce titre"
+                      >
+                        <WarningCircle size={13} aria-hidden />
+                        <span className="truncate line-through">{link.title}</span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {backlinks.length > 0 && (
+            <div className="px-2.5 py-1.5">
+              <p className="text-[11.5px] font-medium uppercase tracking-[0.1em] text-muted">
+                Citée par {backlinks.length}
+              </p>
+              <ul className="mt-1 flex flex-col gap-1">
+                {backlinks.map((link) => (
+                  <li key={link.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenLink?.(link.id)}
+                      className="w-full rounded-field px-1.5 py-1 text-left hover:bg-surface-2"
+                    >
+                      <span className="block text-[13.5px] font-medium">{link.title}</span>
+                      <span className="mt-0.5 block text-[12px] leading-[17px] text-muted">
+                        {link.excerpt}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* --------------------------------------------------------- Lire */}
       <Section title="Lire">
