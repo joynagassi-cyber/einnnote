@@ -1,7 +1,7 @@
 # L’atelier d’images — photographies et illustrations
 
-> Vingt images HD (dix photographies, dix illustrations éditoriales), générées
-> pour ce projet, sans licence à acheter ni dépendance à un CDN.
+> Vingt-cinq images HD (douze photographies, treize illustrations éditoriales),
+> générées pour ce projet, sans licence à acheter ni dépendance à un CDN.
 > 28 octobre 2026.
 
 ## 1. Pourquoi un atelier dans le dépôt
@@ -19,7 +19,7 @@ wallpapers/
 public/walls/*.png         les fichiers servis : 1280 px, 224 teintes, ~0,5 Mo
 ```
 
-## 2. Les vingt images
+## 2. Les vingt-cinq images
 
 | Identifiant | Nom | Ambiance | Moyenne mesurée | Palette recommandée |
 |---|---|---|---|---|
@@ -43,6 +43,11 @@ public/walls/*.png         les fichiers servis : 1280 px, 224 teintes, ~0,5 Mo
 | `new-york` | New York | heure dorée · tours | `#7f6c58` | Material sombre |
 | `marrakech` | Marrakech | terre · minaret | `#956350` | Material sombre |
 | `sydney` | Sydney | port · voiles | `#879ba2` | Material |
+| `aube-mer` | Aube sur mer | mer · première lumière | `#796e6f` | Material sombre |
+| `desert` | Désert | dune · ochre | `#dfb088` | Nord Neige |
+| `montagne` | Montagne | arête · heure bleue | `#334d6a` | Nord |
+| `brume-lac` | Brume de lac | jetée · ouate | `#7d8b8d` | Material |
+| `noir-blanc` | Noir et blanc | béton · ombre | `#484848` | Papier nuit |
 
 Les moyennes ne sont pas écrites à la main : elles sont **mesurées sur les
 pixels** du fichier livré (`scripts/normalize-walls.mjs`), et
@@ -74,12 +79,15 @@ elles appellent une palette claire, et c’est un test qui le garantit.
 
 ## 4. Les séries de la galerie
 
-L’écran d’Apparence ne liste plus quarante-quatre vignettes d’affilée : il les
-range en **séries**, comme un choix de couvertures. L’ordre va du plus dessiné
-au plus abstrait — c’est l’ordre dans lequel on cherche.
+L’écran d’Apparence ne liste plus quarante-neuf vignettes d’affilée : il les
+range en **séries**, comme un choix de couvertures, et la série **Horizons**
+ouvre la marche — cinq images neuves sur cinq lumières différentes (aube, dune,
+arête, ouate, ombre). L’ordre va du plus photographié au plus abstrait : c’est
+l’ordre dans lequel on cherche.
 
 | Série | Fond | Contenu |
 |---|---|---|
+| **Horizons** | 5 | Aube sur mer · Désert · Montagne · Brume de lac · Noir et blanc |
 | **Matières** | 2 | Feuillage · Architecture |
 | **Saisons** | 4 | Printemps · Été · Automne · Hiver |
 | **Villes** | 4 | Tokyo · New York · Marrakech · Sydney |
@@ -88,7 +96,7 @@ au plus abstrait — c’est l’ordre dans lequel on cherche.
 | **Dégradés** | 6 | cinq arrêts, couleur franche |
 
 Ce découpage est une donnée (`WALL_SERIES` dans `src/lib/walls.ts`), pas une
-suite de titres écrits dans la page : un test vérifie que les six séries
+suite de titres écrits dans la page : un test vérifie que les sept séries
 existent, qu’aucune n’est vide et que chacune contient bien les fonds attendus.
 
 ## 5. Les prompts
@@ -108,7 +116,23 @@ lumière** et **la palette** : c’est ce qui rend la couleur moyenne prévisibl
 | `canyon-argile` | Landscape photograph, 16:10. Layered red rock canyon, terracotta and rust strata, narrow river below, warm reflected glow. |
 | `jardin-fleurs` | Garden photograph, 16:10. Pink and white blossom in shallow depth of field, creamy pale background, pastel palette. |
 | `sel-pastel` | Landscape photograph, 16:10. Salt flats with a thin film of water mirroring a pastel sky, lavender and mint reflections, minimal horizon. |
+| `aube-mer` | Flat vector illustration, 16:10. Sunrise over a calm sea, wide horizontal bands of coral, apricot and dusty rose reflected in the water, thin dark horizon line, no land. Minimal editorial poster, soft grain. |
+| `desert` | Flat vector illustration, 16:10. Rolling desert dunes at low sun, long smooth ridges, warm ochre and sand gradients, a single curved shadow, empty sky. Minimal editorial poster. |
+| `montagne` | Landscape photograph, 16:10. Sharp mountain ridge line at blue hour, snow on the summits, layered valleys fading to haze, cold blue and steel grey, no foreground. |
+| `brume-lac` | Landscape photograph, 16:10. Wooden jetty disappearing into a still lake wrapped in thick morning fog, soft grey water, no visible horizon, muted sage and pewter. |
+| `noir-blanc` | Black and white photograph, 16:10. Abstract concrete architecture, hard diagonal shadows on a blank wall, strong grain, high contrast, no people, no text. |
 | `volcan-noir` | Landscape photograph, 16:10. Black volcanic sand, basalt columns, cold grey Atlantic, overcast sky with a thin amber band. |
+
+### La série « Horizons »
+Générée en dernier, sur cinq **thèmes** distincts pour que la galerie ne répète
+pas deux fois la même lumière : aube, dune, arête, brume, ombre. Deux sont
+vectorielles, trois photographiques — la série mélange volontairement les deux
+familles pour montrer qu’elles cohabitent.
+
+`aube.png` a été renommé `aube-mer` : l’identifiant `aube` appartient déjà à un
+SVG historique, et `wallFile()` choisit l’extension d’après le `kind`. Un fond
+`monochrome` comme `noir-blanc` déclare l’exception : son accent est neutre, et
+le test de teinte le sait au lieu d’être assoupli pour tout le monde.
 
 ### Les dix illustrations
 
@@ -130,7 +154,8 @@ contour, sans texte ni logo — la famille visuelle des couvertures de magazines
 
 ## 6. Ce que ça change dans le produit
 
-1. La galerie d’Apparence gagne **vingt vignettes**, rangées en six séries.
+1. La galerie d’Apparence gagne **vingt-cinq vignettes**, rangées en sept séries
+   (Horizons en tête).
 2. Choisir un fond photographique applique sa palette recommandée et le voile
    minimal qui garde le texte lisible — comme pour les SVG.
 3. Surtout : l’interface lit l’image (`canvas 48 × 48`) et en tire son accent,
@@ -140,7 +165,7 @@ contour, sans texte ni logo — la famille visuelle des couvertures de magazines
 ## 7. Ce qui n’a pas été vérifié
 
 - **Aucune capture d’écran** : Chromium ne démarre pas dans cet environnement.
-  Le rendu des dix photographies derrière le verre n’a donc pas été vu à l’œil ;
+  Le rendu des vingt-cinq images derrière le verre n’a donc pas été vu à l’œil ;
   il est vérifié par la mesure (moyenne, luminance, contrastes) et par les
   tests, pas par la vue.
 - Les fichiers `sources/` sont conservés tels quels pour permettre de refaire

@@ -66,6 +66,7 @@ describe("fonds « verre »", () => {
     // trois séries nommées, comme un choix de couvertures
     const series = wallsBySeries();
     expect(series.map((entry) => entry.id)).toEqual([
+      "horizons",
       "matieres",
       "saisons",
       "villes",
@@ -78,6 +79,15 @@ describe("fonds « verre »", () => {
       expect(entry.label.length).toBeGreaterThan(3);
     }
     // aucune série ne mélange les familles de fabrication
+    // cinq horizons, cinq lumières distinctes
+    const horizons = series.find((entry) => entry.id === "horizons")!;
+    expect(horizons.walls.map((wall) => wall.id)).toEqual([
+      "aube-mer",
+      "desert",
+      "montagne",
+      "brume-lac",
+      "noir-blanc",
+    ]);
     const saisons = series.find((entry) => entry.id === "saisons")!;
     expect(saisons.walls.map((wall) => wall.id)).toEqual([
       "printemps",

@@ -200,3 +200,59 @@ qui ne s’explique pas est un réglage suspect.
 **Non vérifié :** le rendu visuel réel du fondu et du flou à 40 px — Chromium
 n’est pas disponible ici. Le contrat est vérifié (CSS produit, valeurs écrites),
 pas le pixel.
+
+---
+
+## 8. L’écran d’Apparence : cinq couches, pas une liste de réglages
+
+L’écran précédent était honnête dans son contenu et faux dans son récit : il
+alignait mode, vingt-trois palettes, signatures, fonds, accent, formes,
+typographie. Tout y était, mais l’ordre laissait croire qu’on **choisit un
+thème** puis qu’on « ajoute » des options. C’est l’inverse : un thème est la
+première couche d’une pile de cinq, et les quatre autres s’appliquent **après**
+lui, dans n’importe quel ordre.
+
+### Le modèle
+
+`src/lib/composition.ts` — pur, testé, sans DOM.
+
+| # | Couche | Action | Jetons qu’elle écrit | Choix |
+|---|---|---|---|---|
+| 1 | Palette | **socle** | `--bg` `--surface` `--ink` `--muted` `--accent` | 23 |
+| 2 | Fond | **se superpose** | `--tint` `--wall-blur` `--wall-dim` | 25 |
+| 3 | Accent | **écrase** | `--accent` `--primary` `--ring` `--on-accent` | 10 + libre |
+| 4 | Formes | **géométrie** seulement | `--r-card` `--pad-screen` `--line` `--elev-card` | 4 |
+| 5 | Texte | **typographie** seulement | `--font-note` `--note-size` `--note-leading` `--reading-width` | 4 |
+
+`composeAppearance(settings)` rend, pour chaque couche, sa valeur en clair, son
+détail et son état actif ; `compositionLine()` en fait la **recette** d’une
+phrase — « Nord · fond Montagne · accent tiré du fond · formes douces · Literata
+17 px ». Une recette lisible vaut mieux qu’un aperçu muet : elle dit ce qui est
+appliqué, et donc ce qu’il reste à changer.
+
+### L’ordre des sections de la page
+
+1. **Studio de composition** — aperçu vivant (une vraie carte de note, pas une
+   capture), la pile des cinq couches numérotées avec leur action, et la recette.
+2. **Palette** — mode, puis les vingt-trois palettes par famille.
+3. **Fond** — signatures, galerie par séries (Horizons en tête), réglage du flou
+   et du voile.
+4. **Accent** — accent tiré du fond (couleurs lues et ratios mesurés), presets,
+   couleur libre.
+5. **Formes** — les quatre réglages de géométrie, avec le renvoi vers
+   « Présentation avancée ».
+6. **Texte** — police, taille, mesure du paragraphe, canevas.
+7. **Confort** — contraste, animations, transparence, mise en page.
+
+Un sommaire d’ancres suit le studio sur mobile ; sur grand écran les sections
+respirent en pleine largeur (`screen-wide`).
+
+### L’invariant
+
+Le test qui compte n’est pas « la page s’affiche » mais **« une couche ne
+dérange pas les autres »** (`src/lib/composition.test.ts`, 8 tests) : changer
+les formes ne modifie ni la palette, ni le fond, ni l’accent ; changer le fond
+ne touche pas aux formes ; un fond actif prend la main sur l’accent tant que
+l’interrupteur « Accent du fond » est ouvert ; et un thème choisi laisse au
+moins quatre couches actives. C’est la traduction exécutable de la phrase de
+l’utilisateur : *un thème n’est pas la finalité*.

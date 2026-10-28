@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CaretRight,
@@ -25,10 +25,22 @@ import {
   paletteByKey,
   tokensFor,
 } from "@/lib/themes";
-import type { AccentKey, CanvasBg, ThemeMode } from "@/types";
+import type { AccentKey, CanvasBg, Personalization, ThemeMode } from "@/types";
 import { SIGNATURES, WALLS, wallById, wallUrl, wallsBySeries } from "@/lib/walls";
 import { veilFromTone, veilTint } from "@/lib/palette";
 import { useWallColors } from "@/stores/useWallColors";
+import {
+  PRESENTATION,
+  type ChoiceControl,
+} from "@/lib/presentation";
+import {
+  LAYERS,
+  activeLayers,
+  composeAppearance,
+  compositionLine,
+  type LayerId,
+  type LayerState,
+} from "@/lib/composition";
 import {
   WALL_BLUR_MAX,
   WALL_BLUR_MIN,
@@ -64,155 +76,711 @@ const CANVASES: { key: CanvasBg; label: string }[] = [
   { key: "blank", label: "Blanc" },
 ];
 
+/** La couche « Formes » vient du registre de `lib/presentation.ts`. */
+const FORMES = PRESENTATION.find((section) => section.id === "formes")!;
+/** La couche « Mesure » aussi : on n’en montre qu’un résumé ici. */
+const MESURE = PRESENTATION.find((section) => section.id === "mesure")!;
+
+/**
+ * **Apparence — un studio de composition.**
+ *
+ * L’écran précédent empilait des listes : mode, 23 palettes, signatures, fonds,
+ * accent, formes, typographie. Visuellement correct, mais faux sur le fond : il
+ * laissait croire qu’on choisit *un thème* puis qu’on « ajoute » des options.
+ *
+ * Ici l’ordre raconte la vérité du produit : une apparence se **compose en cinq
+ * couches**, et le thème n’est que la première. L’aperçu, la pile et la recette
+ * sont en haut, toujours visibles ; chaque section en dessous correspond à une
+ * couche, et l’on peut revenir sur n’importe laquelle après coup.
+ *
+ * Le modèle de cette page est pur et testé : `src/lib/composition.ts`.
+ */
 export default function Appearance() {
   const navigate = useNavigate();
   const settings = useAppStore((s) => s.settings);
   const setTheme = useAppStore((s) => s.setTheme);
-  const setAccent = useAppStore((s) => s.setAccent);
-  const setCustomAccent = useAppStore((s) => s.setCustomAccent);
-  const setCanvas = useAppStore((s) => s.setCanvas);
-  const setFont = useAppStore((s) => s.setFont);
-  const setFontSize = useAppStore((s) => s.setFontSize);
-  const setContrast = useAppStore((s) => s.setContrast);
-  const setMotion = useAppStore((s) => s.setMotion);
-  const setTransparency = useAppStore((s) => s.setTransparency);
-
   const setPalette = useAppStore((s) => s.setPalette);
-  const setLayout = useAppStore((s) => s.setLayout);
   const setWallpaper = useAppStore((s) => s.setWallpaper);
   const setWallSettings = useAppStore((s) => s.setWallSettings);
   const setPersonalization = useAppStore((s) => s.setPersonalization);
-  const setAccentMode = useAppStore((s) => s.setAccentMode);
-  const [draftHex, setDraftHex] = useState(settings.customAccent ?? "#0F766E");
-  /* La bande de voile est calculée sur le couple (thème, fond) : en dessous on
-     perd le texte, au-dessus le fond disparaît. Les curseurs s’y accrochent,
-     donc ils ne peuvent pas produire un réglage illisible ou décoratif. */
-  const wall = WALLS.find((item) => item.id === settings.wallpaper);
-  const wallTokens = tokensFor(settings.paletteKey);
-  const band = wall ? veilBand(wallTokens, toRgb(wall.tone)) : null;
-  const blur = effectiveBlur(settings.wallBlur);
-  const veil = wall ? effectiveVeil(settings.wallDim, wallTokens, toRgb(wall.tone)) : settings.wallDim;
+
   const dark = effectiveMode(settings) === "dark";
   const currentPalette = paletteByKey(settings.paletteKey);
   const fixedMode = currentPalette.key !== "papier";
 
   return (
     <Screen className="screen-wide px-5 lg:px-8">
-      <AppBar back onBack={() => navigate("/settings")} title="Apparence" center={false} />
-
-      <p className="mb-1 mt-1 text-[13px] leading-[19px] text-muted">
-        Le changement est immédiat, sans redémarrage.
-      </p>
-
-      <h2 className="mb-2 mt-4 text-[14px] font-semibold text-muted">Mode</h2>
-      <Segmented
-        value={settings.theme}
-        onChange={(mode) => {
-          // Un thème n’existe qu’en clair ou qu’en sombre : le mode global est
-          // ignoré tant qu’il est actif. On le dit, on ne le cache pas.
-          setTheme(mode);
-        }}
-        label="Mode"
-        options={THEME_OPTIONS}
+      <AppBar
+        back
+        onBack={() => navigate("/settings")}
+        title="Apparence"
+        center={false}
       />
-      {fixedMode && (
-        <p className="mt-2 rounded-field bg-surface-2 px-3 py-2 text-[12.5px] leading-[18px] text-muted">
-          « {currentPalette.label} » n’existe qu’en{" "}
-          {currentPalette.mode === "dark" ? "sombre" : "clair"}. Le mode
-          ci-dessus ne s’applique qu’au thème « Papier calme » ; utilisez la
-          palette jumelle pour changer de luminosité.
-        </p>
-      )}
 
-      <h2 className="mb-1 mt-6 text-[14px] font-semibold text-muted">
-        Thèmes · {PALETTES.length} palettes vérifiées
-      </h2>
-      <p className="mb-3 text-[12.5px] leading-[18px] text-muted">
-        Couleurs officielles des auteurs (Catppuccin, Nord, Gruvbox, Solarized,
-        Rosé Pine, Tokyo Night, Everforest, Material 3, Radix). Chaque paire
-        texte/fond est mesurée : sous AA, la teinte est corrigée du minimum
-        nécessaire.
+      <p className="mb-3 mt-1 max-w-[62ch] text-[13px] leading-[19px] text-muted">
+        Une apparence se compose en <strong className="font-semibold text-ink">cinq
+        couches</strong>. Le thème est la première, pas la dernière : tout ce qui
+        est en dessous de lui reste réglable, dans n’importe quel ordre.
       </p>
 
-      {PALETTE_FAMILIES.map((family) => (
-        <section key={family} className="mb-4">
+      <CompositionStudio />
+
+      <JumpNav />
+
+      {/* ---------------------------------------------------------- */}
+      {/* 1 · Palette                                                */}
+      {/* ---------------------------------------------------------- */}
+      <Section
+        id="couche-palette"
+        index={1}
+        title="Palette"
+        subtitle="Le socle : papier, surfaces, encre, texte secondaire."
+        action="socle"
+      >
+        <div className="mb-3">
           <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
-            {family}
+            Mode
           </h3>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-            {PALETTES.filter((palette) => palette.family === family).map(
-              (palette) => {
-                const tokens = tokensFor(palette.key);
-                const active = settings.paletteKey === palette.key;
-                return (
-                  <button
-                    key={palette.key}
-                    type="button"
-                    onClick={() => setPalette(palette.key)}
-                    aria-pressed={active}
-                    aria-label={`Thème ${palette.label} (${palette.mode === "dark" ? "sombre" : "clair"})`}
-                    className={cn(
-                      "group flex flex-col overflow-hidden rounded-card border text-left transition-colors",
-                      active
-                        ? "border-accent ring-2 ring-accent"
-                        : "border-line hover:border-line-strong",
-                    )}
-                  >
-                    <span
-                      className="flex h-[54px] items-end gap-1 p-2"
-                      style={{ background: tokens.bg }}
-                      aria-hidden
+          <Segmented
+            value={settings.theme}
+            onChange={(mode) => setTheme(mode)}
+            label="Mode"
+            options={THEME_OPTIONS}
+          />
+          {fixedMode && (
+            <p className="mt-2 rounded-field bg-surface-2 px-3 py-2 text-[12.5px] leading-[18px] text-muted">
+              « {currentPalette.label} » n’existe qu’en{" "}
+              {currentPalette.mode === "dark" ? "sombre" : "clair"}. Le mode
+              ci-dessus ne s’applique qu’au thème « Papier calme » ; utilisez la
+              palette jumelle pour changer de luminosité.
+            </p>
+          )}
+        </div>
+
+        <p className="mb-3 text-[12.5px] leading-[18px] text-muted">
+          {PALETTES.length} palettes vérifiées, regroupées par famille (Catppuccin,
+          Nord, Gruvbox, Solarized, Rosé Pine, Tokyo Night, Everforest, Material 3,
+          Radix). Chaque paire texte/fond est mesurée : sous AA, la teinte est
+          corrigée du minimum nécessaire. Une palette donne les jetons de base —
+          les quatre couches suivantes peuvent encore les déplacer.
+        </p>
+
+        {PALETTE_FAMILIES.map((family) => (
+          <section key={family} className="mb-4">
+            <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
+              {family}
+            </h3>
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+              {PALETTES.filter((palette) => palette.family === family).map(
+                (palette) => {
+                  const tokens = tokensFor(palette.key);
+                  const active = settings.paletteKey === palette.key;
+                  return (
+                    <button
+                      key={palette.key}
+                      type="button"
+                      onClick={() => setPalette(palette.key)}
+                      aria-pressed={active}
+                      aria-label={`Thème ${palette.label} (${palette.mode === "dark" ? "sombre" : "clair"})`}
+                      className={cn(
+                        "group flex flex-col overflow-hidden rounded-card border text-left transition-colors",
+                        active
+                          ? "border-accent ring-2 ring-accent"
+                          : "border-line hover:border-line-strong",
+                      )}
                     >
                       <span
-                        className="h-7 flex-1 rounded-t-md"
-                        style={{ background: tokens.surface }}
-                      />
-                      <span
-                        className="h-4 w-4 rounded-full"
-                        style={{ background: tokens.accent }}
-                      />
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: tokens.ink }}
-                      />
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: tokens.muted }}
-                      />
-                    </span>
-                    <span className="flex items-center gap-1.5 bg-surface px-2.5 py-2">
-                      <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">
-                        {palette.label}
-                      </span>
-                      <span className="shrink-0 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase text-muted">
-                        {palette.mode === "dark" ? "nuit" : "jour"}
-                      </span>
-                      {active && (
-                        <Check
-                          size={14}
-                          weight="bold"
-                          className="shrink-0 text-accent"
-                          aria-hidden
+                        className="flex h-[54px] items-end gap-1 p-2"
+                        style={{ background: tokens.bg }}
+                        aria-hidden
+                      >
+                        <span
+                          className="h-7 flex-1 rounded-t-md"
+                          style={{ background: tokens.surface }}
                         />
-                      )}
-                    </span>
-                  </button>
-                );
-              },
-            )}
-          </div>
-        </section>
-      ))}
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ background: tokens.accent }}
+                        />
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ background: tokens.ink }}
+                        />
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ background: tokens.muted }}
+                        />
+                      </span>
+                      <span className="flex items-center gap-1.5 bg-surface px-2.5 py-2">
+                        <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">
+                          {palette.label}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase text-muted">
+                          {palette.mode === "dark" ? "nuit" : "jour"}
+                        </span>
+                        {active && (
+                          <Check
+                            size={14}
+                            weight="bold"
+                            className="shrink-0 text-accent"
+                            aria-hidden
+                          />
+                        )}
+                      </span>
+                    </button>
+                  );
+                },
+              )}
+            </div>
+          </section>
+        ))}
+      </Section>
 
       {/* ---------------------------------------------------------- */}
-      {/* Signatures : un goût complet en un geste                     */}
+      {/* 2 · Fond                                                   */}
       {/* ---------------------------------------------------------- */}
-      <h2 className="mb-1 mt-6 text-[14px] font-semibold text-muted">
-        Signatures
-      </h2>
-      <p className="mb-3 text-[12.5px] leading-[18px] text-muted">
-        Un choix qui règle couleur, arrondi, densité et fond d’un seul coup.
-        Tout reste modifiable ensuite, réglage par réglage.
+      <Section
+        id="couche-fond"
+        index={2}
+        title="Fond"
+        subtitle="L’image derrière l’interface, et la teinte de son voile."
+        action="superpose"
+      >
+        <Signatures />
+
+        <WallsGallery />
+
+        <WallTuning />
+      </Section>
+
+      {/* ---------------------------------------------------------- */}
+      {/* 3 · Accent                                                 */}
+      {/* ---------------------------------------------------------- */}
+      <Section
+        id="couche-accent"
+        index={3}
+        title="Accent"
+        subtitle="La couleur d’action — et le texte posé dessus."
+        action="ecrase"
+      >
+        <WallAccentPanel />
+        <AccentPresets dark={dark} />
+        <CustomAccentSection dark={dark} />
+
+      </Section>
+
+      {/* ---------------------------------------------------------- */}
+      {/* 4 · Formes                                                 */}
+      {/* ---------------------------------------------------------- */}
+      <Section
+        id="couche-formes"
+        index={4}
+        title="Formes"
+        subtitle="Rayons, densité, traits, relief : la géométrie seule, sans couleur."
+        action="geometrie"
+      >
+        <div className="flex flex-col gap-4 rounded-card border border-line bg-surface p-4">
+          {FORMES.controls.map((control) => (
+            <ChoiceRow
+              key={control.id}
+              control={control as ChoiceControl}
+              value={String(settings.personalization?.[control.id] ?? "")}
+              onChange={(value) =>
+                setPersonalization({ [control.id]: value } as Partial<Personalization>)
+              }
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-[12px] leading-[17px] text-muted">
+          Ces quatre réglages ne touchent <strong className="font-semibold text-ink">aucune
+          couleur</strong> : ils se combinent avec n’importe quelle palette et
+          n’importe quel fond. C’est ce qui fait qu’un thème choisi hier reste
+          utilisable avec les formes choisies aujourd’hui.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => navigate("/settings/personalization")}
+          className="mt-3 flex w-full items-center gap-3 rounded-card border border-line bg-surface p-3.5 text-left transition-colors active:bg-surface-2"
+        >
+          <span className="tile" aria-hidden="true">
+            <SlidersHorizontal size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold">
+              Présentation avancée
+            </span>
+            <span className="mt-0.5 block text-[13px] leading-[18px] text-muted">
+              Mesure du texte, teinte du papier, force du canevas
+            </span>
+          </span>
+          <CaretRight size={16} className="shrink-0 text-muted" aria-hidden="true" />
+        </button>
+      </Section>
+
+      {/* ---------------------------------------------------------- */}
+      {/* 5 · Texte                                                  */}
+      {/* ---------------------------------------------------------- */}
+      <Section
+        id="couche-texte"
+        index={5}
+        title="Texte"
+        subtitle="Police, taille, interligne, largeur de lecture."
+        action="typographie"
+      >
+        <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
+          Police des notes
+        </h3>
+        <Segmented
+          value={settings.font}
+          onChange={useAppStore.getState().setFont}
+          label="Police des notes"
+          options={FONT_OPTIONS}
+        />
+
+        <div className="mt-4 flex items-baseline justify-between">
+          <label htmlFor="font-size" className="text-[16px]">
+            Taille du texte
+          </label>
+          <span className="text-[16px] font-semibold text-accent">
+            {settings.fontSize} px
+          </span>
+        </div>
+        <input
+          id="font-size"
+          type="range"
+          min={14}
+          max={22}
+          step={1}
+          value={settings.fontSize}
+          onChange={(event) =>
+            useAppStore.getState().setFontSize(Number(event.target.value))
+          }
+          className="mt-2 w-full"
+        />
+
+        <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-muted">
+          Mesure du paragraphe
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          {MESURE.controls.slice(0, 2).map((control) => (
+            <label
+              key={control.id}
+              className="rounded-field border border-line bg-surface-2 px-3 py-2"
+            >
+              <span className="block text-[11.5px] text-muted">{control.label}</span>
+              <span className="mt-1 flex items-baseline gap-1">
+                <input
+                  type="number"
+                  value={Number(settings.personalization?.[control.id] ?? 0)}
+                  min={"min" in control ? control.min : undefined}
+                  max={"max" in control ? control.max : undefined}
+                  step={"step" in control ? control.step : undefined}
+                  onChange={(event) =>
+                    setPersonalization({
+                      [control.id]: Number(event.target.value),
+                    } as Partial<Personalization>)
+                  }
+                  aria-label={control.label}
+                  className="w-full bg-transparent text-[15px] font-semibold text-ink outline-none"
+                />
+                <span className="text-[12px] text-muted">
+                  {"unit" in control ? control.unit.trim() : ""}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-muted">
+          Fond du canevas
+        </h3>
+        <div className="flex items-start justify-between">
+          {CANVASES.map((canvas) => {
+            const active = settings.canvas === canvas.key;
+            return (
+              <button
+                key={canvas.key}
+                type="button"
+                onClick={() => useAppStore.getState().setCanvas(canvas.key)}
+                aria-pressed={active}
+                className="flex w-[76px] flex-col items-center"
+              >
+                <span
+                  className={cn(
+                    "paper h-[76px] w-[76px] rounded-field border",
+                    active ? "border-2 border-accent" : "border-line",
+                  )}
+                  data-canvas={canvas.key}
+                  aria-hidden="true"
+                />
+                <span
+                  className={cn(
+                    "mt-1.5 text-center text-[14px]",
+                    active ? "font-semibold text-ink" : "text-muted",
+                  )}
+                >
+                  {canvas.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      {/* ---------------------------------------------------------- */}
+      {/* Confort                                                    */}
+      {/* ---------------------------------------------------------- */}
+      <Section
+        id="couche-confort"
+        title="Confort"
+        subtitle="Ce qui aide à lire — et qui ne change aucune apparence."
+        action="typographie"
+      >
+        <div className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+          <div>
+            <div className="mb-1.5 text-[14px]">Contraste élevé</div>
+            <Segmented
+              value={settings.contrast}
+              onChange={useAppStore.getState().setContrast}
+              label="Contraste élevé"
+              options={[
+                { value: "system" as const, label: "Système" },
+                { value: "on" as const, label: "Activé" },
+                { value: "off" as const, label: "Désactivé" },
+              ]}
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 text-[14px]">Réduire les animations</div>
+            <Segmented
+              value={settings.motion}
+              onChange={useAppStore.getState().setMotion}
+              label="Réduire les animations"
+              options={[
+                { value: "system" as const, label: "Système" },
+                { value: "reduced" as const, label: "Réduit" },
+              ]}
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 text-[14px]">Réduire la transparence</div>
+            <Segmented
+              value={settings.transparency}
+              onChange={useAppStore.getState().setTransparency}
+              label="Réduire la transparence"
+              options={[
+                { value: "system" as const, label: "Système" },
+                { value: "reduced" as const, label: "Réduit" },
+              ]}
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 text-[14px]">Mise en page</div>
+            <Segmented
+              options={[
+                { value: "auto", label: "Auto" },
+                { value: "desktop", label: "Bureau" },
+                { value: "mobile", label: "Mobile" },
+              ]}
+              value={settings.layout ?? "auto"}
+              onChange={(value) =>
+                useAppStore.getState().setLayout(value as "auto" | "desktop" | "mobile")
+              }
+              label="Mise en page"
+            />
+            <p className="mt-1.5 text-[12px] leading-[17px] text-muted">
+              « Bureau » garde le rail même dans une fenêtre étroite (utile en
+              aperçu) ; « Mobile » reproduit le téléphone sur grand écran.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <div className="h-10" aria-hidden="true" />
+    </Screen>
+  );
+}
+
+/* ================================================================== */
+/* Studio : aperçu vivant, pile de couches, recette                    */
+/* ================================================================== */
+
+function CompositionStudio() {
+  const settings = useAppStore((s) => s.settings);
+  const layers = useMemo(() => composeAppearance(settings), [settings]);
+  const active = activeLayers(settings);
+  const wall = settings.wallpaper ? wallById(settings.wallpaper) : undefined;
+
+  return (
+    <section
+      aria-labelledby="composition-titre"
+      className="overflow-hidden rounded-sheet border border-line bg-surface"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3">
+        <h2 id="composition-titre" className="text-[14px] font-semibold">
+          Votre composition
+        </h2>
+        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11.5px] font-semibold text-muted">
+          {active} couches actives
+        </span>
+      </div>
+
+      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <CompositionPreview wallUrlValue={wall ? wallUrl(wall.id) : null} />
+
+        <ol className="flex flex-col gap-1.5">
+          {layers.map((layer) => (
+            <li key={layer.id}>
+              <LayerRow layer={layer} layers={layers} />
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="border-t border-line bg-surface-2/60 px-4 py-3">
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted">
+          Recette
+        </p>
+        <p className="mt-1 text-[13px] leading-[19px] text-ink">
+          {compositionLine(settings)}
+        </p>
+        <p className="mt-1.5 text-[11.5px] leading-[17px] text-muted">
+          Un thème n’est pas une fin : chaque couche ci-dessus reste modifiable
+          après coup, et les couches du dessus ne dépendent pas de la palette.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** L’aperçu : un vrai morceau d’interface, pas une image. */
+function CompositionPreview({ wallUrlValue }: { wallUrlValue: string | null }) {
+  const settings = useAppStore((s) => s.settings);
+  const wall = settings.wallpaper ? wallById(settings.wallpaper) : undefined;
+  const tokens = tokensFor(settings.paletteKey);
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-card border border-line p-3"
+      style={{ background: wallUrlValue ? undefined : tokens.bg }}
+      aria-label="Aperçu de la composition"
+      role="img"
+    >
+      {wallUrlValue && (
+        <>
+          <span
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${wallUrlValue})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+            aria-hidden
+          />
+          <span
+            className="absolute inset-0 backdrop-blur-[6px]"
+            style={{ background: "color-mix(in srgb, var(--bg) 42%, transparent)" }}
+            aria-hidden
+          />
+        </>
+      )}
+
+      <div className="relative">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-ink/80">
+            {wall ? wall.label : "Papier uni"}
+          </span>
+        </div>
+
+        <div className="mt-2 rounded-card border border-line bg-surface p-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wide text-accent">
+            Cours · droit civil
+          </p>
+          <p className="mt-1 text-[15px] font-semibold leading-[20px] text-ink">
+            Conditions de validité du contrat
+          </p>
+          <p className="mt-1 text-[12px] leading-[17px] text-muted">
+            Consentement exempt de vices, capacité de contracter, contenu licite
+            et certain.
+          </p>
+          <div className="mt-2.5 flex items-center gap-1.5">
+            <span className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-on-accent">
+              Réviser
+            </span>
+            <span className="rounded-full border border-line px-2.5 py-1 text-[11px] font-medium text-ink">
+              Modifier
+            </span>
+            <span className="ml-auto rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-ink">
+              12 fiches
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-2 flex items-center justify-between rounded-field border border-line bg-surface-2/70 px-2.5 py-1.5">
+          <span className="text-[10.5px] text-muted">
+            {settings.font === "literata" ? "Literata" : "Inter"} ·{" "}
+            {settings.fontSize} px
+          </span>
+          <span className="flex gap-1" aria-hidden>
+            <span className="h-3 w-3 rounded-full bg-accent" />
+            <span className="h-3 w-3 rounded-full bg-accent-soft" />
+            <span className="h-3 w-3 rounded-full bg-line" />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ACTION_STYLE: Record<LayerState["action"], string> = {
+  socle: "bg-surface-2 text-muted",
+  superpose: "bg-accent-soft text-accent-ink",
+  ecrase: "bg-accent text-on-accent",
+  geometrie: "border border-line text-ink",
+  typographie: "border border-line text-ink",
+};
+
+const ACTION_LABEL: Record<LayerState["action"], string> = {
+  socle: "socle",
+  superpose: "se superpose",
+  ecrase: "écrase",
+  geometrie: "géométrie",
+  typographie: "typographie",
+};
+
+/**
+ * Une ligne de la pile : numéro, nom, ce qu’elle vaut, et **ce qu’elle fait à
+ * la couche du dessous**. C’est le cœur explicatif de l’écran : on voit que le
+ * fond se superpose au socle, que l’accent écrase une couleur, que les formes
+ * ne touchent qu’à la géométrie.
+ */
+function LayerRow({ layer, layers }: { layer: LayerState; layers: LayerState[] }) {
+  const previous = layers.find((entry) => entry.index === layer.index - 1);
+  return (
+    <a
+      href={`#couche-${layer.id}`}
+      className="flex items-center gap-2.5 rounded-field border border-line bg-surface-2/40 px-2.5 py-2 transition-colors hover:border-line-strong"
+    >
+      <span
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11.5px] font-semibold",
+          layer.active ? "bg-accent text-on-accent" : "bg-surface-2 text-muted",
+        )}
+        aria-hidden
+      >
+        {layer.index}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className="text-[13px] font-semibold text-ink">{layer.label}</span>
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+              ACTION_STYLE[layer.action],
+            )}
+          >
+            {ACTION_LABEL[layer.action]}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-[11.5px] text-muted">
+          {layer.value} · {layer.detail}
+          {previous && layer.action !== "socle" && (
+            <span className="text-muted/80"> — après {previous.label}</span>
+          )}
+        </span>
+      </span>
+    </a>
+  );
+}
+
+/** Sommaire : cinq ancres, pour aller droit à la couche qu’on veut changer. */
+function JumpNav() {
+  return (
+    <nav
+      aria-label="Couches de l’apparence"
+      className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1"
+    >
+      {LAYERS.map((layer) => (
+        <a
+          key={layer.id}
+          href={`#couche-${layer.id}`}
+          className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-medium text-ink"
+        >
+          {layer.index}. {layer.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+/** En-tête de section : l’histoire de la couche, en une phrase. */
+function Section({
+  id,
+  index,
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  id: string;
+  index?: number;
+  title: string;
+  subtitle: string;
+  action: LayerState["action"];
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      aria-labelledby={`${id}-titre`}
+      className="mt-5 scroll-mt-16 rounded-sheet border border-line bg-surface p-4"
+    >
+      <div className="mb-3 flex items-start gap-2.5">
+        {index !== undefined && (
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[12.5px] font-semibold text-muted">
+            {index}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <h2 id={`${id}-titre`} className="text-[16px] font-semibold">
+            {title}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">{subtitle}</p>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+            ACTION_STYLE[action],
+          )}
+        >
+          {ACTION_LABEL[action]}
+        </span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/* ================================================================== */
+/* Couche 2 — fond : signatures, galerie, réglages                     */
+/* ================================================================== */
+
+function Signatures() {
+  const settings = useAppStore((s) => s.settings);
+  const setPalette = useAppStore((s) => s.setPalette);
+  const setWallpaper = useAppStore((s) => s.setWallpaper);
+  const setPersonalization = useAppStore((s) => s.setPersonalization);
+
+  return (
+    <>
+      <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-muted">
+        Signatures · un goût complet en un geste
+      </h3>
+      <p className="mb-2 text-[12.5px] leading-[18px] text-muted">
+        Choisir une signature règle le fond, la palette et les formes d’un seul
+        coup. Rien n’est verrouillé : chaque couche reste modifiable ensuite.
       </p>
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
         {SIGNATURES.map((signature) => {
@@ -274,7 +842,12 @@ export default function Appearance() {
                     {signature.label}
                   </span>
                   {active && (
-                    <Check size={14} weight="bold" className="shrink-0 text-accent" aria-hidden />
+                    <Check
+                      size={14}
+                      weight="bold"
+                      className="shrink-0 text-accent"
+                      aria-hidden
+                    />
                   )}
                 </span>
                 <span className="mt-0.5 block text-[11.5px] leading-[16px] text-muted">
@@ -285,28 +858,35 @@ export default function Appearance() {
           );
         })}
       </div>
+    </>
+  );
+}
 
-      {/* ---------------------------------------------------------- */}
-      {/* Fonds « verre »                                             */}
-      {/* ---------------------------------------------------------- */}
-      <h2 className="mb-1 mt-6 text-[14px] font-semibold text-muted">
-        Fonds · {WALLS.length}
-      </h2>
-      <p className="mb-3 text-[12.5px] leading-[18px] text-muted">
-        Six séries : illustrations, photographies, halos, dégradés. Une vignette
-        applique <strong className="font-semibold text-ink">le fond</strong> et la
-        palette qui le rend lisible — l’image reste visible, le texte reste AA.
+function WallsGallery() {
+  const settings = useAppStore((s) => s.settings);
+  const setWallpaper = useAppStore((s) => s.setWallpaper);
+  const setPalette = useAppStore((s) => s.setPalette);
+  const setWallSettings = useAppStore((s) => s.setWallSettings);
+
+  return (
+    <>
+      <h3 className="mb-1 mt-5 text-[12px] font-semibold uppercase tracking-wide text-muted">
+        Galerie · {WALLS.length} fonds, {wallsBySeries().length} séries
+      </h3>
+      <p className="mb-2 text-[12.5px] leading-[18px] text-muted">
+        Horizons, matières, saisons, villes, photographies, halos, dégradés. Une
+        vignette applique <strong className="font-semibold text-ink">le fond</strong>{" "}
+        et la palette qui le rend lisible : l’image reste visible, le texte reste
+        AA. Le fond se <em>superpose</em> au socle — il ne le remplace pas.
       </p>
 
-      {/* Le « papier uni » reste à part : ce n’est pas un fond, c’est l’absence
-          de fond. Il ouvre la galerie comme une couverture blanche. */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
         <button
           type="button"
           onClick={() => setWallpaper(null)}
           aria-pressed={settings.wallpaper === null}
           className={cn(
-            "flex h-[74px] flex-col items-center justify-center rounded-card border bg-surface text-[12.5px] font-medium",
+            "flex aspect-[16/10] flex-col items-center justify-center rounded-card border bg-surface text-[12.5px] font-medium",
             settings.wallpaper === null
               ? "border-accent ring-2 ring-accent"
               : "border-line hover:border-line-strong",
@@ -320,16 +900,13 @@ export default function Appearance() {
       </div>
 
       {wallsBySeries().map((series) => (
-        <section key={series.id} className="mt-5" aria-labelledby={`serie-${series.id}`}>
-          <h3
-            id={`serie-${series.id}`}
-            className="text-[13.5px] font-semibold text-ink"
-          >
+        <div key={series.id} className="mt-4">
+          <h4 className="text-[13px] font-semibold text-ink">
             {series.label}
             <span className="ml-1.5 text-[11.5px] font-normal text-muted">
               {series.walls.length}
             </span>
-          </h3>
+          </h4>
           <p className="mb-2 text-[11.5px] leading-[16px] text-muted">{series.hint}</p>
           <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
             {series.walls.map((wall) => {
@@ -340,10 +917,6 @@ export default function Appearance() {
                   type="button"
                   onClick={() => {
                     setWallpaper(wall.id);
-                    /* Un fond sombre sur un thème clair oblige un voile si
-                       épais que l’image disparaît. On applique donc la palette
-                       que le fond recommande — celle de son mode — et le voile
-                       minimal qui garde le texte lisible. */
                     setPalette(wall.palette);
                     setWallSettings({
                       dim: veilBand(tokensFor(wall.palette), toRgb(wall.tone)).min,
@@ -353,9 +926,6 @@ export default function Appearance() {
                   aria-label={`Fond ${wall.label} (${wall.mood})`}
                   className="group min-w-0 text-left"
                 >
-                  {/* Vignette : coins arrondis, ombre douce, ourlet coloré en
-                      haut à gauche — le repère visuel des galeries de
-                      couvertures, sans image supplémentaire. */}
                   <span
                     className={cn(
                       "relative block aspect-[16/10] overflow-hidden rounded-card border bg-surface-2 transition",
@@ -374,7 +944,7 @@ export default function Appearance() {
                       aria-hidden
                     />
                     <span
-                      className="absolute left-0 top-0 h-6 w-6 rounded-br-card bg-accent/90"
+                      className="absolute left-0 top-0 h-6 w-6 rounded-br-[inherit] bg-accent/90"
                       aria-hidden
                     />
                     {active && (
@@ -393,53 +963,79 @@ export default function Appearance() {
               );
             })}
           </div>
-        </section>
-      ))}
-
-      {wall && band && (
-        <div className="mt-3 rounded-card border border-line bg-surface p-3.5">
-          <label className="block text-[12px] font-semibold uppercase tracking-wide text-muted">
-            Flou du fond · {blur} px
-            <input
-              type="range"
-              min={WALL_BLUR_MIN}
-              max={WALL_BLUR_MAX}
-              step={2}
-              value={blur}
-              onChange={(event) => setWallSettings({ blur: Number(event.target.value) })}
-              className="mt-2 w-full"
-              aria-label="Flou du fond"
-            />
-          </label>
-          <label className="mt-3 block text-[12px] font-semibold uppercase tracking-wide text-muted">
-            Voile de lisibilité · {veil} %
-            <input
-              type="range"
-              min={band.min}
-              max={band.max}
-              step={1}
-              value={veil}
-              onChange={(event) => setWallSettings({ dim: Number(event.target.value) })}
-              className="mt-2 w-full"
-              aria-label="Voile de lisibilité"
-            />
-          </label>
-          <p className="mt-2 text-[11.5px] leading-[17px] text-muted">
-            {band.tight || band.max - band.min < 8
-              ? `Bande étroite sur ce couple : ${band.min} % est le minimum lisible, ${band.max} % le maximum où le fond reste visible. Changer de palette élargit la marge.`
-              : `Réglable de ${band.min} % (lisibilité du texte) à ${band.max} % (le fond disparaît au-delà). L’accent se recale tout seul sur le verre.`}
-          </p>
         </div>
-      )}
+      ))}
+    </>
+  );
+}
 
-      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
-        Accent du fond
-      </h2>
-      <WallAccentPanel />
+function WallTuning() {
+  const settings = useAppStore((s) => s.settings);
+  const setWallSettings = useAppStore((s) => s.setWallSettings);
+  const wall = WALLS.find((item) => item.id === settings.wallpaper);
+  const wallTokens = tokensFor(settings.paletteKey);
+  const band = wall ? veilBand(wallTokens, toRgb(wall.tone)) : null;
+  const blur = effectiveBlur(settings.wallBlur);
+  const veil = wall
+    ? effectiveVeil(settings.wallDim, wallTokens, toRgb(wall.tone))
+    : settings.wallDim;
 
-      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
-        Couleur d’action
-      </h2>
+  if (!wall || !band) return null;
+
+  return (
+    <div className="mt-4 rounded-card border border-line bg-surface-2/50 p-3.5">
+      <h4 className="text-[12px] font-semibold uppercase tracking-wide text-muted">
+        Réglage du fond
+      </h4>
+      <label className="mt-2 block text-[12.5px] font-medium text-ink">
+        Flou du fond · {blur} px
+        <input
+          type="range"
+          min={WALL_BLUR_MIN}
+          max={WALL_BLUR_MAX}
+          step={2}
+          value={blur}
+          onChange={(event) => setWallSettings({ blur: Number(event.target.value) })}
+          className="mt-2 w-full"
+          aria-label="Flou du fond"
+        />
+      </label>
+      <label className="mt-3 block text-[12.5px] font-medium text-ink">
+        Voile de lisibilité · {veil} %
+        <input
+          type="range"
+          min={band.min}
+          max={band.max}
+          step={1}
+          value={veil}
+          onChange={(event) => setWallSettings({ dim: Number(event.target.value) })}
+          className="mt-2 w-full"
+          aria-label="Voile de lisibilité"
+        />
+      </label>
+      <p className="mt-2 text-[11.5px] leading-[17px] text-muted">
+        {band.tight || band.max - band.min < 8
+          ? `Bande étroite sur ce couple : ${band.min} % est le minimum lisible, ${band.max} % le maximum où le fond reste visible. Changer de palette élargit la marge.`
+          : `Réglable de ${band.min} % (lisibilité du texte) à ${band.max} % (le fond disparaît au-delà). L’accent se recale tout seul sur le verre.`}
+      </p>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* Couche 3 — accent                                                   */
+/* ================================================================== */
+
+function AccentPresets({ dark }: { dark: boolean }) {
+  const settings = useAppStore((s) => s.settings);
+  const setAccent = useAppStore((s) => s.setAccent);
+  const setAccentMode = useAppStore((s) => s.setAccentMode);
+
+  return (
+    <>
+      <h3 className="mb-2 mt-4 text-[12px] font-semibold uppercase tracking-wide text-muted">
+        Accent imposé
+      </h3>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -485,178 +1081,75 @@ export default function Appearance() {
         })}
       </div>
       <p className="mt-2 text-[12.5px] leading-[18px] text-muted">
-        Un accent choisi à la main est réaccordé au papier du thème, puis
-        vérifié : la teinte peut être légèrement décalée pour rester lisible.
+        Un accent choisi à la main est réaccordé au papier du thème, puis vérifié :
+        la teinte peut être légèrement décalée pour rester lisible.
       </p>
+    </>
+  );
+}
 
-      <CustomAccent
-        dark={dark}
-        value={draftHex}
-        active={settings.accentMode === "custom"}
-        onChange={(hex) => setDraftHex(hex)}
-        onApply={(hex) => setCustomAccent(hex)}
-        onReset={() => setAccentMode("theme")}
-        resetLabel="Revenir à la couleur du thème"
-      />
+function CustomAccentSection({ dark }: { dark: boolean }) {
+  const settings = useAppStore((s) => s.settings);
+  const setCustomAccent = useAppStore((s) => s.setCustomAccent);
+  const setAccentMode = useAppStore((s) => s.setAccentMode);
+  const [draftHex, setDraftHex] = useState(settings.customAccent ?? "#0F766E");
 
-      <button
-        type="button"
-        onClick={() => navigate("/settings/personalization")}
-        className="mt-5 flex w-full items-center gap-3 rounded-card border border-line bg-surface p-3.5 text-left transition-colors active:bg-surface-2"
-      >
-        <span className="tile" aria-hidden="true">
-          <SlidersHorizontal size={20} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold">
-            Personnalisation avancée
-          </span>
-          <span className="mt-0.5 block text-[13px] leading-[18px] text-muted">
-            Densité, rayons, bordures, relief, papier, interligne, largeur de
-            lecture
-          </span>
-        </span>
-        <CaretRight size={16} className="shrink-0 text-muted" aria-hidden="true" />
-      </button>
+  return (
+    <CustomAccent
+      dark={dark}
+      value={draftHex}
+      active={settings.accentMode === "custom"}
+      onChange={(hex) => setDraftHex(hex)}
+      onApply={(hex) => setCustomAccent(hex)}
+      onReset={() => setAccentMode("theme")}
+      resetLabel="Revenir à la couleur du thème"
+    />
+  );
+}
 
-      <h2 className="mb-1 mt-6 text-[14px] font-semibold text-muted">Mise en page</h2>
-      <p className="mb-2 text-[12.5px] leading-[18px] text-muted">
-        L’écran décide par défaut. « Bureau » garde le rail et les deux
-        panneaux même dans une fenêtre étroite (utile pour vérifier le rendu
-        depuis un aperçu) ; « Mobile » reproduit la version téléphone sur un
-        grand écran. Le paramètre d’adresse <code className="font-mono text-[12px]">?bureau=1</code>{" "}
-        ou <code className="font-mono text-[12px]">?mobile=1</code> prend le dessus.
-      </p>
-      <Segmented
-        options={[
-          { value: "auto", label: "Auto" },
-          { value: "desktop", label: "Bureau" },
-          { value: "mobile", label: "Mobile" },
-        ]}
-        value={settings.layout ?? "auto"}
-        onChange={(value) => setLayout(value as "auto" | "desktop" | "mobile")}
-        label="Mise en page"
-      />
+/* ================================================================== */
+/* Choix segmenté (registre de présentation)                           */
+/* ================================================================== */
 
-      <h2 className="mb-3 mt-6 text-[14px] font-semibold text-muted">
-        Fond du canevas
-      </h2>
-      <div className="flex items-start justify-between">
-        {CANVASES.map((canvas) => {
-          const active = settings.canvas === canvas.key;
+function ChoiceRow({
+  control,
+  value,
+  onChange,
+}: {
+  control: ChoiceControl;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[13.5px] font-medium">{control.label}</p>
+        {control.hint && (
+          <p className="truncate text-[11.5px] text-muted">{control.hint}</p>
+        )}
+      </div>
+      <div className="mt-1.5 flex gap-1.5" role="group" aria-label={control.label}>
+        {control.options.map((option) => {
+          const active = option.value === value;
           return (
             <button
-              key={canvas.key}
+              key={option.value}
               type="button"
-              onClick={() => setCanvas(canvas.key)}
+              onClick={() => onChange(option.value)}
               aria-pressed={active}
-              className="flex w-[76px] flex-col items-center"
+              className={cn(
+                "flex-1 rounded-field border px-2 py-1.5 text-[12.5px] font-medium transition-colors",
+                active
+                  ? "border-accent bg-accent-soft text-accent-ink"
+                  : "border-line bg-surface text-ink",
+              )}
             >
-              <span
-                className={cn(
-                  "paper h-[76px] w-[76px] rounded-field border",
-                  active ? "border-2 border-accent" : "border-line",
-                )}
-                data-canvas={canvas.key}
-                aria-hidden="true"
-              />
-              <span
-                className={cn(
-                  "mt-1.5 text-center text-[14px]",
-                  active ? "font-semibold text-ink" : "text-muted",
-                )}
-              >
-                {canvas.label}
-              </span>
+              {option.label}
             </button>
           );
         })}
       </div>
-
-      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">Aperçu</h2>
-      <div
-        className="paper rounded-card border border-line bg-surface p-4 font-serif text-[17px] leading-[28px]"
-        data-canvas={settings.canvas}
-      >
-        Conditions de validité :
-        <br />
-        <span className="rounded-[3px] mark-highlight px-1 [border-bottom:2px_solid_var(--accent)]">
-          consentement, capacité, contenu licite
-        </span>
-      </div>
-
-      <div className="mt-5 flex items-baseline justify-between">
-        <label htmlFor="font-size" className="text-[16px]">
-          Taille du texte
-        </label>
-        <span className="text-[16px] font-semibold text-accent">
-          {settings.fontSize} px
-        </span>
-      </div>
-      <input
-        id="font-size"
-        type="range"
-        min={14}
-        max={22}
-        step={1}
-        value={settings.fontSize}
-        onChange={(event) => setFontSize(Number(event.target.value))}
-        className="mt-2 w-full"
-      />
-
-      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">Police des notes</h2>
-      <Segmented
-        value={settings.font}
-        onChange={setFont}
-        label="Police des notes"
-        options={FONT_OPTIONS}
-      />
-
-      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
-        Accessibilité
-      </h2>
-      <div className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-        <div>
-          <div className="mb-1.5 text-[14px]">Contraste élevé</div>
-          <Segmented
-            value={settings.contrast}
-            onChange={setContrast}
-            label="Contraste élevé"
-            options={[
-              { value: "system" as const, label: "Système" },
-              { value: "on" as const, label: "Activé" },
-              { value: "off" as const, label: "Désactivé" },
-            ]}
-          />
-        </div>
-        <div>
-          <div className="mb-1.5 text-[14px]">Réduire les animations</div>
-          <Segmented
-            value={settings.motion}
-            onChange={setMotion}
-            label="Réduire les animations"
-            options={[
-              { value: "system" as const, label: "Système" },
-              { value: "reduced" as const, label: "Réduit" },
-            ]}
-          />
-        </div>
-        <div>
-          <div className="mb-1.5 text-[14px]">Réduire la transparence</div>
-          <Segmented
-            value={settings.transparency}
-            onChange={setTransparency}
-            label="Réduire la transparence"
-            options={[
-              { value: "system" as const, label: "Système" },
-              { value: "reduced" as const, label: "Réduit" },
-            ]}
-          />
-        </div>
-      </div>
-
-      <div className="h-10" aria-hidden="true" />
-    </Screen>
+    </div>
   );
 }
 
@@ -690,7 +1183,7 @@ function CustomAccent({
   const level = result ? contrastLevel(result.onBackground) : "insuffisant";
 
   return (
-    <section className="mt-4 rounded-card border border-line bg-surface p-3.5">
+    <section className="mt-4 rounded-card border border-line bg-surface-2/50 p-3.5">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[14px] font-semibold">Couleur libre</h3>
@@ -823,9 +1316,9 @@ function WallAccentPanel() {
 
   if (!wall) {
     return (
-      <p className="rounded-card border border-line bg-surface px-3.5 py-3 text-[12.5px] leading-[18px] text-muted">
-        Choisissez un fond : l’interface en tirera son accent, sa seconde
-        couleur et la teinte de son voile.
+      <p className="rounded-card border border-line bg-surface-2/50 px-3.5 py-3 text-[12.5px] leading-[18px] text-muted">
+        Choisissez un fond : l’interface en tirera son accent, sa seconde couleur
+        et la teinte de son voile.
       </p>
     );
   }
@@ -843,10 +1336,10 @@ function WallAccentPanel() {
       ];
 
   return (
-    <div className="rounded-card border border-line bg-surface p-3.5">
+    <div className="rounded-card border border-line bg-surface-2/50 p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[13.5px] font-medium">Suivre l’image</p>
+          <p className="text-[13.5px] font-medium">Accent du fond</p>
           <p className="mt-0.5 text-[12px] leading-[17px] text-muted">
             Trois couleurs lues dans le fond (canvas 48 × 48), corrigées pour
             rester lisibles.
@@ -925,3 +1418,6 @@ function WallAccentPanel() {
     </div>
   );
 }
+
+/* Réexport utilitaire pour les tests d’écran */
+export type { LayerId };

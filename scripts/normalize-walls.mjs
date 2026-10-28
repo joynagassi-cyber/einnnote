@@ -35,7 +35,23 @@ const CHECK = process.argv.includes("--check");
  * sauver. Les autres photographies claires (jardin, sel) vivent très bien avec
  * une palette claire, et on les laisse telles quelles.
  */
-const FIX = new Set(process.argv.slice(2).filter((arg) => !arg.startsWith("--")));
+/**
+ * Fonds à corriger, avec leur raison :
+ *
+ * - `dunes-ambre` (L = 0,196) : sable en pleine lumière, aucune palette ne
+ *   tient AA sur son verre ;
+ * - `aube-mer` (L = 0,436) : pastel d’aube, même impasse — et le texte
+ *   secondaire tombe à 4,00:1 sur son propre verre ;
+ * - `new-york`, `marrakech` (L ≈ 0,17 avant correction) : à la limite.
+ *
+ * Les autres images claires (jardin, printemps, désert, sel) restent claires :
+ * elles trouvent une palette compatible, et c’est un test qui le garantit.
+ * Sans argument, le script applique cette liste — la chaîne complète
+ * (`optimize-walls.sh` puis celui-ci) redevient donc idempotente.
+ */
+const DEFAULT_FIX = ["dunes-ambre", "aube-mer", "new-york", "marrakech"];
+const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+const FIX = new Set(args.length > 0 ? args : DEFAULT_FIX);
 
 const channel = (value) => {
   const x = value / 255;

@@ -36,6 +36,7 @@ export type WallKind = "aura" | "ramp" | "photo" | "illustration";
  * plus « abstrait », parce que c’est l’ordre dans lequel on cherche.
  */
 export type WallSeries =
+  | "horizons"
   | "matieres"
   | "saisons"
   | "villes"
@@ -44,6 +45,7 @@ export type WallSeries =
   | "degrades";
 
 export const WALL_SERIES: { id: WallSeries; label: string; hint: string }[] = [
+  { id: "horizons", label: "Horizons", hint: "Aube, désert, montagne, brume, noir et blanc — cinq lumières" },
   { id: "matieres", label: "Matières", hint: "Feuillage, béton — des surfaces, pas des paysages" },
   { id: "saisons", label: "Saisons", hint: "Quatre lumières d’année" },
   { id: "villes", label: "Villes", hint: "Des lieux reconnaissables, dessinés" },
@@ -63,6 +65,11 @@ export interface Wall {
   palette: string;
   /** série de la galerie (déduite de `kind` quand elle n’est pas écrite) */
   series?: WallSeries;
+  /**
+   * L’image n’a pas de couleur : son accent sera neutre, et c’est juste.
+   * Sert seulement aux tests, qui exigent sinon un accent saturé.
+   */
+  monochrome?: boolean;
   /**
    * Couleur moyenne de l’image (halos compris). Elle sert à calculer la bande
    * de voile où le texte reste lisible **et** le fond reste visible ; le test
@@ -105,7 +112,7 @@ export const WALLS: Wall[] = [
      des seules) qui garde AA sur le verre de cette image — même test. */
   { id: "aube-glacee", label: "Aube glacée", mood: "lac · givre", mode: "dark", palette: "radix-nuit", tone: "#606973", kind: "photo" },
   { id: "foret-brume", label: "Forêt de brume", mood: "sapin · brouillard", mode: "dark", palette: "papier-nuit", tone: "#404e4a", kind: "photo" },
-  { id: "dunes-ambre", label: "Dunes d’ambre", mood: "sable · or", mode: "dark", palette: "material-sombre", tone: "#8e684b", kind: "photo" },
+  { id: "dunes-ambre", label: "Dunes d’ambre", mood: "sable · or", mode: "dark", palette: "material-sombre", tone: "#8d674a", kind: "photo" },
   { id: "canyon-argile", label: "Canyon d’argile", mood: "roche · rouille", mode: "dark", palette: "rose-nuit", tone: "#81604c", kind: "photo" },
   { id: "falaises-ocean", label: "Falaises d’océan", mood: "écume · large", mode: "dark", palette: "material-sombre", tone: "#5f7376", kind: "photo" },
   { id: "aurore-boreale", label: "Aurore boréale", mood: "aurore · étoiles", mode: "dark", palette: "lilas-nuit", tone: "#2c5165", kind: "photo" },
@@ -122,9 +129,17 @@ export const WALLS: Wall[] = [
   { id: "automne", label: "Automne", mood: "ambre · lac", mode: "light", palette: "material", tone: "#bd9c73", kind: "illustration", series: "saisons" },
   { id: "hiver", label: "Hiver", mood: "glace · sapin", mode: "light", palette: "nord-neige", tone: "#b8c7ca", kind: "illustration", series: "saisons" },
   { id: "tokyo", label: "Tokyo", mood: "indigo · cerisier", mode: "dark", palette: "lilas-nuit", tone: "#586282", kind: "illustration", series: "villes" },
-  { id: "new-york", label: "New York", mood: "heure dorée · tours", mode: "dark", palette: "material-sombre", tone: "#7f6c58", kind: "illustration", series: "villes" },
-  { id: "marrakech", label: "Marrakech", mood: "terre · minaret", mode: "dark", palette: "material-sombre", tone: "#956350", kind: "illustration", series: "villes" },
+  { id: "new-york", label: "New York", mood: "heure dorée · tours", mode: "dark", palette: "material-sombre", tone: "#806d59", kind: "illustration", series: "villes" },
+  { id: "marrakech", label: "Marrakech", mood: "terre · minaret", mode: "dark", palette: "material-sombre", tone: "#976552", kind: "illustration", series: "villes" },
   { id: "sydney", label: "Sydney", mood: "port · voiles", mode: "light", palette: "material", tone: "#879ba2", kind: "illustration", series: "villes" },
+  /* Série « Horizons » — cinq thèmes de plus, deux illustrés, trois réels.
+     `noir-blanc` est déclaré monochrome : son accent est **volontairement**
+     neutre, c’est l’image qui l’exige (voir `wall-accents.test.ts`). */
+  { id: "aube-mer", label: "Aube sur mer", mood: "mer · première lumière", mode: "dark", palette: "material-sombre", tone: "#796e6f", kind: "illustration", series: "horizons" },
+  { id: "desert", label: "Désert", mood: "dune · ochre", mode: "light", palette: "nord-neige", tone: "#dfb088", kind: "illustration", series: "horizons" },
+  { id: "montagne", label: "Montagne", mood: "arête · heure bleue", mode: "dark", palette: "nord", tone: "#334d6a", kind: "photo", series: "horizons" },
+  { id: "brume-lac", label: "Brume de lac", mood: "jetée · ouate", mode: "light", palette: "material", tone: "#7d8b8d", kind: "photo", series: "horizons" },
+  { id: "noir-blanc", label: "Noir et blanc", mood: "béton · ombre", mode: "dark", palette: "papier-nuit", tone: "#484848", kind: "photo", series: "horizons", monochrome: true },
 ];
 
 export function wallById(id: string | null | undefined): Wall | undefined {
