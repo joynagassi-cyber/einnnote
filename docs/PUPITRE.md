@@ -387,7 +387,7 @@ forme propre à Einnote), **Différée** (juste, mais demande un chantier),
 | # | Commande Obsidian | Décision | Dans Einnote |
 |---|---|---|---|
 | 79 | Fermer | Gardée | retour à la bibliothèque |
-| 80 | Rétro-liens dans le document | Différée | les liens de notes arrivent avec le lot 4 |
+| 80 | Rétro-liens dans le document | Gardée | section « Liens » de la fiche : qui cite la note, avec le passage |
 | 81 | Mode lecture | Gardée | « Lecture » : masque pupitre et compositeur |
 | 82 | Mode source | Refusée | il n’y a pas de source : blocs structurés, pas de balisage |
 | 83 | Épingler | Différée | pas d’épingle dans le modèle ; « à revoir d’abord » couvre le besoin |
@@ -409,21 +409,21 @@ forme propre à Einnote), **Différée** (juste, mais demande un chantier),
 
 | Décision | Nombre |
 |---|---|
-| Gardées | 34 |
+| Gardées | 35 |
 | Adaptées | 10 |
-| Différées | 33 |
+| Différées | 32 |
 | Refusées | 19 |
 | **Total** | **96** |
 
-Les **33 différées** ne représentent que **neuf chantiers**, et trois d’entre eux
-en couvrent les deux tiers :
+Les **32 différées** ne représentent que **neuf chantiers**, et trois d’entre eux
+en couvrent les trois quarts :
 
 | Chantier | Entrées |
 |---|---|
 | Tableaux | 16 (28, 57–71) |
 | Repli des sections | 5 (37–41) |
 | Niveaux de titre 4 à 6 | 3 (46–48) |
-| Liens de notes et extraction | 3 (73, 74, 80) |
+| Extraction vers une note | 2 (73, 74) |
 | Multi-curseur | 2 (55, 56) |
 | Pièce jointe | 1 (6) |
 | Bloc de code | 1 (31) |
@@ -557,11 +557,11 @@ chaque nouveau composant présent dans au moins un test de rendu.
 |---|---|---|---|
 | 1 · Registre + palette | **livré** | `lib/commands/registry.ts` (~55 commandes, 6 familles), `lib/commands/recent.ts`, `components/commands/Palette.tsx` | `lib/commands/registry.test.ts` (13), `test/commands.test.tsx` |
 | 2 · Pupitre + Ranger | **livré** | `components/commands/Pupitre.tsx`, `lib/commands/pupitre.ts` | `lib/commands/pupitre.test.ts` (10) |
-| 3 · Fiche | **livré** | `components/note/Fiche.tsx`, `components/note/FicheWindow.tsx` | `test/fiche.test.tsx` (7) |
+| 3 · Fiche | **livré** | `components/note/Fiche.tsx`, `components/note/FicheWindow.tsx` | `test/fiche.test.tsx` (8) |
 | 4 · Liens de notes | **livré** | `lib/links/notes.ts`, `lib/editor/note-links.ts`, `components/note/NotePicker.tsx` | `lib/links/notes.test.ts` (6), `test/links.test.tsx` (5) |
 | 5 · Nettoyage | **livré** | menu `/` supprimé de `NoteEditor.tsx` (−120 lignes), `/` ouvre la palette en mode `insert` | `test/smoke.test.tsx` (le test du `/` passe par la palette) |
 
-Bilan : **665 tests / 63 fichiers**, `tsc` 0 erreur, `eslint` 0 erreur,
+Bilan : **666 tests / 63 fichiers**, `tsc` 0 erreur, `eslint` 0 erreur,
 `vite build` vert, `impeccable detect src/` **0 anti-patron**.
 
 ### 14.2 Ce que le code ajoute au document

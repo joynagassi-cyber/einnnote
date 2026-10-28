@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
@@ -50,11 +58,12 @@ import type { Block } from "@/types";
 export { HIGHLIGHTS };
 
 /* ------------------------------------------------------------------ */
-/* Menu « / » — tout ce qu’on peut insérer ou transformer              */
-/* ------------------------------------------------------------------ */
 
-
-/* ------------------------------------------------------------------ */
+/** Ce que la fiche peut demander à l’éditeur sans le connaître. */
+export type NoteEditorHandle = {
+  /** ouvre le sélecteur de note et écrit `[[Titre]]` au curseur */
+  link: () => void;
+};
 
 export function NoteEditor({
   blocks,
@@ -71,7 +80,7 @@ export function NoteEditor({
   noteId,
   onOpenNote,
   onCreateNote,
-  onDeleteLink,
+  ref,
 }: {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
@@ -94,7 +103,8 @@ export function NoteEditor({
   onOpenNote?: (note: NoteRef) => void;
   /** crée la note manquante et rend sa référence, pour lier aussitôt */
   onCreateNote?: (title: string) => NoteRef | undefined;
-  onDeleteLink?: () => void;
+  /** la fiche, ouverte à côté du texte, peut déclencher le sélecteur de note */
+  ref?: Ref<NoteEditorHandle>;
 }) {
   const toast = useToast((s) => s.show);
   const [findOpen, setFindOpen] = useState(false);
@@ -459,6 +469,11 @@ export function NoteEditor({
     },
     [editor, persist],
   );
+
+  /* La fiche vit à côté de l’éditeur : elle ne doit pas connaître TipTap pour
+     proposer « Lier une note ». Deux verbes suffisent, et rien d’autre ne
+     sort de l’éditeur. */
+  useImperativeHandle(ref, () => ({ link: () => setLinkOpen(true) }), []);
 
   const runCommand = useCallback(
     (command: Command) => {

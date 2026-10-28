@@ -1,5 +1,9 @@
 # Einnote — structure du design
 
+> Le **contrat déclaré** — jetons, échelle typographique, interdits, exceptions
+> au détecteur — vit à la racine, dans [`../DESIGN.md`](../DESIGN.md).
+> C’est lui que lit `npx impeccable detect`.
+
 Ce document décrit **comment le thème est construit**, pas à quoi il ressemble.
 Objectif : qu’une personne puisse ajouter un écran, un accent ou un composant
 sans casser la cohérence ni l’accessibilité.

@@ -104,6 +104,28 @@ describe("Fiche de la note", () => {
     });
   });
 
+  it("lie une note depuis la fiche, sans quitter le texte", async () => {
+    const user = userEvent.setup();
+    await withDesktop(async () => {
+      open("/note/n-plan");
+      await user.click(screen.getByRole("button", { name: /Fiche de la note/ }));
+      const fiche = await screen.findByRole("dialog", { name: "Fiche de la note" });
+
+      /* Le panneau ne recouvre pas le texte : l’action « Lier une note » y a
+         accès, et c’est l’éditeur qui écrit — la fiche ne touche pas au contenu. */
+      await user.click(within(fiche).getByRole("button", { name: /Lier une note/ }));
+      const choix = await screen.findByRole("dialog", { name: "Lier une note" });
+
+      await user.click(within(choix).getByRole("option", { name: /Contrats commerciaux/ }));
+
+      await waitFor(() =>
+        expect(JSON.stringify(noteById("n-plan").blocks)).toContain(
+          "[[Contrats commerciaux]]",
+        ),
+      );
+    });
+  });
+
   it("grise le rangement du pupitre sur bureau, en disant pourquoi", async () => {
     const user = userEvent.setup();
     await withDesktop(async () => {

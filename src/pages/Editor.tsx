@@ -13,7 +13,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
-import { NoteEditor } from "@/components/editor/NoteEditor";
+import { NoteEditor, type NoteEditorHandle } from "@/components/editor/NoteEditor";
 import { Fiche } from "@/components/note/Fiche";
 import { FicheWindow } from "@/components/note/FicheWindow";
 import { DisplayMenu } from "@/components/DisplayMenu";
@@ -83,6 +83,7 @@ export default function Editor() {
   const [reading, setReading] = useState(false);
   /* Le pupitre se range depuis la fiche (clavier) comme par appui long. */
   const [ranging, setRanging] = useState(false);
+  const editorRef = useRef<NoteEditorHandle>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<{ blockId: string; text: string } | null>(
     null,
@@ -314,6 +315,11 @@ export default function Editor() {
         setSheet("none");
         navigate(`/note/${noteId}`);
       }}
+      onLinkNote={
+        desktop
+          ? () => editorRef.current?.link()
+          : undefined
+      }
       onArrange={
         desktop
           ? undefined
@@ -464,6 +470,7 @@ export default function Editor() {
 
         <NoteEditor
           key={`${note.id}:${editorEpoch}`}
+          ref={editorRef}
           blocks={note.blocks}
           reading={reading}
           noteId={note.id}
