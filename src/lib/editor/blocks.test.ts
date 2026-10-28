@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
 import { BlockMeta } from "@/lib/editor/extensions";
 import {
   blocksToHtml,
@@ -28,6 +30,8 @@ function parse(blocks: Block[]): PmNode {
       }),
       BlockMeta,
       Highlight.configure({ multicolor: true }),
+      Superscript,
+      Subscript,
     ],
     content: blocksToHtml(blocks),
   });
@@ -103,6 +107,30 @@ describe("pont blocs ↔ éditeur", () => {
     expect(result[1].html).toBe("Seconde ligne");
   });
 
+  it("conserve un titre de niveau 3, un filet et un exposant", () => {
+    const blocks = [
+      block({ id: "b1", html: "Détail", kind: "h3" }),
+      block({ id: "b2", html: "E = mc<sup>2</sup> et H<sub>2</sub>O" }),
+      block({ id: "b3", html: "", kind: "rule" }),
+    ];
+    expect(roundTrip(blocks)).toEqual(blocks);
+  });
+
+  it("conserve liste numérotée, case à cocher et alignement", () => {
+    const blocks: Block[] = [
+      block({ id: "b1", html: "Premier", ordered: true }),
+      block({ id: "b2", html: "À faire", task: true }),
+      block({ id: "b3", html: "Fait", task: true, checked: true }),
+      block({ id: "b4", html: "Centré", align: "center" }),
+    ];
+    expect(roundTrip(blocks)).toEqual(blocks);
+  });
+
+  it("n’écrit pas de clés facultatives sur un bloc nu", () => {
+    const [result] = roundTrip([block({ id: "b1", html: "Texte" })]);
+    expect(result).toEqual({ id: "b1", html: "Texte", kind: "p", bullet: false, indent: 0 });
+  });
+
   it("ne laisse pas passer de HTML actif", () => {
     const html = blocksToHtml([
       block({ id: "b1", html: 'Bonjour <script>alert("x")</script> <img src=x onerror=alert(1)>' }),
@@ -150,6 +178,21 @@ describe("exports", () => {
     expect(markdown).toContain("  - Puce décalée");
     expect(markdown).toContain("> Citation");
     expect(markdown).toContain("==surlignage==");
+  });
+
+  it("exporte le filet, la case et l’exposant en syntaxe étendue", () => {
+    const markdown = blocksToMarkdown([
+      block({ id: "b1", html: "Détail", kind: "h3" }),
+      block({ id: "b2", html: "À faire", task: true }),
+      block({ id: "b3", html: "Fait", task: true, checked: true }),
+      block({ id: "b4", html: "", kind: "rule" }),
+      block({ id: "b5", html: "E = mc<sup>2</sup>" }),
+    ]);
+    expect(markdown).toContain("### Détail");
+    expect(markdown).toContain("- [ ] À faire");
+    expect(markdown).toContain("- [x] Fait");
+    expect(markdown).toContain("---");
+    expect(markdown).toContain("^2^");
   });
 
   it("produit du texte brut pour les passages de question", () => {

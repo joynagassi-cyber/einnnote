@@ -4,26 +4,17 @@ import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
 import {
-  ArrowCounterClockwise,
-  ArrowUUpLeft,
   Code,
   Copy,
   Highlighter,
   LinkSimple,
-  ListBullets,
-  ListNumbers,
-  Plus,
-  Quotes,
   TextB,
-  TextHOne,
-  TextHTwo,
-  TextIndent,
   TextItalic,
-  TextOutdent,
   TextStrikethrough,
   TextUnderline,
-  Trash,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/stores/useToast";
@@ -33,34 +24,81 @@ import {
   BlockMeta,
   QuestionBadges,
   blockIdAt,
-  changeIndent,
+  blockKindOf,
   currentBlockAttrs,
   selectedText,
   toggleMeta,
-  toggleQuote,
+  toggleTask,
+  turnInto,
+  type BlockTarget,
 } from "@/lib/editor/extensions";
+import { SearchHighlight } from "@/lib/editor/search";
+import { HIGHLIGHTS } from "@/lib/editor/highlights";
+import {
+  EditorToolbar,
+  type Align,
+  type EditorSnapshot,
+} from "@/components/editor/EditorToolbar";
+import { FindReplace } from "@/components/editor/FindReplace";
 import type { Block } from "@/types";
 
+/* Les cinq surligneurs vivent dans `lib/editor/highlights` : la feuille « / »
+   et la barre de sélection s’en servent aussi. Ré-export pour les appelants
+   historiques. */
+export { HIGHLIGHTS };
+
 /* ------------------------------------------------------------------ */
-/* Surligneurs                                                         */
+/* Menu « / » — tout ce qu’on peut insérer ou transformer              */
 /* ------------------------------------------------------------------ */
 
-export const HIGHLIGHTS = [
-  { label: "Jaune", color: "#F6E3A1" },
-  { label: "Vert", color: "#CBE7C4" },
-  { label: "Bleu", color: "#C9DFF2" },
-  { label: "Rose", color: "#F3D2DA" },
-  { label: "Violet", color: "#E0D3F3" },
-] as const;
+type SlashId =
+  | "p"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "quote"
+  | "rule"
+  | "bullet"
+  | "ordered"
+  | "task"
+  | "bold"
+  | "italic"
+  | "strike"
+  | "code"
+  | "highlight"
+  | "link"
+  | "clear";
 
-const SLASH_ITEMS = [
-  { id: "h1", label: "Titre 1", hint: "Section principale" },
-  { id: "h2", label: "Titre 2", hint: "Sous-section" },
-  { id: "bullet", label: "Liste à puces", hint: "Puces et retrait" },
-  { id: "ordered", label: "Liste numérotée", hint: "1. 2. 3." },
-  { id: "quote", label: "Citation", hint: "Passage mis en avant" },
-  { id: "paragraph", label: "Texte normal", hint: "Retirer la mise en forme" },
-] as const;
+interface SlashItem {
+  id: SlashId;
+  label: string;
+  hint: string;
+  group: string;
+}
+
+/**
+ * Le menu « / » est le frère de la barre d’outils : les mêmes gestes, mais
+ * sans quitter le clavier. Il est **groupé** (blocs, listes, mise en forme) et
+ * **filtrable** — taper « cit » ne laisse que la citation.
+ */
+const SLASH_ITEMS: SlashItem[] = [
+  { id: "p", label: "Texte", hint: "Paragraphe normal", group: "Blocs" },
+  { id: "h1", label: "Titre 1", hint: "Section principale", group: "Blocs" },
+  { id: "h2", label: "Titre 2", hint: "Sous-section", group: "Blocs" },
+  { id: "h3", label: "Titre 3", hint: "Détail", group: "Blocs" },
+  { id: "quote", label: "Citation", hint: "Passage mis en avant", group: "Blocs" },
+  { id: "rule", label: "Filet", hint: "Séparateur horizontal", group: "Blocs" },
+  { id: "bullet", label: "Liste à puces", hint: "Puces et retrait", group: "Listes" },
+  { id: "ordered", label: "Liste numérotée", hint: "1. 2. 3.", group: "Listes" },
+  { id: "task", label: "Case à cocher", hint: "À faire, coché d’un geste", group: "Listes" },
+  { id: "bold", label: "Gras", hint: "Ctrl+B", group: "Mise en forme" },
+  { id: "italic", label: "Italique", hint: "Ctrl+I", group: "Mise en forme" },
+  { id: "strike", label: "Barré", hint: "Ctrl+Maj+X", group: "Mise en forme" },
+  { id: "code", label: "Code en ligne", hint: "Ctrl+E", group: "Mise en forme" },
+  { id: "highlight", label: "Surlignage", hint: "Jaune par défaut", group: "Mise en forme" },
+  { id: "link", label: "Lien", hint: "Ctrl+K", group: "Mise en forme" },
+  { id: "clear", label: "Effacer la mise en forme", hint: "Texte nu", group: "Mise en forme" },
+];
 
 /* ------------------------------------------------------------------ */
 
@@ -78,8 +116,10 @@ export function NoteEditor({
   onAsk: (payload: { blockId: string; text: string }) => void;
 }) {
   const toast = useToast((s) => s.show);
-  const [highlightsOpen, setHighlightsOpen] = useState(false);
   const [slashAt, setSlashAt] = useState<number | null>(null);
+  const [slashQuery, setSlashQuery] = useState("");
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [findOpen, setFindOpen] = useState(false);
 
   const saveTimer = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -91,6 +131,11 @@ export function NoteEditor({
   const onAskRef = useRef(onAsk);
   onAskRef.current = onAsk;
 
+  /* Le menu « / » s’écoute dans le champ de saisie lui-même : au niveau du
+     document, ProseMirror aurait déjà coupé le paragraphe sur `Entrée`. */
+  const slashUi = useRef({ open: false, items: [] as SlashItem[], index: 0 });
+  const applySlashRef = useRef<(id: SlashId) => void>(() => {});
+
   const persist = useCallback((doc: PmNode) => {
     onChangeRef.current(docToBlocks(doc));
   }, []);
@@ -98,7 +143,7 @@ export function NoteEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2] },
+        heading: { levels: [1, 2, 3] },
         codeBlock: false,
         horizontalRule: false,
         bulletList: false,
@@ -110,6 +155,9 @@ export function NoteEditor({
           autolink: true,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
         },
+        /* Les raccourcis par défaut de TipTap écraseraient les nôtres sur
+           Ctrl+Maj+7, 8 et 9 : on les désactive, `BlockMeta` les redéfinit. */
+        strike: {},
       }),
       BlockMeta,
       QuestionBadges.configure({
@@ -122,6 +170,9 @@ export function NoteEditor({
         showOnlyWhenEditable: true,
       }),
       CharacterCount,
+      Superscript,
+      Subscript,
+      SearchHighlight,
     ],
     content: blocksToHtml(blocks),
     autofocus: false,
@@ -131,6 +182,90 @@ export function NoteEditor({
         spellcheck: "true",
         "aria-label": "Contenu de la note",
       },
+      /* Une case se coche en cliquant sur sa pastille, comme dans Notion :
+         c’est le seul endroit du bloc où le clic ne place pas le curseur. */
+      handleClick: (view, _pos, event) => {
+        const target = event.target as HTMLElement | null;
+        const block = target?.closest?.("[data-task]") as HTMLElement | null;
+        if (!block) return false;
+        const box = block.getBoundingClientRect();
+        if (event.clientX - box.left > 26) return false;
+        const blockId = block.getAttribute("data-block-id");
+        if (!blockId) return false;
+        event.preventDefault();
+        const tr = view.state.tr;
+        let toggled = false;
+        view.state.doc.descendants((node, pos) => {
+          if (toggled || node.type.name !== "paragraph" && node.type.name !== "heading") {
+            return !toggled;
+          }
+          if (node.attrs.blockId !== blockId) return true;
+          tr.setNodeMarkup(pos, undefined, {
+            ...node.attrs,
+            checked: node.attrs.checked !== true,
+          });
+          toggled = true;
+          return false;
+        });
+        if (toggled) {
+          view.dispatch(tr);
+          onChangeRef.current(docToBlocks(view.state.doc.toJSON() as PmNode));
+        }
+        return true;
+      },
+      handleKeyDown: (view, event) => {
+        /* Ctrl/Cmd+F ouvre la recherche de la note, jamais celle du
+           navigateur : la note est un document, pas une page. */
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+          event.preventDefault();
+          setFindOpen(true);
+          return true;
+        }
+
+        /* Coller sans format : du texte, rien que du texte. On lit le
+           presse-papiers nous-mêmes (`readText`), donc aucune balise ne peut
+           entrer — et si le navigateur refuse, on le dit au lieu de ne rien
+           faire. */
+        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "v") {
+          event.preventDefault();
+          void navigator.clipboard
+            ?.readText()
+            .then((text) => {
+              if (!text) return;
+              view.dispatch(view.state.tr.insertText(text.replace(/\r/g, "")));
+              onChangeRef.current(
+                docToBlocks(view.state.doc.toJSON() as PmNode),
+              );
+            })
+            .catch(() => toast("Collage sans format impossible sur ce navigateur"));
+          return true;
+        }
+
+        const slash = slashUi.current;
+        if (slash.open) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setSlashAt(null);
+            setSlashQuery("");
+            return true;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            const count = slash.items.length;
+            if (!count) return true;
+            const delta = event.key === "ArrowDown" ? 1 : -1;
+            setSlashIndex((index) => (index + delta + count) % count);
+            return true;
+          }
+          if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            const item = slash.items[Math.min(slash.index, slash.items.length - 1)];
+            if (item) applySlashRef.current(item.id);
+            return true;
+          }
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor: instance }) => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
@@ -138,14 +273,18 @@ export function NoteEditor({
         persist(instance.getJSON() as PmNode);
       }, 350);
 
-      /* Menu « / » : uniquement un paragraphe vide qui vient de recevoir « / » */
+      /* Menu « / » : un paragraphe dont le texte commence par « / ». La suite
+         du texte filtre les entrées, comme dans Notion. */
       const { $from } = instance.state.selection;
-      const typedSlash =
+      const text = $from.parent.textContent;
+      const typing =
         instance.state.selection.empty &&
         $from.parent.type.name === "paragraph" &&
-        $from.parent.textContent === "/" &&
-        $from.parentOffset === 1;
-      setSlashAt(typedSlash ? instance.state.selection.from : null);
+        text.startsWith("/") &&
+        $from.parentOffset === text.length;
+      setSlashAt(typing ? instance.state.selection.from : null);
+      setSlashQuery(typing ? text.slice(1) : "");
+      setSlashIndex(0);
     },
   });
 
@@ -175,6 +314,16 @@ export function NoteEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* Échap ferme la recherche ; le menu « / » s’écoute au clavier. */
+  useEffect(() => {
+    if (!findOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFindOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [findOpen]);
+
   const state = useEditorState({
     editor,
     selector: ({ editor: instance }) => {
@@ -185,6 +334,7 @@ export function NoteEditor({
           words: 0,
           marks: {} as Record<string, boolean>,
           attrs: {} as Record<string, unknown>,
+          kind: "p" as BlockTarget,
         };
       }
       const { from, to } = instance.state.selection;
@@ -200,10 +350,11 @@ export function NoteEditor({
           code: instance.isActive("code"),
           highlight: instance.isActive("highlight"),
           link: instance.isActive("link"),
-          h1: instance.isActive("heading", { level: 1 }),
-          h2: instance.isActive("heading", { level: 2 }),
+          superscript: instance.isActive("superscript"),
+          subscript: instance.isActive("subscript"),
         } as Record<string, boolean>,
-        attrs: currentBlockAttrs(instance),
+        attrs: { ...currentBlockAttrs(instance) },
+        kind: blockKindOf(instance),
       };
     },
   });
@@ -218,10 +369,7 @@ export function NoteEditor({
   );
 
   const applyHighlight = (color: string) =>
-    run((instance) => {
-      instance.chain().focus().toggleHighlight({ color }).run();
-      setHighlightsOpen(false);
-    });
+    run((instance) => instance.chain().focus().toggleHighlight({ color }).run());
 
   const askFromSelection = () => {
     if (!editor) return;
@@ -263,298 +411,193 @@ export function NoteEditor({
     });
   };
 
-  const applySlash = (id: (typeof SLASH_ITEMS)[number]["id"]) => {
+  const words = state?.words ?? 0;
+  const selection = state?.selection ?? "";
+  const marks = (state?.marks ?? {}) as Record<string, boolean>;
+  const attrs = (state?.attrs ?? {}) as Record<string, unknown>;
+  const kind = (state?.kind ?? "p") as BlockTarget;
+
+  const snapshot: EditorSnapshot = {
+    kind,
+    marks: {
+      bold: Boolean(marks.bold),
+      italic: Boolean(marks.italic),
+      underline: Boolean(marks.underline),
+      strike: Boolean(marks.strike),
+      code: Boolean(marks.code),
+      highlight: Boolean(marks.highlight),
+      link: Boolean(marks.link),
+      superscript: Boolean(marks.superscript),
+      subscript: Boolean(marks.subscript),
+    },
+    bullet: attrs.bullet === true,
+    ordered: attrs.ordered === true,
+    task: attrs.task === true,
+    checked: attrs.checked === true,
+    marked: attrs.marked === true,
+    indent: Number(attrs.indent ?? 0) || 0,
+    align: (attrs.align as Align) ?? "left",
+    words,
+  };
+
+  /* ----------------------------- MENU « / » ----------------------------- */
+  const slashItems = useMemo(() => {
+    const needle = slashQuery.trim().toLowerCase();
+    if (!needle) return SLASH_ITEMS;
+    return SLASH_ITEMS.filter(
+      (item) =>
+        item.label.toLowerCase().includes(needle) ||
+        item.hint.toLowerCase().includes(needle) ||
+        item.group.toLowerCase().includes(needle),
+    );
+  }, [slashQuery]);
+
+  const applySlash = (id: SlashId) => {
     if (!editor || slashAt === null) return;
     const chain = editor
       .chain()
       .focus()
       .deleteRange({ from: slashAt - 1, to: slashAt });
-    if (id === "h1") chain.setHeading({ level: 1 }).run();
-    else if (id === "h2") chain.setHeading({ level: 2 }).run();
-    else if (id === "paragraph") chain.setParagraph().run();
-    else if (id === "quote")
-      chain.setParagraph().updateAttributes("paragraph", { kind: "quote" }).run();
-    else if (id === "bullet")
-      chain
-        .setParagraph()
-        .updateAttributes("paragraph", { bullet: true, ordered: false })
-        .run();
-    else
-      chain
-        .setParagraph()
-        .updateAttributes("paragraph", { ordered: true, bullet: false })
-        .run();
+
+    if (id === "p" || id === "h1" || id === "h2" || id === "h3" || id === "quote" || id === "rule") {
+      chain.setParagraph().run();
+      turnInto(editor, id);
+    } else if (id === "bullet") {
+      chain.setParagraph().run();
+      toggleMeta(editor, "bullet");
+    } else if (id === "ordered") {
+      chain.setParagraph().run();
+      toggleMeta(editor, "ordered");
+    } else if (id === "task") {
+      chain.setParagraph().run();
+      toggleTask(editor);
+    } else if (id === "bold") {
+      chain.toggleBold().run();
+    } else if (id === "italic") {
+      chain.toggleItalic().run();
+    } else if (id === "strike") {
+      chain.toggleStrike().run();
+    } else if (id === "code") {
+      chain.toggleCode().run();
+    } else if (id === "highlight") {
+      chain.toggleHighlight({ color: HIGHLIGHTS[0].color }).run();
+    } else if (id === "link") {
+      chain.run();
+      setLink();
+    } else if (id === "clear") {
+      chain.setParagraph().unsetAllMarks().run();
+    }
+
     setSlashAt(null);
+    setSlashQuery("");
     persist(editor.getJSON() as PmNode);
   };
 
-  const words = state?.words ?? 0;
-  const selection = state?.selection ?? "";
-  const marks = state?.marks ?? {};
-  const attrs = state?.attrs ?? {};
-
-  const toolbar = useMemo(
-    () => [
-      {
-        group: "historique",
-        items: [
-          {
-            key: "undo",
-            label: "Annuler",
-            icon: ArrowUUpLeft,
-            onRun: () => run((i) => i.chain().focus().undo().run()),
-          },
-          {
-            key: "redo",
-            label: "Rétablir",
-            icon: ArrowCounterClockwise,
-            onRun: () => run((i) => i.chain().focus().redo().run()),
-          },
-        ],
-      },
-      {
-        group: "structure",
-        items: [
-          {
-            key: "h1",
-            label: "Titre 1",
-            icon: TextHOne,
-            active: marks.h1,
-            onRun: () =>
-              run((i) => i.chain().focus().toggleHeading({ level: 1 }).run()),
-          },
-          {
-            key: "h2",
-            label: "Titre 2",
-            icon: TextHTwo,
-            active: marks.h2,
-            onRun: () =>
-              run((i) => i.chain().focus().toggleHeading({ level: 2 }).run()),
-          },
-          {
-            key: "bullet",
-            label: "Liste à puces",
-            icon: ListBullets,
-            active: attrs.bullet === true,
-            onRun: () => run((i) => toggleMeta(i, "bullet")),
-          },
-          {
-            key: "ordered",
-            label: "Liste numérotée",
-            icon: ListNumbers,
-            active: attrs.ordered === true,
-            onRun: () => run((i) => toggleMeta(i, "ordered")),
-          },
-          {
-            key: "quote",
-            label: "Citation",
-            icon: Quotes,
-            active: attrs.kind === "quote",
-            onRun: () => run((i) => toggleQuote(i)),
-          },
-        ],
-      },
-      {
-        group: "marques",
-        items: [
-          {
-            key: "bold",
-            label: "Gras",
-            icon: TextB,
-            active: marks.bold,
-            onRun: () => run((i) => i.chain().focus().toggleBold().run()),
-          },
-          {
-            key: "italic",
-            label: "Italique",
-            icon: TextItalic,
-            active: marks.italic,
-            onRun: () => run((i) => i.chain().focus().toggleItalic().run()),
-          },
-          {
-            key: "underline",
-            label: "Souligné",
-            icon: TextUnderline,
-            active: marks.underline,
-            onRun: () => run((i) => i.chain().focus().toggleUnderline().run()),
-          },
-          {
-            key: "strike",
-            label: "Barré",
-            icon: TextStrikethrough,
-            active: marks.strike,
-            onRun: () => run((i) => i.chain().focus().toggleStrike().run()),
-          },
-          {
-            key: "code",
-            label: "Code",
-            icon: Code,
-            active: marks.code,
-            onRun: () => run((i) => i.chain().focus().toggleCode().run()),
-          },
-          {
-            key: "highlight",
-            label: "Surligner",
-            icon: Highlighter,
-            active: marks.highlight,
-            onRun: () => setHighlightsOpen((open) => !open),
-          },
-          {
-            key: "link",
-            label: "Lien",
-            icon: LinkSimple,
-            active: marks.link,
-            onRun: setLink,
-          },
-        ],
-      },
-      {
-        group: "retrait",
-        items: [
-          {
-            key: "indent",
-            label: "Décaler à droite",
-            icon: TextIndent,
-            onRun: () => run((i) => changeIndent(i, 1)),
-          },
-          {
-            key: "outdent",
-            label: "Décaler à gauche",
-            icon: TextOutdent,
-            onRun: () => run((i) => changeIndent(i, -1)),
-          },
-        ],
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      run,
-      marks.bold,
-      marks.italic,
-      marks.underline,
-      marks.strike,
-      marks.code,
-      marks.highlight,
-      marks.link,
-      marks.h1,
-      marks.h2,
-      attrs.bullet,
-      attrs.ordered,
-      attrs.kind,
-    ],
-  );
+  slashUi.current = {
+    open: slashAt !== null,
+    items: slashItems,
+    index: slashIndex,
+  };
+  applySlashRef.current = applySlash;
 
   return (
     <div className="note-editor">
       {/* Compositeur : en haut sur bureau, en bas au-dessus du clavier sur mobile */}
       <div className="composer">
         <NoteDock />
-        {/* Barre d’outils persistante, comme la barre d’Obsidian */}
-        <div className="editor-toolbar" role="toolbar" aria-label="Mise en forme">
-        <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-1">
-          {toolbar.map((group) => (
-            <div key={group.group} className="flex shrink-0 items-center">
-              {group.items.map((item) => (
-                <ToolButton
-                  key={item.key}
-                  label={item.label}
-                  active={item.active}
-                  onClick={item.onRun}
-                >
-                  <item.icon size={19} weight={item.active ? "bold" : "regular"} />
-                </ToolButton>
-              ))}
-              <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
-            </div>
-          ))}
-          <button
-            type="button"
-            aria-label="Ajouter une puce"
-            title="Nouveau bloc à puce"
-            onClick={() =>
-              run((i) =>
-                i
-                  .chain()
-                  .focus()
-                  .splitBlock()
-                  .updateAttributes("paragraph", { bullet: true })
-                  .run(),
-              )
-            }
-            className="editor-tool text-accent"
-          >
-            <Plus size={19} weight="bold" />
-          </button>
-        </div>
-        {words > 0 && (
-          <span className="shrink-0 pr-2 text-[11.5px] tabular-nums text-muted">
-            {words} mot{words > 1 ? "s" : ""}
-          </span>
-        )}
-        </div>
+        <EditorToolbar
+          editor={editor}
+          snapshot={snapshot}
+          onRun={run}
+          onFind={() => setFindOpen(true)}
+        />
+        <FindReplace
+          editor={editor}
+          open={findOpen}
+          onClose={() => setFindOpen(false)}
+          onDone={() => editor && persist(editor.getJSON() as PmNode)}
+        />
       </div>
-
-      {highlightsOpen && (
-        <div
-          className="editor-popover"
-          role="group"
-          aria-label="Couleur du surligneur"
-        >
-          {HIGHLIGHTS.map((highlight) => (
-            <button
-              key={highlight.label}
-              type="button"
-              aria-label={`Surligner en ${highlight.label.toLowerCase()}`}
-              onClick={() => applyHighlight(highlight.color)}
-              className="h-8 w-8 rounded-full border border-line"
-              style={{ background: highlight.color }}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => run((i) => i.chain().focus().unsetHighlight().run())}
-            aria-label="Retirer le surlignage"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-line text-muted"
-          >
-            <Trash size={14} />
-          </button>
-        </div>
-      )}
 
       <EditorContent editor={editor} />
 
       {/* Barre contextuelle : n’apparaît que sur une sélection */}
       {!state?.empty && selection.length > 0 && (
         <div className="dock dock-above-composer pointer-events-none fixed inset-x-0 z-30 mx-auto px-4">
-          <div className="pointer-events-auto flex items-center gap-0.5 rounded-field bg-ink p-1 shadow-lift animate-sheet-up">
+          <div className="pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-field bg-ink p-1 shadow-lift animate-sheet-up">
             <button
               type="button"
               onClick={askFromSelection}
-              className="h-11 flex-1 rounded-[10px] bg-accent px-3 text-[14px] font-semibold text-on-accent"
+              className="h-11 shrink-0 rounded-[10px] bg-accent px-3 text-[14px] font-semibold text-on-accent"
             >
               Créer une question
             </button>
             <button
               type="button"
+              aria-label="Mettre en gras"
+              aria-pressed={snapshot.marks.bold}
+              onClick={() => run((i) => i.chain().focus().toggleBold().run())}
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
+            >
+              <TextB size={18} weight={snapshot.marks.bold ? "bold" : "regular"} />
+            </button>
+            <button
+              type="button"
+              aria-label="Mettre en italique"
+              aria-pressed={snapshot.marks.italic}
+              onClick={() => run((i) => i.chain().focus().toggleItalic().run())}
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
+            >
+              <TextItalic size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Souligner"
+              aria-pressed={snapshot.marks.underline}
+              onClick={() => run((i) => i.chain().focus().toggleUnderline().run())}
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
+            >
+              <TextUnderline size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Barrer"
+              aria-pressed={snapshot.marks.strike}
+              onClick={() => run((i) => i.chain().focus().toggleStrike().run())}
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
+            >
+              <TextStrikethrough size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Code en ligne"
+              aria-pressed={snapshot.marks.code}
+              onClick={() => run((i) => i.chain().focus().toggleCode().run())}
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
+            >
+              <Code size={18} />
+            </button>
+            <button
+              type="button"
               aria-label="Surligner la sélection"
               onClick={() => applyHighlight(HIGHLIGHTS[0].color)}
-              className="flex h-11 w-10 items-center justify-center rounded-[10px] text-bg"
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
             >
               <Highlighter size={18} />
             </button>
             <button
               type="button"
-              aria-label="Mettre en gras"
-              onClick={() => run((i) => i.chain().focus().toggleBold().run())}
-              className="flex h-11 w-10 items-center justify-center rounded-[10px] text-bg"
+              aria-label="Lien sur la sélection"
+              onClick={setLink}
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
             >
-              <TextB size={18} weight="bold" />
+              <LinkSimple size={18} />
             </button>
             <button
               type="button"
               aria-label="Copier la sélection"
               onClick={copySelection}
-              className="flex h-11 w-10 items-center justify-center rounded-[10px] text-bg"
+              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
             >
               <Copy size={18} />
             </button>
@@ -568,19 +611,32 @@ export function NoteEditor({
           <div
             role="menu"
             aria-label="Insérer un bloc"
-            className="rounded-card border border-line bg-surface p-1.5 shadow-lift"
+            className="max-h-[52vh] overflow-y-auto rounded-card border border-line bg-surface p-1.5 shadow-lift"
           >
-            {SLASH_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="menuitem"
-                onClick={() => applySlash(item.id)}
-                className="flex w-full items-center justify-between gap-3 rounded-field px-3 py-2 text-left hover:bg-surface-2"
-              >
-                <span className="text-[15px] font-medium">{item.label}</span>
-                <span className="text-[12.5px] text-muted">{item.hint}</span>
-              </button>
+            {slashItems.length === 0 && (
+              <p className="px-3 py-2 text-[13px] text-muted">Aucun bloc ne correspond.</p>
+            )}
+            {slashItems.map((item, index) => (
+              <div key={item.id}>
+                {(index === 0 || slashItems[index - 1].group !== item.group) && (
+                  <p className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    {item.group}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onMouseEnter={() => setSlashIndex(index)}
+                  onClick={() => applySlash(item.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-field px-3 py-2 text-left",
+                    index === slashIndex ? "bg-surface-2" : "hover:bg-surface-2",
+                  )}
+                >
+                  <span className="text-[15px] font-medium">{item.label}</span>
+                  <span className="text-[12.5px] text-muted">{item.hint}</span>
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -681,34 +737,5 @@ function NoteDock() {
         Papier {PAPERS[paperIndex]?.label}
       </button>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-function ToolButton({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={Boolean(active)}
-      onMouseDown={(event) => event.preventDefault()}
-      onTouchStart={(event) => event.preventDefault()}
-      onClick={onClick}
-      className={cn("editor-tool", active && "editor-tool-active")}
-    >
-      {children}
-    </button>
   );
 }

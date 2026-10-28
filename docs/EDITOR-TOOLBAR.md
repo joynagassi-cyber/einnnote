@@ -42,17 +42,17 @@ Convention de confiance, utilisée dans tout le document :
    vingt-deux boutons : effacer les marques, effacer les nœuds, paragraphe,
    gras, italique, barré, code, H1–H6, puces, numéros, tâches, bloc de code,
    citation, filet, saut de ligne, annuler, rétablir.
-7. **Pour Einnote**, la barre actuelle (17 contrôles + menu `/` à 6 entrées +
-   barre de sélection) couvre le socle. Le manque n’est pas le nombre de
-   boutons, c’est **la transformation de bloc** : on ne peut pas passer d’un
-   paragraphe à une tâche ou à un tableau.
+7. **Pour Einnote**, la barre compte désormais 35 actions (16 visibles,
+   19 dans les menus), un menu `/` groupé et filtrable, et la recherche dans
+   la note. Le manque n’est plus le nombre de boutons : c’est le **document
+   long** — tableaux, images, sommaire — qui demande une migration.
 8. **La contrainte propre à Einnote** : le stockage est une liste de blocs
    (`Block[]`) où puces, numéros, retrait et citation sont des **attributs**,
    pas des nœuds. Toute extension TipTap qui crée un nœud de liste ou de table
    exige soit une adaptation (attributs), soit une migration du modèle.
-9. **Trois lots** sont proposés en §6 : le socle clavier (0 dépendance), le
-   confort structurel (3 extensions), le document long (tableaux, images,
-   sommaire — migration de données).
+9. **Trois lots** étaient proposés en §6 : le socle clavier, le confort
+   structurel, le document long. **Les deux premiers sont livrés et testés**
+   (578 tests) ; le troisième reste à faire, avec sa migration de données.
 10. **La règle à retenir** : une barre d’outils ne se juge pas au nombre de
    boutons, mais à ce qu’elle permet de faire **sans quitter le clavier**.
 
@@ -450,103 +450,194 @@ C’est le tableau à garder sous la main quand on construit une barre.
 
 ## 5. Einnote aujourd’hui
 
-### 5.1 Inventaire exact de la barre (source : `src/components/editor/NoteEditor.tsx`)
+### 5.1 Inventaire exact de la barre (source : `src/components/editor/EditorToolbar.tsx`)
 
-**[Établi]** Quatre groupes, 17 contrôles :
+**[Établi]** La barre vit dans son propre composant ; `NoteEditor` ne fait que
+la brancher. Seize gestes sont visibles sans ouvrir de menu, et **trois menus**
+portent le reste — soit **trente-cinq actions** au total.
 
-| Groupe | Boutons |
+| Groupe | Contrôles visibles |
 |---|---|
-| **Historique** | Annuler, Rétablir |
-| **Structure** | Titre 1, Titre 2, Liste à puces, Liste numérotée, Citation |
-| **Marques** | Gras, Italique, Souligné, Barré, Code, Surligner (5 couleurs + retrait), Lien |
+| **Historique** | Annuler (`Mod-Z`), Rétablir (`Mod-Shift-Z`) |
+| **Type de bloc** | bouton libellé (« Texte », « Titre 1 »…) + menu **Transformer** |
+| **Marques** | Gras, Italique, Souligné, Barré, Code en ligne, Surligner, Lien |
+| **Listes** | Liste à puces, Liste numérotée, Case à cocher |
 | **Retrait** | Décaler à droite, Décaler à gauche |
-| **Insertion** | `+` (nouveau bloc à puce) |
+| **Alignement** | Gauche, Centrer, Droite |
+| **Fin de barre** | menu **Plus**, `+` (ajouter un bloc), compteur de mots |
 
-Plus :
+**Menu « Transformer »** — six entrées, avec le type courant coché :
 
-- **menu `/`** à 6 entrées (Titre 1, Titre 2, puces, numéros, citation,
-  paragraphe) ;
-- **barre de sélection** (« Créer une question », surligner, gras, copier) ;
-- **compteur de mots**, **pastilles de questions** en gouttière ;
-- raccourcis : `Mod-B/I/U`, `Mod-Shift-8` (puces), `Mod-Shift-7` (numéros),
-  `Mod-Shift-9` (citation), `Tab`/`Shift-Tab` (retrait).
+`Texte` · `Titre 1` · `Titre 2` · `Titre 3` · `Citation` · `Filet`
 
-### 5.2 Écart avec le catalogue TipTap
+**Menu « Surligneur »** — cinq teintes et un retrait :
+jaune `#F6E3A1`, vert `#CBE7C4`, bleu `#C9DFF2`, rose `#F3D2DA`, violet
+`#E0D3F3`.
+
+**Menu « Plus »** — treize entrées en quatre groupes :
+
+1. *Marques rares* : Exposant, Indice, Marquer comme réponse.
+2. *Bloc* : Insérer un filet, Dupliquer, Monter, Descendre, Supprimer,
+   Copier le bloc, Insérer la date.
+3. *Casse* : MAJUSCULES, minuscules, capitale en tête de phrase, capitale à
+   chaque mot.
+4. *Document* : Rechercher dans la note, Effacer la mise en forme.
+
+Plus, hors barre :
+
+- **menu `/`** à 16 entrées **groupées** (Blocs, Listes, Mise en forme) et
+  **filtrable au clavier** — `↑` `↓` pour choisir, `Entrée` pour appliquer,
+  `Échap` pour renoncer ; l’interception se fait dans le champ de saisie
+  lui-même, sinon ProseMirror couperait le paragraphe avant nous ;
+- **barre de sélection** : Créer une question, Gras, Italique, Souligné,
+  Barré, Code, Surligner, Lien, Copier ;
+- **chercher / remplacer** (`Ctrl+F`) : compteur `n / total`, occurrence
+  précédente / suivante, remplacer, tout remplacer, `Échap` pour fermer —
+  les occurrences sont des **décorations**, jamais des écritures dans le
+  document ;
+- **clic sur la pastille** d’une case pour la cocher ;
+- **compteur de mots**, **pastilles de questions** en gouttière.
+
+### 5.2 Raccourcis (tous affichés dans les infobulles)
+
+| Geste | Raccourci |
+|---|---|
+| Gras / Italique / Souligné | `Mod-B` · `Mod-I` · `Mod-U` |
+| Barré | `Mod-Shift-X` |
+| Code en ligne | `Mod-E` |
+| Lien | `Mod-K` |
+| Exposant / Indice | `Mod-.` · `Mod-,` |
+| Titre 1 / 2 / 3 | `Mod-Alt-1` · `Mod-Alt-2` · `Mod-Alt-3` |
+| Texte normal | `Mod-Alt-0` |
+| Citation | `Mod-Shift-9` |
+| Liste numérotée / à puces | `Mod-Shift-7` · `Mod-Shift-8` |
+| Case à cocher | `Mod-Shift-4` |
+| Retrait / hors-retrait | `Tab` · `Shift-Tab` |
+| Coller sans format | `Mod-Shift-V` |
+| Rechercher dans la note | `Mod-F` |
+
+### 5.3 Le modèle de données, étendu sans le casser
+
+**[Établi]** `src/types/index.ts` :
+
+```ts
+export type BlockKind = "p" | "h1" | "h2" | "h3" | "quote" | "rule";
+
+export interface Block {
+  id: string;
+  html: string;
+  kind: BlockKind;
+  bullet: boolean;
+  ordered?: boolean;
+  task?: boolean;
+  checked?: boolean;
+  indent: number;
+  align?: "center" | "right";
+  marked?: boolean;
+}
+```
+
+Trois règles, tenues ensemble :
+
+1. **Tout ce qui est structurel est un attribut**, jamais un nœud. La case à
+   cocher est `data-task` + `data-checked` sur le paragraphe ; le filet est un
+   paragraphe `data-kind="rule"` — donc **ancrable à une question**, comme
+   n’importe quel bloc. Un `TaskList` ou un `HorizontalRule` TipTap ferait
+   perdre le bloc par `docToBlocks`.
+2. **Les clés facultatives ne sont écrites que si elles sont vraies** : un
+   bloc inchangé traverse l’éditeur sans gagner de clé, donc les sauvegardes
+   et les exports ne gonflent pas au fil des allers-retours.
+3. **Toute transformation préserve `blockId`** — c’est ce qui garantit que
+   les questions restent ancrées. `turnInto` change le nœud et ses attributs,
+   jamais le texte ni l’identifiant ; `duplicateBlock` en donne un neuf, et
+   lui seul.
+
+Le Markdown suit la même extension : `### `, `---`, `- [ ]` / `- [x]`,
+`1.`, `^exposant^`, `~indice~`, `==surlignage==`.
+
+### 5.4 Écart avec le catalogue TipTap
 
 | Manque | Coût | Verdict |
 |---|---|---|
-| **Titre 3** (et niveaux 4–6) | trivial — `heading.levels` | à faire |
-| **Cases à cocher** | moyen — pas de nœud de liste dans le stockage | à faire en attribut `task: true` |
-| **Filet horizontal** | trivial — nouvel attribut `rule` ou nœud `horizontalRule` | à faire |
-| **Exposant / indice** | trivial — 2 extensions | à faire |
-| **Effacer la mise en forme** | trivial — `unsetAllMarks()` + `clearNodes()` | à faire |
-| **Copier / coller sans format** | faible — manipulation du presse-papiers | à faire |
-| **Rechercher / remplacer** | moyen — `FindAndReplace` | à faire |
-| **Poignée de bloc** | moyen — `DragHandle` + menu de bloc | à faire (le plus rentable) |
 | **Tableaux** | élevé — nouveau type de bloc, export Markdown, questions ancrées | après migration |
 | **Images / pièces jointes** | élevé — stockage local-first des fichiers | après décision de stockage |
 | **Formules LaTeX** | moyen — KaTeX + nœud | plus tard |
 | **Sommaire / plan** | moyen — `TableOfContents` | plus tard |
 | **Notes de bas de page** | élevé — Pro chez TipTap | plus tard |
 | **Couleur de texte, police, taille** | moyen — mais **contraire** à la charte (3 couleurs, typographie unique) | refusé, volontairement |
-| **Alignement** | faible — mais le format est un texte linéaire | reporté |
 | **Commentaires, suivi de modifications, versions** | très élevé (Pro) | hors périmètre |
 | **Collaboration temps réel** | très élevé (Yjs + serveur) | déjà cadré par l’offre cloud payante |
 
-### 5.3 La contrainte qui commande tout
+**Écart assumé** : l’**alignement** (gauche / centrer / droite) est
+implémenté, alors que la première rédaction de ce document le refusait. Il ne
+coûte qu’un attribut (`align`), il ne touche pas la palette ni la typographie,
+et il rend service sur les titres et les épigraphes. C’est le seul ajout
+« décoratif » qu’on s’autorise.
+
+### 5.5 La contrainte qui commande tout
 
 **[Établi]** `src/lib/editor/blocks.ts` : *« un bloc = un nœud de premier
-niveau (paragraphe ou titre). Les puces, la numérotation, le retrait et la
-citation sont des attributs du bloc, pas des nœuds de liste : le retour de
-l’éditeur vers le stockage est donc exact, sans heuristique. »*
+niveau (paragraphe ou titre). Les puces, la numérotation, le retrait, la
+citation, la case et le filet sont des attributs du bloc, pas des nœuds de
+liste : le retour de l’éditeur vers le stockage est donc exact, sans
+heuristique. »*
 
 Conséquences :
 
-1. **Brancher `TaskList` ou `Table` tel quel casserait le pont** : le nœud
-   produit n’est pas un paragraphe, `docToBlocks` le perdrait.
+1. **Brancher `TaskList`, `Table` ou `HorizontalRule` tel quel casserait le
+   pont** : le nœud produit n’est pas un paragraphe, `docToBlocks` le perdrait.
 2. Les extensions **de marque** (Superscript, Subscript, Highlight, Link)
    passent sans risque : elles vivent dans le HTML des blocs.
 3. Les extensions **qui ajoutent un attribut** à `paragraph`/`heading` sont
-   sûres (c’est déjà le cas de `BlockMeta`).
+   sûres — c’est le cas de `BlockMeta`.
 4. Toute nouvelle structure demande **trois choses ensemble** : un attribut ou
    un nouveau `BlockKind`, un rendu Markdown, et un test de survie au
    rechargement.
 
 ---
 
-## 6. Recommandation — trois lots
+## 6. Où en sont les trois lots
 
-### Lot A · le socle clavier (aucune dépendance, ~1 jour)
+### Lot A · le socle clavier — **livré**
 
-- Titre 3 ; filet horizontal ; exposant / indice ; effacer la mise en forme ;
-  coller sans format.
-- Raccourcis complets et **affichés dans les infobulles** (`Mod-Alt-1…3`,
-  `Mod-Shift-7/8/9`, `Mod-K`, `Mod-Shift-X`).
-- Menu `/` porté de 6 à 20 entrées, avec recherche.
-- **Critère** : une note entière rédigée sans toucher la souris.
+Titre 3, filet, exposant / indice, effacer la mise en forme, coller sans
+format, coller le texte du bloc, insérer la date, changer la casse, raccourcis
+affichés dans les infobulles, menu `/` groupé et filtrable.
 
-### Lot B · l’édition structurelle (~3 jours, 2 extensions)
+**Vérifié** : `src/lib/editor/blocks.test.ts` (aller-retour `h3`, `rule`,
+`sup`/`sub`, listes, cases, alignement, absence de clés superflues),
+`src/lib/editor/transform.test.ts` (quatre modes de casse, marques
+conservées, date en français).
 
-- `TaskList`/`TaskItem` **remplacés** par un attribut `task` maison : la case
-  est un glyphe dans le paragraphe, pas un nœud. Le Markdown produit `- [ ]`.
-- `DragHandle` + menu de bloc (Turn into, dupliquer, supprimer, déplacer) —
-  **le vocabulaire de Notion, appliqué aux attributs existants**.
-- `FindAndReplace`.
-- **Critère** : transformer un paragraphe en citation, en titre ou en tâche
-  sans le réécrire, au clavier comme à la poignée.
+### Lot B · l’édition structurelle — **livré**
 
-### Lot C · le document long (migration, ~2 semaines)
+Case à cocher en attribut (Markdown `- [ ]`), menu de bloc (transformer,
+dupliquer, monter, descendre, supprimer, copier), chercher / remplacer,
+clic sur la pastille pour cocher.
 
-- Tableaux et images : nouveau `BlockKind`, stockage de fichiers local-first,
-  export Markdown, ancrage des questions conservé.
-- Sommaire calculé sur les titres ; `UniqueID` pour citer un bloc.
-- **Critère** : une note de 5 000 mots avec un tableau reste exportable et
-  ses questions restent ancrées.
+**Vérifié** : `src/lib/editor/search.test.ts` (occurrences, parcours
+circulaire, remplacement annulable, « ne traverse pas deux blocs ») et
+`src/test/editor-toolbar.test.tsx` (la barre expose ses gestes, transformer un
+paragraphe en titre 3 **sans changer les identifiants**, cocher une case
+depuis le bloc, `Ctrl+F` sans écrire dans le document, aligner à droite).
+
+### Lot C · le document long — **non commencé, et volontairement**
+
+Tableaux et images : nouveau `BlockKind`, stockage de fichiers local-first,
+export Markdown, ancrage des questions conservé. Sommaire calculé sur les
+titres ; `UniqueID` pour citer un bloc.
+
+**Pourquoi attendre** : chacun de ces ajouts change la **forme du stockage**,
+donc la migration des sauvegardes et l’export. Ils méritent leur propre tour,
+avec un schéma de migration et un test de rechargement — pas une fin de
+journée de barre d’outils.
+
+**Critère de fin** : une note de 5 000 mots avec un tableau reste exportable
+et ses questions restent ancrées.
 
 **Ce qu’on ne fera pas** : couleur de texte libre, choix de police, taille de
-police, alignement — ils contredisent la charte (trois couleurs, typographie
-unique) et n’ajoutent rien à l’apprentissage. Une barre qui grossit sans
-doctrine devient celle de Word : personne ne sait plus où est le gras.
+police. Une barre qui grossit sans doctrine devient celle de Word : personne
+ne sait plus où est le gras.
 
 ---
 

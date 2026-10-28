@@ -91,6 +91,10 @@ function markTag(mark: PmMark): string {
       return "mark";
     case "link":
       return "a";
+    case "superscript":
+      return "sup";
+    case "subscript":
+      return "sub";
     default:
       return "";
   }
@@ -126,6 +130,8 @@ const MARK_ORDER = [
   "strike",
   "code",
   "highlight",
+  "superscript",
+  "subscript",
 ];
 
 function sortMarks(marks: PmMark[] = []): PmMark[] {
@@ -165,10 +171,14 @@ export function nodeText(node: PmNode): string {
 
 function blockAttributes(block: Block, meta: BlockMeta): string {
   const attrs = [`data-block-id="${escapeHtml(block.id)}"`];
-  if (block.kind === "quote" || meta.quote) attrs.push('data-kind="quote"');
+  const kind = meta.quote ? "quote" : block.kind;
+  if (kind === "quote" || kind === "rule") attrs.push(`data-kind="${kind}"`);
   if (block.bullet) attrs.push('data-bullet="true"');
-  if (meta.ordered) attrs.push('data-ordered="true"');
+  if (block.ordered || meta.ordered) attrs.push('data-ordered="true"');
+  if (block.task) attrs.push('data-task="true"');
+  if (block.task && block.checked) attrs.push('data-checked="true"');
   if (block.indent) attrs.push(`data-indent="${block.indent}"`);
+  if (block.align) attrs.push(`data-align="${block.align}"`);
   if (block.marked) attrs.push('data-marked="true"');
   return attrs.join(" ");
 }
@@ -178,7 +188,13 @@ export function blocksToHtml(blocks: Block[]): string {
   return blocks
     .map((block) => {
       const tag =
-        block.kind === "h1" ? "h1" : block.kind === "h2" ? "h2" : "p";
+        block.kind === "h1"
+          ? "h1"
+          : block.kind === "h2"
+            ? "h2"
+            : block.kind === "h3"
+              ? "h3"
+              : "p";
       return `<${tag} ${blockAttributes(block, {})}>${sanitizeHtml(block.html)}</${tag}>`;
     })
     .join("");
@@ -188,7 +204,11 @@ export function blocksToHtml(blocks: Block[]): string {
 /* Nœud → bloc (enregistrement)                                        */
 /* ------------------------------------------------------------------ */
 
-const KIND_BY_LEVEL: Record<number, Block["kind"]> = { 1: "h1", 2: "h2" };
+const KIND_BY_LEVEL: Record<number, Block["kind"]> = {
+  1: "h1",
+  2: "h2",
+  3: "h3",
+};
 
 let fallbackCounter = 0;
 function fallbackId() {
@@ -208,14 +228,25 @@ export function docToBlocks(
       ? (KIND_BY_LEVEL[level] ?? "h2")
       : attrs.kind === "quote"
         ? "quote"
-        : "p";
+        : attrs.kind === "rule"
+          ? "rule"
+          : "p";
 
+    /* Les attributs facultatifs ne sont écrits **que s’ils existent** : un
+       bloc inchangé doit traverser l’éditeur sans gagner de clés, sinon
+       chaque aller-retour gonflerait les sauvegardes et les exports. */
     return {
       id: typeof attrs.blockId === "string" && attrs.blockId ? attrs.blockId : makeId(),
       html: sanitizeHtml(renderInline(node.content)),
       kind,
       bullet: Boolean(attrs.bullet),
+      ...(attrs.ordered ? { ordered: true } : {}),
+      ...(attrs.task ? { task: true } : {}),
+      ...(attrs.task && attrs.checked ? { checked: true } : {}),
       indent: Number(attrs.indent ?? 0) || 0,
+      ...(attrs.align === "center" || attrs.align === "right"
+        ? { align: attrs.align as "center" | "right" }
+        : {}),
       ...(attrs.marked ? { marked: true } : {}),
     };
   });
@@ -245,6 +276,10 @@ export function blocksToMarkdown(blocks: Block[]): string {
         .replace(/<\/(strong|b)>/gi, "**")
         .replace(/<(em|i)>/gi, "*")
         .replace(/<\/(em|i)>/gi, "*")
+        .replace(/<sup>/gi, "^")
+        .replace(/<\/sup>/gi, "^")
+        .replace(/<sub>/gi, "~")
+        .replace(/<\/sub>/gi, "~")
         .replace(/<mark[^>]*>/gi, "==")
         .replace(/<\/mark>/gi, "==")
         .replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, "[$2]($1)")
@@ -252,10 +287,14 @@ export function blocksToMarkdown(blocks: Block[]): string {
         .replace(/&nbsp;/g, " ")
         .trim();
       const pad = "  ".repeat(block.indent);
+      if (block.kind === "rule") return "---";
       if (block.kind === "h1") return `# ${text}`;
       if (block.kind === "h2") return `## ${text}`;
+      if (block.kind === "h3") return `### ${text}`;
       if (block.kind === "quote") return `> ${text}`;
+      if (block.task) return `${pad}- [${block.checked ? "x" : " "}] ${text}`;
       if (block.bullet) return `${pad}- ${text}`;
+      if (block.ordered) return `${pad}1. ${text}`;
       return `${pad}${text}`;
     })
     .join("\n\n");

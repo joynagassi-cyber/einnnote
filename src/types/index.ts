@@ -26,12 +26,29 @@ export type NoteStatus = "draft" | "captured" | "questioned" | "done";
 
 export type Rating = "again" | "hard" | "good" | "easy";
 
+/**
+ * Le type d’un bloc — et non un nœud : tout ce qui suit reste **dans la même
+ * boîte**, le schéma de l’éditeur ne bouge pas. C’est ce qui permet à une
+ * question de rester ancrée quand on transforme un paragraphe en titre, en
+ * citation ou en case à cocher.
+ */
+export type BlockKind = "p" | "h1" | "h2" | "h3" | "quote" | "rule";
+
 export interface Block {
   id: string;
   html: string;
-  kind: "p" | "h1" | "h2" | "quote";
+  kind: BlockKind;
+  /** liste à puces */
   bullet: boolean;
+  /** liste numérotée — attribut, pas un nœud de liste */
+  ordered?: boolean;
+  /** case à cocher */
+  task?: boolean;
+  /** cochée (n’a de sens qu’avec `task`) */
+  checked?: boolean;
   indent: number;
+  /** alignement d’un paragraphe ou d’un titre */
+  align?: "center" | "right";
   /** surlignage « réponse » : fond accent doux + soulignement accent */
   marked?: boolean;
 }
