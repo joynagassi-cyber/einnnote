@@ -55,7 +55,7 @@ type RGB = [number, number, number];
  * C’est la même grandeur que pour les SVG : ce que « voit » le voile.
  */
 function averageColor(wall: { id: string; kind?: string }): RGB {
-  if (wall.kind === "photo") {
+  if (wall.kind === "photo" || wall.kind === "illustration") {
     const file = readFileSync(join(process.cwd(), "public", "walls", `${wall.id}.png`));
     return meanColor(decodePng(file)) as RGB;
   }

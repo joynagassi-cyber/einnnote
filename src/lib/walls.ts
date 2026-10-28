@@ -26,7 +26,31 @@ import type { PaletteMode } from "@/lib/themes";
  * - `photo` — une photographie réelle (PNG), livrée avec la palette qu’elle
  *   porte : l’interface en tire son accent en la lisant (`src/lib/palette.ts`).
  */
-export type WallKind = "aura" | "ramp" | "photo";
+export type WallKind = "aura" | "ramp" | "photo" | "illustration";
+
+/**
+ * Familles affichées dans la galerie.
+ *
+ * Une seule liste de quarante-quatre fonds serait un mur : on les range en
+ * **séries**, comme un choix de couvertures. L’ordre va du plus « dessiné » au
+ * plus « abstrait », parce que c’est l’ordre dans lequel on cherche.
+ */
+export type WallSeries =
+  | "matieres"
+  | "saisons"
+  | "villes"
+  | "photos"
+  | "halos"
+  | "degrades";
+
+export const WALL_SERIES: { id: WallSeries; label: string; hint: string }[] = [
+  { id: "matieres", label: "Matières", hint: "Feuillage, béton — des surfaces, pas des paysages" },
+  { id: "saisons", label: "Saisons", hint: "Quatre lumières d’année" },
+  { id: "villes", label: "Villes", hint: "Des lieux reconnaissables, dessinés" },
+  { id: "photos", label: "Photographies", hint: "Des images réelles, mesurées pour rester lisibles" },
+  { id: "halos", label: "Halos", hint: "Aucune forme : une couleur, une profondeur" },
+  { id: "degrades", label: "Dégradés", hint: "Une couleur franche, cinq arrêts" },
+];
 
 export interface Wall {
   id: string;
@@ -37,6 +61,8 @@ export interface Wall {
   mode: PaletteMode;
   /** palette recommandée si l’on veut un rendu cohérent d’un clic */
   palette: string;
+  /** série de la galerie (déduite de `kind` quand elle n’est pas écrite) */
+  series?: WallSeries;
   /**
    * Couleur moyenne de l’image (halos compris). Elle sert à calculer la bande
    * de voile où le texte reste lisible **et** le fond reste visible ; le test
@@ -87,6 +113,18 @@ export const WALLS: Wall[] = [
   { id: "volcan-noir", label: "Volcan noir", mood: "basalte · cendre", mode: "dark", palette: "noir-absolu", tone: "#3d4850", kind: "photo" },
   { id: "jardin-fleurs", label: "Jardin en fleurs", mood: "pétales · printemps", mode: "light", palette: "material", tone: "#afa58a", kind: "photo" },
   { id: "sel-pastel", label: "Sel pastel", mood: "miroir · pastel", mode: "light", palette: "lilas", tone: "#c8c5c3", kind: "photo" },
+  /* Illustrations — dessin vectoriel éditorial, PNG 1280 px. Même chaîne de
+     fabrication que les photographies ; le `tone` reste mesuré, jamais choisi. */
+  { id: "feuillage", label: "Feuillage", mood: "monstera · jungle", mode: "dark", palette: "mocha", tone: "#266341", kind: "illustration", series: "matieres" },
+  { id: "architecture", label: "Architecture", mood: "béton · lignes", mode: "dark", palette: "material-sombre", tone: "#716e67", kind: "illustration", series: "matieres" },
+  { id: "printemps", label: "Printemps", mood: "cerisiers · prairie", mode: "light", palette: "rose-poudre", tone: "#c4cbb7", kind: "illustration", series: "saisons" },
+  { id: "ete", label: "Été", mood: "lagon · sel", mode: "light", palette: "nord-neige", tone: "#a1ccc0", kind: "illustration", series: "saisons" },
+  { id: "automne", label: "Automne", mood: "ambre · lac", mode: "light", palette: "material", tone: "#bd9c73", kind: "illustration", series: "saisons" },
+  { id: "hiver", label: "Hiver", mood: "glace · sapin", mode: "light", palette: "nord-neige", tone: "#b8c7ca", kind: "illustration", series: "saisons" },
+  { id: "tokyo", label: "Tokyo", mood: "indigo · cerisier", mode: "dark", palette: "lilas-nuit", tone: "#586282", kind: "illustration", series: "villes" },
+  { id: "new-york", label: "New York", mood: "heure dorée · tours", mode: "dark", palette: "material-sombre", tone: "#7f6c58", kind: "illustration", series: "villes" },
+  { id: "marrakech", label: "Marrakech", mood: "terre · minaret", mode: "dark", palette: "material-sombre", tone: "#956350", kind: "illustration", series: "villes" },
+  { id: "sydney", label: "Sydney", mood: "port · voiles", mode: "light", palette: "material", tone: "#879ba2", kind: "illustration", series: "villes" },
 ];
 
 export function wallById(id: string | null | undefined): Wall | undefined {
@@ -100,7 +138,21 @@ export function wallById(id: string | null | undefined): Wall | undefined {
  * deux fois (et un test qui vérifie que le fichier existe vraiment).
  */
 export function wallFile(id: string, kind?: WallKind): string {
-  return `${id}.${kind === "photo" ? "png" : "svg"}`;
+  return `${id}.${kind === "photo" || kind === "illustration" ? "png" : "svg"}`;
+}
+
+/** Série d’un fond : écrite, ou déduite de sa famille de fabrication. */
+export function seriesOf(wall: Wall): WallSeries {
+  if (wall.series) return wall.series;
+  return wall.kind === "photo" ? "photos" : wall.kind === "ramp" ? "degrades" : "halos";
+}
+
+/** Les fonds groupés, dans l’ordre de la galerie (sans série vide). */
+export function wallsBySeries(): { id: WallSeries; label: string; hint: string; walls: Wall[] }[] {
+  return WALL_SERIES.map((series) => ({
+    ...series,
+    walls: WALLS.filter((wall) => seriesOf(wall) === series.id),
+  })).filter((series) => series.walls.length > 0);
 }
 
 export function wallUrl(id: string): string {

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SIGNATURES, WALLS, wallById, wallFile, wallUrl } from "@/lib/walls";
+import { SIGNATURES, WALLS, wallById, wallFile, wallUrl, wallsBySeries } from "@/lib/walls";
 import { PALETTES, paletteByKey } from "@/lib/themes";
 
 const WALL_DIR = join(process.cwd(), "public", "walls");
@@ -27,7 +27,7 @@ describe("fonds « verre »", () => {
       expect(existsSync(file), wall.id).toBe(true);
 
       /* Trois façons de faire un fond : des halos flous, une rampe, une photo. */
-      if (wall.kind === "photo") {
+      if (wall.kind === "photo" || wall.kind === "illustration") {
         const png = readFileSync(file);
         // signature PNG : le fichier est bien une image, pas un SVG renommé
         expect([...png.subarray(0, 4)], wall.id).toEqual([0x89, 0x50, 0x4e, 0x47]);
@@ -54,6 +54,37 @@ describe("fonds « verre »", () => {
     for (const wall of WALLS) {
       expect(wallUrl(wall.id)).toContain(`/walls/${wallFile(wall.id, wall.kind)}`);
     }
+  });
+
+  it("livre des illustrations éditoriales, rangées en séries", () => {
+    const illustrations = WALLS.filter((wall) => wall.kind === "illustration");
+    expect(illustrations.length).toBeGreaterThanOrEqual(10);
+    for (const wall of illustrations) {
+      expect(wallUrl(wall.id), wall.id).toMatch(/\.png$/);
+      expect(wall.series, wall.id).toBeDefined();
+    }
+    // trois séries nommées, comme un choix de couvertures
+    const series = wallsBySeries();
+    expect(series.map((entry) => entry.id)).toEqual([
+      "matieres",
+      "saisons",
+      "villes",
+      "photos",
+      "halos",
+      "degrades",
+    ]);
+    for (const entry of series) {
+      expect(entry.walls.length, entry.id).toBeGreaterThan(0);
+      expect(entry.label.length).toBeGreaterThan(3);
+    }
+    // aucune série ne mélange les familles de fabrication
+    const saisons = series.find((entry) => entry.id === "saisons")!;
+    expect(saisons.walls.map((wall) => wall.id)).toEqual([
+      "printemps",
+      "ete",
+      "automne",
+      "hiver",
+    ]);
   });
 
   it("livre des photographies en plus des fonds dessinés", () => {

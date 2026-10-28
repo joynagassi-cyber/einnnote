@@ -123,10 +123,12 @@ l’image** et en tire trois couleurs.
 
 | Étape | Ce qui se passe | Pourquoi |
 |---|---|---|
-| Lecture | `<img>` → canvas **48 × 48** → 2 304 pixels RVB | 1 ms, et chaque région (ciel, eau, forêt) pèse à sa surface réelle ; 16 × 16 perdait les teintes minoritaires |
-| Vote | histogramme de **24 cases de teinte** (15°), pondéré par la saturation et la centralité de luminosité | une photo contient beaucoup de gris (ciel, pierre, neige) : sans pondération, l’accent est toujours terne |
+| Lecture | `<img>` → canvas **48 × 48** → 2 304 pixels, **RVBA converti en RVB** | 1 ms ; le canvas renvoie 4 canaux, lire des triplets sur ce flux produisait des accents rouges (voir §7 bis) |
+| Famille | moyenne circulaire des teintes pondérée par la surface → **famille de ± 60°** | la couleur de l’image, pas son détail : un soleil jaune dans un décor bleu ne doit pas gagner |
+| Vote | histogramme de **24 cases** (15°), score `surface^0.8 × saturation^0.9`, dans la famille seulement | la surface décide, la saturation nuance |
 | Accent | case gagnante → couleur moyenne → `deriveAccent` corrige jusqu’à AA | l’accent est mesuré contre le **verre réel**, pas contre du blanc théorique |
-| Second ton | case la plus éloignée d’au moins 60° ; à défaut, rotation de 42° | deux teintes à moins de 60° se lisent comme une seule |
+| Second ton | case la plus éloignée d’au moins 60°, cherchée **hors** de la famille ; à défaut, rotation de 42° | c’est le principe même d’un second ton |
+| Signature | saturation et luminosité relevées dans une bande tenable, teinte conservée | une moyenne de ciel et d’eau est délavée : posée telle quelle, l’accent est terne |
 | Voile | moyenne pondérée des 35 % de pixels les plus sombres, ramenée sous 4,5 % de luminance | un voile plus clair laisse flotter le texte, un voile noir tue l’image |
 | Texte des boutons | noir ou blanc, au meilleur ratio ; **4,5:1 garanti** | pour toute couleur, l’un des deux atteint au moins 4,58:1 — le pire cas est le gris de luminance 0,18 |
 

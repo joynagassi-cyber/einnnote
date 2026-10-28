@@ -85,16 +85,22 @@ export function hueDistance(a: number, b: number): number {
 /**
  * Poids d’un pixel dans le vote.
  *
- * Une photographie contient beaucoup de gris : ciel voilé, pierre, neige. Ces
- * pixels ne doivent pas gagner — sinon l’accent est systématiquement terne.
- * On favorise donc la saturation, et on pénalise les extrêmes de luminosité :
- * un pixel presque noir (ombre) ou presque blanc (ciel) porte peu de couleur.
+ * Le vote doit répondre à une question simple : **de quelle couleur est cette
+ * image ?** Il y a donc trois facteurs, et deux pièges :
+ *
+ * 1. **la surface prime** — c’est l’erreur qui a produit les accents rouges :
+ *    pondérer surtout par la saturation fait gagner une petite tache vive
+ *    (un reflet, un néon) contre un ciel entier ;
+ * 2. la saturation **oriente** sans décider : elle donne +65 % au maximum ;
+ * 3. les extrêmes de luminosité comptent moins — un ciel presque blanc et une
+ *    ombre presque noire portent peu de couleur — mais jamais zéro, sinon les
+ *    images pastel (fleurs, sel) n’auraient plus de teinte du tout.
  */
 export function pixelWeight(rgb: Rgb): number {
   const { s, l } = rgbToHsl(rgb);
   const saturation = s / 100;
-  const midness = 1 - Math.abs(l / 100 - 0.5) * 1.6;
-  return Math.max(0, saturation * 0.9 + 0.1) * Math.max(0.05, midness);
+  const midness = clamp(1 - Math.abs(l / 100 - 0.5) * 1.3, 0.15, 1);
+  return (0.35 + 0.65 * saturation) * Math.sqrt(midness);
 }
 
 /**
@@ -138,6 +144,28 @@ export function deepTone(samples: { rgb: Rgb; weight: number }[]): string {
 /** Luminance maximale d’un voile : au-delà, le texte flotte sur l’image. */
 export const DEEP_LUMINANCE = 0.045;
 
+/**
+ * Devine le format quand l’appelant ne le dit pas.
+ *
+ * C’est la ceinture **et** les bretelles : la panne du 28 octobre venait d’un
+ * flux RVBA lu comme du RVB. Un pixel RVBA a presque toujours son octet alpha
+ * à 255 ; si c’est le cas pour la grande majorité des pixels et que la longueur
+ * est un multiple de 4, c’est du RVBA. On ne devine jamais entre deux formats
+ * plausibles sans un signal aussi net.
+ */
+export function detectChannels(pixels: ArrayLike<number>): 3 | 4 {
+  if (pixels.length % 4 !== 0) return 3;
+  const count = pixels.length / 4;
+  let opaque = 0;
+  const step = Math.max(1, Math.floor(count / 512));
+  let sampled = 0;
+  for (let index = 0; index < count; index += step) {
+    if (pixels[index * 4 + 3] >= 250) opaque += 1;
+    sampled += 1;
+  }
+  return opaque / Math.max(1, sampled) > 0.9 ? 4 : 3;
+}
+
 export interface ExtractOptions {
   /** clair ou sombre : l’accent doit être corrigé pour ce mode */
   mode: PaletteMode;
@@ -145,15 +173,54 @@ export interface ExtractOptions {
   background: string;
   /** nombre de cases du histogramme de teintes (24 → 15° par case) */
   bins?: number;
+  /**
+   * Nombre de canaux par pixel : **3 (RVB) ou 4 (RVBA)**.
+   *
+   * Ce paramètre a coûté un vrai défaut : `canvas.getImageData()` renvoie du
+   * RVBA, et l’extracteur lisait des triplets. L’octet alpha était donc pris
+   * pour un canal de couleur, ce qui produisait des accents rouges/violets
+   * sans rapport avec l’image — « l’aurore boréale donne du rouge ». Les deux
+   * formats sont désormais acceptés, et `sampleImage` normalise en RVB.
+   */
+  channels?: 3 | 4;
 }
 
 interface Bin {
   hue: number;
+  /** surface relative de la teinte (poids cumulés) */
   weight: number;
+  /** saturation moyenne de la teinte dans cette case */
+  saturation: number;
   r: number;
   g: number;
   b: number;
 }
+
+/**
+ * Score d’une teinte : **la surface d’abord, la couleur ensuite**.
+ *
+ * `area^0.8` donne l’avantage à ce qui occupe l’image ; `sat^0.9` laisse une
+ * région franche battre *de peu* une zone délavée — jamais la renverser. Les
+ * deux exposants sont réglés par deux cas mesurés : un ciel à 78 % contre une
+ * tache à 22 % doit donner le ciel (`palette.test.ts`), et un parterre de
+ * fleurs sur fond crème doit donner des fleurs (photographies du dépôt).
+ */
+function binScore(bin: Bin, total: number): number {
+  const area = total > 0 ? bin.weight / total : 0;
+  if (area < MIN_AREA) return 0;
+  return area ** 0.8 * Math.max(0.05, bin.saturation) ** 0.9;
+}
+
+/** Sous cette part de l’image, une teinte est un détail, pas une couleur. */
+const MIN_AREA = 0.03;
+
+/**
+ * Rayon de la famille chromatique de l’image, en degrés.
+ *
+ * 60° : assez large pour garder un dégradé (bleu → turquoise), assez étroit
+ * pour exclure un soleil jaune dans un décor bleu.
+ */
+const HUE_FAMILY = 60;
 
 /**
  * Extrait les trois couleurs d’un flux de pixels RVB (48 × 48 = 2 304 triplets).
@@ -167,12 +234,16 @@ export function extractColors(
   pixels: ArrayLike<number>,
   options: ExtractOptions,
 ): WallColors {
+  const stride = options.channels ?? detectChannels(pixels);
   const bins = options.bins ?? 24;
   const size = 360 / bins;
   const histogram = new Map<number, Bin>();
   const samples: { rgb: Rgb; weight: number }[] = [];
 
-  for (let index = 0; index + 2 < pixels.length; index += 3) {
+  for (let index = 0; index + stride - 1 < pixels.length; index += stride) {
+    /* Un pixel entièrement transparent ne porte aucune couleur : le compter,
+       c’est compter du noir (les SVG ont des zones vides). */
+    if (stride === 4 && pixels[index + 3] < 8) continue;
     const rgb = { r: pixels[index], g: pixels[index + 1], b: pixels[index + 2] };
     if (!Number.isFinite(rgb.r) || !Number.isFinite(rgb.g) || !Number.isFinite(rgb.b)) {
       continue;
@@ -186,22 +257,64 @@ export function extractColors(
     if (weight <= 0) continue;
 
     const key = Math.floor(hsl.h / size) % bins;
-    const bin = histogram.get(key) ?? { hue: hsl.h, weight: 0, r: 0, g: 0, b: 0 };
+    const bin = histogram.get(key) ?? {
+      hue: hsl.h,
+      weight: 0,
+      saturation: 0,
+      r: 0,
+      g: 0,
+      b: 0,
+    };
     bin.weight += weight;
+    bin.saturation += (hsl.s / 100) * weight;
     bin.r += rgb.r * weight;
     bin.g += rgb.g * weight;
     bin.b += rgb.b * weight;
     histogram.set(key, bin);
   }
 
-  const ranked = [...histogram.values()].sort((a, b) => b.weight - a.weight);
-  const totalWeight = ranked.reduce((sum, bin) => sum + bin.weight, 0);
+  const totalWeight = [...histogram.values()].reduce((sum, bin) => sum + bin.weight, 0);
+  /* La saturation devient une moyenne avant le classement. */
+  for (const bin of histogram.values()) {
+    bin.saturation = bin.weight > 0 ? bin.saturation / bin.weight : 0;
+  }
+  /*
+   * **La famille avant le détail.**
+   *
+   * Un décor d’hiver bleu pâle contient un soleil jaune : sans contrainte, le
+   * jaune gagne (il est saturé, le reste est délavé) et l’accent ne ressemble
+   * plus à l’image. On calcule donc la teinte dominante par moyenne circulaire
+   * des surfaces, puis on **restreint le vote à sa famille** (± 60°). La
+   * saturation ne départage plus que dans cette famille — elle choisit la
+   * nuance, pas le sujet.
+   */
+  let sumX = 0;
+  let sumY = 0;
+  for (const bin of histogram.values()) {
+    const angle = (bin.hue * Math.PI) / 180;
+    sumX += Math.cos(angle) * bin.weight;
+    sumY += Math.sin(angle) * bin.weight;
+  }
+  const dominantHue = ((Math.atan2(sumY, sumX) * 180) / Math.PI + 360) % 360;
+  const family = [...histogram.values()].filter(
+    (bin) => hueDistance(bin.hue, dominantHue) <= HUE_FAMILY,
+  );
+  const pool = family.length > 0 ? family : [...histogram.values()];
+  const ranked = pool.sort(
+    (a, b) => binScore(b, totalWeight) - binScore(a, totalWeight),
+  );
+  /* La secondaire, elle, doit sortir de la famille : c’est le principe même
+     d’un second ton. On la cherche donc dans **toutes** les cases. */
+  const rankedAll = [...histogram.values()].sort(
+    (a, b) => binScore(b, totalWeight) - binScore(a, totalWeight),
+  );
 
   /* Aucune couleur franche (photo en noir et blanc, capture d’écran grise) :
      on retombe sur la moyenne réelle, désaturée mais lisible. */
   if (ranked.length === 0) {
     const colours: Rgb[] = [];
-    for (let index = 0; index + 2 < pixels.length; index += 3) {
+    for (let index = 0; index + stride - 1 < pixels.length; index += stride) {
+      if (stride === 4 && pixels[index + 3] < 8) continue;
       const rgb = { r: pixels[index], g: pixels[index + 1], b: pixels[index + 2] };
       if (Number.isFinite(rgb.r) && Number.isFinite(rgb.g) && Number.isFinite(rgb.b)) {
         colours.push(rgb);
@@ -231,6 +344,11 @@ export function extractColors(
   }
 
   const best = ranked[0];
+  const bestHue = rgbToHsl({
+    r: best.r / best.weight,
+    g: best.g / best.weight,
+    b: best.b / best.weight,
+  }).h;
   const bestColor = toHex({
     r: best.r / best.weight,
     g: best.g / best.weight,
@@ -241,7 +359,7 @@ export function extractColors(
      deux teintes se lisent comme une seule. Si l’image n’offre rien d’autre,
      on la fabrique par rotation — c’est une décision, pas un mensonge : le
      champ `confidence` dit que l’image n’avait pas de second ton. */
-  const distant = ranked.find((bin) => hueDistance(bin.hue, best.hue) >= 60);
+  const distant = rankedAll.find((bin) => hueDistance(bin.hue, bestHue) >= 60);
   const secondaryColor = distant
     ? toHex({
         r: distant.r / distant.weight,
@@ -250,15 +368,22 @@ export function extractColors(
       })
     : rotate(bestColor, 42);
 
-  const derived = deriveAccent(bestColor, options.mode, options.background);
+  const derived = deriveAccent(
+    signature(bestColor, options.mode),
+    options.mode,
+    options.background,
+  );
   const onAccent = pickOnAccent(derived.palette.accent);
 
   return {
     accent: derived.palette.accent,
     accentSoft: derived.palette.accentSoft,
     accentInk: derived.palette.accentInk,
-    secondary: deriveAccent(secondaryColor, options.mode, options.background).palette
-      .accent,
+    secondary: deriveAccent(
+      signature(secondaryColor, options.mode),
+      options.mode,
+      options.background,
+    ).palette.accent,
     deep: deepTone(samples),
     tone: meanTone(samples),
     onAccent: onAccent.color,
@@ -282,6 +407,34 @@ export function meanTone(samples: { rgb: Rgb; weight: number }[]): string {
     { r: 0, g: 0, b: 0 },
   );
   return toHex({ r: sum.r / samples.length, g: sum.g / samples.length, b: sum.b / samples.length });
+}
+
+/**
+ * **Signature chromatique** : la couleur lue, rendue présentable.
+ *
+ * Une photographie réelle donne presque toujours une couleur **délavée** :
+ * moyenne d’un ciel et d’une eau, elle tourne au gris-bleu. La poser telle
+ * quelle comme accent donne une interface terne, où l’on ne voit pas que la
+ * couleur vient de l’image. On garde donc la **teinte** (l’information qui
+ * vient de l’image) et on relève saturation et luminosité dans une bande
+ * tenable — puis `deriveAccent` corrige le contraste contre le verre réel.
+ *
+ * Ce n’est pas un mensonge sur l’image : c’est le même bleu, affirmé.
+ */
+export function signature(hex: string, mode: PaletteMode): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return hex;
+  const hsl = rgbToHsl(rgb);
+  return toHex(
+    hslToRgb({
+      h: hsl.h,
+      s: clamp(Math.max(hsl.s * 1.5, 42), 24, 78),
+      l:
+        mode === "dark"
+          ? clamp(Math.max(hsl.l, 52), 46, 66)
+          : clamp(Math.min(hsl.l, 46), 30, 48),
+    }),
+  );
 }
 
 /** Rotation de teinte : sert de second ton quand l’image n’en propose pas. */

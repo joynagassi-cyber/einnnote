@@ -1,7 +1,8 @@
-# Fonds photographiques — l’atelier d’images
+# L’atelier d’images — photographies et illustrations
 
-> Dix photographies HD, générées pour ce projet, sans licence à acheter ni
-> dépendance à un CDN. 28 octobre 2026.
+> Vingt images HD (dix photographies, dix illustrations éditoriales), générées
+> pour ce projet, sans licence à acheter ni dépendance à un CDN.
+> 28 octobre 2026.
 
 ## 1. Pourquoi un atelier dans le dépôt
 
@@ -18,7 +19,7 @@ wallpapers/
 public/walls/*.png         les fichiers servis : 1280 px, 224 teintes, ~0,5 Mo
 ```
 
-## 2. Les dix images
+## 2. Les vingt images
 
 | Identifiant | Nom | Ambiance | Moyenne mesurée | Palette recommandée |
 |---|---|---|---|---|
@@ -32,6 +33,16 @@ public/walls/*.png         les fichiers servis : 1280 px, 224 teintes, ~0,5 Mo
 | `volcan-noir` | Volcan noir | basalte · cendre | `#3d4850` | Noir absolu |
 | `jardin-fleurs` | Jardin en fleurs | pétales · printemps | `#afa58a` | Material |
 | `sel-pastel` | Sel pastel | miroir · pastel | `#c8c5c3` | Lilas |
+| `feuillage` | Feuillage | monstera · jungle | `#266341` | Mocha |
+| `architecture` | Architecture | béton · lignes | `#716e67` | Material sombre |
+| `printemps` | Printemps | cerisiers · prairie | `#c4cbb7` | Rosé poudre |
+| `ete` | Été | lagon · sel | `#a1ccc0` | Nord Neige |
+| `automne` | Automne | ambre · lac | `#bd9c73` | Material |
+| `hiver` | Hiver | glace · sapin | `#b8c7ca` | Nord Neige |
+| `tokyo` | Tokyo | indigo · cerisier | `#586282` | Lilas nuit |
+| `new-york` | New York | heure dorée · tours | `#7f6c58` | Material sombre |
+| `marrakech` | Marrakech | terre · minaret | `#956350` | Material sombre |
+| `sydney` | Sydney | port · voiles | `#879ba2` | Material |
 
 Les moyennes ne sont pas écrites à la main : elles sont **mesurées sur les
 pixels** du fichier livré (`scripts/normalize-walls.mjs`), et
@@ -61,7 +72,26 @@ texte : `dunes-ambre` est assombrie de 8 % en lumière linéaire (teinte
 préservée, lumière seule). Les deux images pastel, elles, restent claires :
 elles appellent une palette claire, et c’est un test qui le garantit.
 
-## 4. Les prompts
+## 4. Les séries de la galerie
+
+L’écran d’Apparence ne liste plus quarante-quatre vignettes d’affilée : il les
+range en **séries**, comme un choix de couvertures. L’ordre va du plus dessiné
+au plus abstrait — c’est l’ordre dans lequel on cherche.
+
+| Série | Fond | Contenu |
+|---|---|---|
+| **Matières** | 2 | Feuillage · Architecture |
+| **Saisons** | 4 | Printemps · Été · Automne · Hiver |
+| **Villes** | 4 | Tokyo · New York · Marrakech · Sydney |
+| **Photographies** | 10 | voir §2 |
+| **Halos** | 18 | les fonds dessinés d’origine |
+| **Dégradés** | 6 | cinq arrêts, couleur franche |
+
+Ce découpage est une donnée (`WALL_SERIES` dans `src/lib/walls.ts`), pas une
+suite de titres écrits dans la page : un test vérifie que les six séries
+existent, qu’aucune n’est vide et que chacune contient bien les fonds attendus.
+
+## 5. Les prompts
 
 Générées par modèle d’image, cadrage 16:10, sans texte, sans filigrane, sans
 personne, sans logo. Les prompts sont volontairement descriptifs sur **la
@@ -80,17 +110,34 @@ lumière** et **la palette** : c’est ce qui rend la couleur moyenne prévisibl
 | `sel-pastel` | Landscape photograph, 16:10. Salt flats with a thin film of water mirroring a pastel sky, lavender and mint reflections, minimal horizon. |
 | `volcan-noir` | Landscape photograph, 16:10. Black volcanic sand, basalt columns, cold grey Atlantic, overcast sky with a thin amber band. |
 
-## 5. Ce que ça change dans le produit
+### Les dix illustrations
 
-1. La galerie d’Apparence gagne **dix vignettes réelles**, groupées à part des
-   fonds dessinés.
+Vectoriel éditorial, cadrage 16:10, formes nettes, dégradés subtils, sans
+contour, sans texte ni logo — la famille visuelle des couvertures de magazines.
+
+| Image | Prompt |
+|---|---|
+| `feuillage` | Flat vector illustration, 16:10. Dense tropical foliage, overlapping monstera and palm leaves, deep green layers with a few sunlit leaves. Limited palette of forest green, jade, lime, dark teal. |
+| `architecture` | Flat vector illustration, 16:10. Looking up at a concrete brutalist facade, repeating geometric balconies, strong diagonals, small square sky. Warm grey, charcoal, bone. |
+| `printemps` | Flat vector illustration, 16:10. Spring meadow, stylised cherry trees in blossom, winding path, layered soft hills, a few birds. Sage, soft pink, cream sky. |
+| `ete` | Flat vector illustration, 16:10. Summer lagoon from above, turquoise water, pale beach, two striped parasols and a boat, crisp shadows. Aqua, coral, sand. |
+| `automne` | Flat vector illustration, 16:10. Autumn forest edge, stylised trees in amber, rust and olive, calm lake reflecting them, low sun disc. |
+| `hiver` | Flat vector illustration, 16:10. Winter mountains and frozen lake, stylised snowy pines, pale blue haze layers, small cabin. Glacier blue, slate, off-white. |
+| `tokyo` | Flat vector travel illustration, 16:10. Tokyo at dusk, Mount Fuji, torii, layered rooftops and lanterns, cherry branches in the foreground. Indigo, white, coral pink, teal. |
+| `new-york` | Flat vector travel illustration, 16:10. Manhattan skyline at golden hour across the water, staggered towers, a bridge, warm sky bands. Amber, navy, off-white. |
+| `marrakech` | Flat vector travel illustration, 16:10. Marrakech rooftops and a square minaret at sunset, palm silhouettes, ochre walls, zellige patterns hinted. Terracotta, rose, sand, deep teal shadow. |
+| `sydney` | Flat vector travel illustration, 16:10. Sydney harbour, opera house shells, arch bridge, calm water, sailboats. Sea blue, white, sandstone, soft grey. |
+
+## 6. Ce que ça change dans le produit
+
+1. La galerie d’Apparence gagne **vingt vignettes**, rangées en six séries.
 2. Choisir un fond photographique applique sa palette recommandée et le voile
    minimal qui garde le texte lisible — comme pour les SVG.
 3. Surtout : l’interface lit l’image (`canvas 48 × 48`) et en tire son accent,
    sa seconde couleur et la teinte de son voile. Détail :
    `docs/PRESENTATION.md` et `src/lib/palette.ts`.
 
-## 6. Ce qui n’a pas été vérifié
+## 7. Ce qui n’a pas été vérifié
 
 - **Aucune capture d’écran** : Chromium ne démarre pas dans cet environnement.
   Le rendu des dix photographies derrière le verre n’a donc pas été vu à l’œil ;

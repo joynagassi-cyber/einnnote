@@ -26,7 +26,7 @@ import {
   tokensFor,
 } from "@/lib/themes";
 import type { AccentKey, CanvasBg, ThemeMode } from "@/types";
-import { SIGNATURES, WALLS, wallById, wallUrl } from "@/lib/walls";
+import { SIGNATURES, WALLS, wallById, wallUrl, wallsBySeries } from "@/lib/walls";
 import { veilFromTone, veilTint } from "@/lib/palette";
 import { useWallColors } from "@/stores/useWallColors";
 import {
@@ -293,85 +293,108 @@ export default function Appearance() {
         Fonds · {WALLS.length}
       </h2>
       <p className="mb-3 text-[12.5px] leading-[18px] text-muted">
-        Deux familles : des <strong className="font-semibold text-ink">halos</strong>{" "}
-        (image douce, profondeur) et des{" "}
-        <strong className="font-semibold text-ink">dégradés</strong> (couleur
-        franche, cinq arrêts). Le fond se voit ; le verre ne fait que flouter.
-        La lisibilité du texte vient des surfaces, pas d’un voile épais.
+        Six séries : illustrations, photographies, halos, dégradés. Une vignette
+        applique <strong className="font-semibold text-ink">le fond</strong> et la
+        palette qui le rend lisible — l’image reste visible, le texte reste AA.
       </p>
-      <div className="grid grid-cols-3 gap-2 lg:grid-cols-5">
+
+      {/* Le « papier uni » reste à part : ce n’est pas un fond, c’est l’absence
+          de fond. Il ouvre la galerie comme une couverture blanche. */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
         <button
           type="button"
           onClick={() => setWallpaper(null)}
           aria-pressed={settings.wallpaper === null}
           className={cn(
-            "flex h-[74px] flex-col items-center justify-center rounded-card border bg-surface text-[12px] font-medium",
+            "flex h-[74px] flex-col items-center justify-center rounded-card border bg-surface text-[12.5px] font-medium",
             settings.wallpaper === null
               ? "border-accent ring-2 ring-accent"
               : "border-line hover:border-line-strong",
           )}
         >
           Aucun
-          <span className="mt-0.5 text-[10.5px] font-normal text-muted">papier uni</span>
+          <span className="mt-0.5 text-[10.5px] font-normal text-muted">
+            papier uni
+          </span>
         </button>
-        {WALLS.map((wall) => {
-          const active = settings.wallpaper === wall.id;
-          const firstRamp = wall.kind === "ramp" && WALLS.find((item) => item.kind === "ramp")?.id === wall.id;
-          return (
-            <Fragment key={wall.id}>
-            {firstRamp && (
-              <h3 className="col-span-3 mt-2 text-[12px] font-semibold uppercase tracking-wide text-muted lg:col-span-5">
-                Dégradés
-              </h3>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setWallpaper(wall.id);
-                /* Un fond sombre sur un thème clair oblige un voile si épais
-                   que l’image disparaît. On applique donc la palette que le
-                   fond recommande — celle qui correspond à son mode — et le
-                   voile minimal qui garde le texte lisible : l’image reste
-                   visible, le texte reste AA. */
-                setPalette(wall.palette);
-                setWallSettings({
-                  dim: veilBand(tokensFor(wall.palette), toRgb(wall.tone)).min,
-                });
-              }}
-              aria-pressed={active}
-              aria-label={`Fond ${wall.label} (${wall.mood})`}
-              className={cn(
-                "group relative h-[74px] overflow-hidden rounded-card border text-left",
-                active ? "border-accent ring-2 ring-accent" : "border-line",
-              )}
-            >
-              <span
-                className="absolute inset-0 transition-transform duration-300 group-hover:scale-105"
-                style={{
-                  backgroundImage: `url(${wallUrl(wall.id)})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-                aria-hidden
-              />
-              <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-4">
-                <span className="block truncate text-[12px] font-semibold text-white">
-                  {wall.label}
-                </span>
-                <span className="block truncate text-[10px] text-white/75">
-                  {wall.mood}
-                </span>
-              </span>
-              {active && (
-                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-on-accent">
-                  <Check size={12} weight="bold" aria-hidden />
-                </span>
-              )}
-            </button>
-            </Fragment>
-          );
-        })}
       </div>
+
+      {wallsBySeries().map((series) => (
+        <section key={series.id} className="mt-5" aria-labelledby={`serie-${series.id}`}>
+          <h3
+            id={`serie-${series.id}`}
+            className="text-[13.5px] font-semibold text-ink"
+          >
+            {series.label}
+            <span className="ml-1.5 text-[11.5px] font-normal text-muted">
+              {series.walls.length}
+            </span>
+          </h3>
+          <p className="mb-2 text-[11.5px] leading-[16px] text-muted">{series.hint}</p>
+          <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+            {series.walls.map((wall) => {
+              const active = settings.wallpaper === wall.id;
+              return (
+                <button
+                  key={wall.id}
+                  type="button"
+                  onClick={() => {
+                    setWallpaper(wall.id);
+                    /* Un fond sombre sur un thème clair oblige un voile si
+                       épais que l’image disparaît. On applique donc la palette
+                       que le fond recommande — celle de son mode — et le voile
+                       minimal qui garde le texte lisible. */
+                    setPalette(wall.palette);
+                    setWallSettings({
+                      dim: veilBand(tokensFor(wall.palette), toRgb(wall.tone)).min,
+                    });
+                  }}
+                  aria-pressed={active}
+                  aria-label={`Fond ${wall.label} (${wall.mood})`}
+                  className="group min-w-0 text-left"
+                >
+                  {/* Vignette : coins arrondis, ombre douce, ourlet coloré en
+                      haut à gauche — le repère visuel des galeries de
+                      couvertures, sans image supplémentaire. */}
+                  <span
+                    className={cn(
+                      "relative block aspect-[16/10] overflow-hidden rounded-card border bg-surface-2 transition",
+                      active
+                        ? "border-accent ring-2 ring-accent"
+                        : "border-line group-hover:border-line-strong",
+                    )}
+                  >
+                    <span
+                      className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.04]"
+                      style={{
+                        backgroundImage: `url(${wallUrl(wall.id)})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                      aria-hidden
+                    />
+                    <span
+                      className="absolute left-0 top-0 h-6 w-6 rounded-br-card bg-accent/90"
+                      aria-hidden
+                    />
+                    {active && (
+                      <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-on-accent">
+                        <Check size={12} weight="bold" aria-hidden />
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1.5 block truncate text-[12px] font-medium text-ink">
+                    {wall.label}
+                  </span>
+                  <span className="block truncate text-[10.5px] text-muted">
+                    {wall.mood}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
 
       {wall && band && (
         <div className="mt-3 rounded-card border border-line bg-surface p-3.5">

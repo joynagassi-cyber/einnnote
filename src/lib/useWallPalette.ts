@@ -71,7 +71,12 @@ export function useWallPalette(): void {
 export const SAMPLE_SIZE = 48;
 
 /**
- * Décode une image et renvoie ses pixels RVB (`48 × 48 × 3`).
+ * Décode une image et renvoie ses pixels **RVB** (`48 × 48 × 3`).
+ *
+ * Le canvas renvoie du RVBA : on retire l’alpha ici, une fois, pour que
+ * l’extracteur n’ait qu’un format à connaître. C’est précisément l’oubli de
+ * cette conversion qui faisait lire l’octet alpha comme une couleur — et
+ * donnait des accents rouges sur des images bleues.
  *
  * `crossOrigin="anonymous"` n’est pas décoratif : sans lui, dessiner une image
  * d’une autre origine rend le canvas « contaminé » et `getImageData` lève. Les
@@ -100,6 +105,25 @@ export async function sampleImage(
   canvas.height = size;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("canvas 2D indisponible");
+  /* Un fond transparent laisserait voir le papier : sans cette teinte de
+     fond, les zones vides d’un SVG seraient comptées comme du noir. */
+  context.fillStyle = "#000000";
+  context.fillRect(0, 0, size, size);
   context.drawImage(image, 0, 0, size, size);
-  return context.getImageData(0, 0, size, size).data;
+  return toRgbChannels(context.getImageData(0, 0, size, size).data);
+}
+
+/** RVBA → RVB. Une conversion, un seul endroit. */
+export function toRgbChannels(
+  data: ArrayLike<number>,
+  channels: 3 | 4 = 4,
+): Uint8ClampedArray {
+  const count = Math.floor(data.length / channels);
+  const out = new Uint8ClampedArray(count * 3);
+  for (let index = 0; index < count; index += 1) {
+    out[index * 3] = data[index * channels];
+    out[index * 3 + 1] = data[index * channels + 1];
+    out[index * 3 + 2] = data[index * channels + 2];
+  }
+  return out;
 }
