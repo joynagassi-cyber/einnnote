@@ -31,7 +31,9 @@ function withDesktop<T>(run: () => Promise<T> | T): Promise<T> {
   const original = window.matchMedia;
   window.matchMedia = ((query: string) => ({
     matches:
-      query.includes("min-width: 1024px") || query.includes("color-scheme"),
+      query.includes("min-width: 1024px") ||
+      query.includes("min-width: 768px") ||
+      query.includes("color-scheme"),
     media: query,
     onchange: null,
     addEventListener: () => undefined,
@@ -423,7 +425,9 @@ describe("Engram — écrans", () => {
     const original = window.matchMedia;
     window.matchMedia = ((query: string) => ({
       matches:
-        query.includes("min-width: 1024px") || query.includes("color-scheme"),
+        query.includes("min-width: 1024px") ||
+        query.includes("min-width: 768px") ||
+        query.includes("color-scheme"),
       media: query,
       onchange: null,
       addEventListener: () => undefined,
@@ -449,6 +453,64 @@ describe("Engram — écrans", () => {
       await waitFor(() =>
         expect(screen.getByText("Tutoriels par outil")).toBeTruthy(),
       );
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it("donne un rail compact — et aucune barre basse — dès 768 px", async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("min-width: 768px"),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+
+    try {
+      const { container } = open("/");
+      const rail = screen.getByRole("complementary", {
+        name: "Barre latérale",
+      });
+      expect(rail.getAttribute("data-compact")).toBe("true");
+      // Icônes seules : le libellé reste accessible autrement qu’à l’œil.
+      expect(
+        within(rail).getByRole("button", { name: "Apprendre" }).className,
+      ).toContain("justify-center");
+      expect(container.querySelector(".bottom-nav")).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it("honore ?mobile=1 même sur un grand écran : une seule navigation", async () => {
+    const { container } = await withDesktop(() => open("/?mobile=1"));
+    expect(document.documentElement.dataset.layout).toBe("mobile");
+    expect(screen.queryByRole("complementary", { name: "Barre latérale" })).toBeNull();
+    expect(container.querySelector(".bottom-nav")).not.toBeNull();
+  });
+
+  it("ne fabrique pas un rail sur 390 px, même avec ?bureau=1", () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("color-scheme"),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+
+    try {
+      const { container } = open("/?bureau=1");
+      expect(screen.queryByRole("complementary", { name: "Barre latérale" })).toBeNull();
+      expect(container.querySelector(".bottom-nav")).not.toBeNull();
     } finally {
       window.matchMedia = original;
     }

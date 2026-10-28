@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
  *
  * Ce ne sont pas des captures : chaque cadre est une iframe sur la même
  * application. La bascule mobile/bureau est donc celle du vrai code
- * (`@media (min-width: 1024px)`), pas une maquette.
+ * (`@media (min-width: 768px)` pour le rail, `1024px` pour les deux panneaux),
+ * pas une maquette. Cette page est une planche de comparaison : elle ne sert
+ * pas de « mode bureau » — le bureau, c’est l’application à sa vraie largeur.
  */
 
 type View = "both" | "mobile" | "desktop";
@@ -60,7 +62,7 @@ export default function Preview() {
             Aperçu — la même application, deux tailles
           </h1>
           <p className="truncate text-[12.5px] text-white/50">
-            Bascule réelle à 1024 px · aucune capture, deux iframes vivantes
+            Bascule réelle : rail à 768 px, deux panneaux à 1024 px · aucune capture
           </p>
         </div>
 

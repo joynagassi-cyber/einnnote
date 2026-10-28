@@ -13,7 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useContentStore } from "@/stores/useContentStore";
-import { useIsDesktop } from "@/lib/useMediaQuery";
+import { useRail } from "@/lib/useMediaQuery";
 import { dueCards } from "@/lib/scheduler";
 import { useToast } from "@/stores/useToast";
 import { applySettingsToDom, useAppStore } from "@/stores/useAppStore";
@@ -105,9 +105,10 @@ export function AppBar({
 
 export function BottomNav() {
   const location = useLocation();
-  /* La barre basse est le propre du téléphone ; en mise en page bureau
-     forcée, le rail suffit et deux navigations se contrediraient. */
-  const desktop = useIsDesktop();
+  /* La barre basse est le propre du téléphone : dès qu’un rail latéral est
+     affiché (≥ 768 px ou mise en page forcée), deux navigations se
+     contrediraient. */
+  const rail = useRail();
   const navigate = useNavigate();
   const cards = useContentStore((s) => s.cards);
   const due = dueCards(cards).length;
@@ -124,7 +125,7 @@ export function BottomNav() {
       ? location.pathname === "/"
       : location.pathname.startsWith(to);
 
-  if (desktop) return null;
+  if (rail) return null;
 
   return (
     <nav className="bottom-nav" aria-label="Navigation principale">

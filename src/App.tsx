@@ -7,7 +7,6 @@ import {
   useLocation,
 } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { DesktopFrame } from "@/components/DesktopFrame";
 import { ThemeSync, ToastHost } from "@/components/Layout";
 import { AppShell } from "@/components/DesktopRail";
 import Library from "@/pages/Library";
@@ -83,11 +82,7 @@ const App = () => (
 function Shell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   if (pathname.startsWith("/preview")) return <>{children}</>;
-  return (
-    <DesktopFrame>
-      <AppShell>{children}</AppShell>
-    </DesktopFrame>
-  );
+  return <AppShell>{children}</AppShell>;
 }
 
 /**

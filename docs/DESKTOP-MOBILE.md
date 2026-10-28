@@ -66,21 +66,39 @@ La vue « autour » n’est pas un zoom : c’est un **autre cadrage**. Un arbre
 se lit plus. En colonne à l’échelle 1, il se lit — et toucher une carte en fait
 la nouvelle racine, ce qui permet de parcourir le coffre sans jamais dézoomer.
 
-### 2.3 Forcer la vue bureau — vraiment
+### 2.3 Le seuil de navigation : 768 px, pas 1024 px
 
 Un `transform: scale()` ne rend pas une page « bureau » : les media queries et
 les variantes `lg:` se calculent sur la largeur de la **fenêtre**, jamais sur
-celle d’un conteneur. Réduire une page étroite la rend juste plus petite.
+celle d’un conteneur. Réduire une page étroite la rend juste plus petite ; la
+mettre dans une iframe de 1440 px ne la transforme pas non plus en application
+de bureau — c’est une **enveloppe**, et l’enveloppe a été retirée.
 
-`src/components/DesktopFrame.tsx` fait donc l’inverse : il monte une **iframe de
-1440 × 900 px** (une vraie fenêtre, avec ses propres media queries) puis la met
-à l’échelle par-dessus, avec un bandeau « Vue bureau · 1440 × 900 · 26 % » et un
-lien plein écran. Deux déclencheurs : le réglage `Mise en page · Bureau`
-(Apparence) ou l’adresse `?bureau=1` (respectivement `?mobile=1` pour l’inverse).
-Le cadre ajoute `?bureau=frame` pour ne pas s’imbriquer en boucle.
+La version bureau, c’est l’application elle-même, à sa largeur réelle :
 
-C’est ce qui permet de **montrer et tester la version bureau depuis un
-téléphone**, ce qui était la demande.
+| Largeur | Navigation | Écrans riches |
+|---|---|---|
+| < 768 px | barre basse (`.bottom-nav`) | une colonne, graphe « autour » |
+| 768–1023 px | **rail compact** de 88 px : icônes seules, cibles 44 px, `aria-label` + `title` | une colonne |
+| ≥ 1024 px | **rail complet** de 264 px : libellés, sections, badges | coffre en deux panneaux, `MiniMap`, `Controls` |
+
+Deux media queries, donc deux vérités différentes : `RAIL_QUERY`
+(`min-width: 768px`) décide s’il y a un rail, `DESKTOP_QUERY`
+(`min-width: 1024px`) décide s’il y a la place pour deux panneaux. Un écran de
+900 px de large a bien un rail et **aucune** barre basse — c’est le cas le plus
+courant en aperçu, et c’était le défaut : le rail n’existait qu’à partir de
+1024 px, donc la barre basse restait visible partout en dessous.
+
+Le réglage `Mise en page` (Apparence) et les adresses `?bureau=1` / `?mobile=1`
+ne sont plus qu’une **préférence de mise en page** : `forcedLayout()` la lit en
+amont de `settings.layout`, `useRail()` / `useIsDesktop()` s’en servent, et
+`data-layout` est posé sur `<html>` pour que le CSS suive (rail retiré, barre
+basse rendue). Rien n’est encapsulé, rien n’est mis à l’échelle.
+
+Corollaire assumé : **forcer « bureau » ne crée pas de largeur**. À 820 px on
+obtient un rail compact et deux panneaux serrés ; à 390 px, la mise en page
+reste celle du téléphone. Pour montrer les deux tailles côte à côte, il reste
+`/preview` — une planche de comparaison, pas un « mode bureau ».
 
 ---
 

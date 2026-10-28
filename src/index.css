@@ -1002,8 +1002,62 @@
 }
 
 /* ============================================================
+   Barre latérale dès 768 px
+   La navigation quitte la barre basse à partir d’une tablette :
+   rail compact (icônes) de 768 à 1023 px, rail complet au-delà.
+   Pourquoi 768 et pas 1024 : un aperçu de bureau, une tablette ou
+   une fenêtre réduite gardaient la barre basse — la version web
+   n’existait donc jamais en pratique.
+   ============================================================ */
+@media (min-width: 768px) {
+  :root {
+    --rail: 88px;
+    --dock-max: 560px;
+    /* Le rail libère de la largeur : la colonne « papier » cesse d’être
+       une colonne de téléphone posée au milieu du vide. */
+    --screen-max: 720px;
+  }
+  .app-main {
+    margin-left: var(--rail);
+  }
+  .rail {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    width: var(--rail);
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+  }
+  /* Un rail de 15 entrées ne tient pas dans 700 px de haut : la liste
+     défile, et la barre de défilement fine le dit sans crier. */
+  .rail nav {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+  .rail nav::-webkit-scrollbar {
+    width: 4px;
+  }
+  .rail nav::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 999px;
+  }
+  .bottom-nav {
+    display: none;
+  }
+  /* Deux navigations ne doivent jamais coexister : la barre basse est retirée,
+     et les pages rendent l’espace qu’elle réservait. */
+  .screen > .pb-24,
+  .screen > .pb-28 {
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* ============================================================
    Mise en page bureau (≥ 1024 px)
-   Rail de navigation fixe à gauche, colonne « papier » centrée.
+   Rail complet à gauche, colonne « papier » centrée.
    ============================================================ */
 @media (min-width: 1024px) {
   :root {
@@ -1555,4 +1609,31 @@
 :root[data-transparency="reduced"][data-wall]:not([data-wall="none"]) .bg-surface,
 :root[data-transparency="reduced"][data-wall]:not([data-wall="none"]) .rail {
   background-color: var(--surface);
+}
+
+/* ============================================================
+   Préférence de mise en page forcée
+   Le réglage (ou `?mobile=1` / `?bureau=1`) pose `data-layout` sur
+   <html>. Le CSS doit le suivre, sinon une mise en page forcée et les
+   media queries se contredisent : deux navigations, ou aucune.
+   Rappel : forcer « bureau » ne fabrique pas de largeur — à 390 px,
+   il n’y a ni rail ni deux panneaux, et c’est assumé.
+   ============================================================ */
+:root[data-layout="mobile"] .rail {
+  display: none;
+}
+:root[data-layout="mobile"] .app-main {
+  margin-left: 0;
+}
+:root[data-layout="mobile"] .bottom-nav {
+  display: block;
+}
+:root[data-layout="mobile"] .screen,
+:root[data-layout="mobile"] .screen-wide,
+:root[data-layout="mobile"] .screen-narrow {
+  --screen-max: 440px;
+}
+:root[data-layout="mobile"] .dock,
+:root[data-layout="mobile"] .toast {
+  left: 0;
 }

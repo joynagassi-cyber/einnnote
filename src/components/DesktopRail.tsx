@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Books,
@@ -22,7 +22,12 @@ import { cn } from "@/lib/utils";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore, resolvedTheme } from "@/stores/useAppStore";
 import { dueCards, estimateMinutes } from "@/lib/scheduler";
-import { useIsDesktop } from "@/lib/useMediaQuery";
+import {
+  forcedLayout,
+  useCompactRail,
+  useIsDesktop,
+  useRail,
+} from "@/lib/useMediaQuery";
 import { ProjectsSheet } from "@/components/ProjectSwitcher";
 import { useProjects } from "@/lib/useProjects";
 import { wallById, wallUrl } from "@/lib/walls";
@@ -39,9 +44,22 @@ import { Keyboard } from "@phosphor-icons/react";
 /* ------------------------------------------------------------------ */
 
 export function AppShell({ children }: { children: ReactNode }) {
+  /* Navigation latérale dès 768 px. Sa forme (icônes ou libellés) suit la
+     largeur réelle ; seuls les écrans à deux panneaux suivent `useIsDesktop`. */
+  const rail = useRail();
+  const compact = useCompactRail();
+  /* Le clavier complet suppose un vrai poste ; deux panneaux supposent la place. */
   const desktop = useIsDesktop();
   const navigate = useNavigate();
   const [helpOpen, setHelpOpen] = useState(false);
+  const layout = useAppStore((s) => s.settings.layout);
+
+  /* Le CSS ne connaît pas React : la préférence doit être visible sur `<html>`
+     pour que `?mobile=1` retire vraiment le rail (sinon deux navigations). */
+  useEffect(() => {
+    const forced = forcedLayout() ?? layout ?? "auto";
+    document.documentElement.dataset.layout = forced;
+  }, [layout, rail]);
 
   /* Le clavier n’existe qu’en bureau : sur téléphone, ces lettres sont du texte. */
   useDesktopShortcuts(desktop, {
@@ -57,7 +75,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
       <WallLayer />
-      {desktop && <DesktopRail onShowShortcuts={() => setHelpOpen(true)} />}
+      {rail && (
+        <DesktopRail
+          compact={compact}
+          onShowShortcuts={() => setHelpOpen(true)}
+        />
+      )}
       <div className="app-main">{children}</div>
       <Sheet
         open={helpOpen}
@@ -135,7 +158,14 @@ const SETTINGS = [
   { to: "/settings/about", label: "À propos", icon: Info },
 ] as const;
 
-export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
+export function DesktopRail({
+  compact = false,
+  onShowShortcuts,
+}: {
+  /** rail étroit : icônes seulement (768–1023 px) */
+  compact?: boolean;
+  onShowShortcuts?: () => void;
+}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const cards = useContentStore((s) => s.cards);
@@ -151,8 +181,17 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
     to === "/" ? pathname === "/" : pathname.startsWith(to);
 
   return (
-    <aside className="rail" aria-label="Barre latérale">
-      <div className="flex items-start justify-between gap-1 px-3 pt-4">
+    <aside
+      className="rail"
+      aria-label="Barre latérale"
+      data-compact={compact ? "true" : "false"}
+    >
+      <div
+        className={cn(
+          "flex items-start justify-between gap-1 pt-4",
+          compact ? "flex-col items-center gap-2 px-2" : "px-3",
+        )}
+      >
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -161,14 +200,18 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
           <span className="brand-mark" aria-hidden="true">
             É
           </span>
-          <span className="min-w-0">
-            <span className="block truncate font-serif text-[17px] font-semibold leading-none">
-              Engram
+          {compact ? (
+            <span className="sr-only">Engram — accueil</span>
+          ) : (
+            <span className="min-w-0">
+              <span className="block truncate font-serif text-[17px] font-semibold leading-none">
+                Engram
+              </span>
+              <span className="mt-1.5 block truncate text-[12px] leading-none text-muted">
+                Des notes qui font apprendre
+              </span>
             </span>
-            <span className="mt-1.5 block truncate text-[12px] leading-none text-muted">
-              Des notes qui font apprendre
-            </span>
-          </span>
+          )}
         </button>
         <button
           type="button"
@@ -188,26 +231,45 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
       <button
         type="button"
         onClick={() => navigate("/new")}
-        className="btn-primary mx-3 mt-4 h-11 justify-start px-4 text-[15px]"
+        aria-label="Nouvelle note"
+        title="Nouvelle note"
+        className={cn(
+          "btn-primary mt-4 h-11",
+          compact
+            ? "mx-auto w-11 justify-center px-0"
+            : "mx-3 gap-2 px-4 text-[15px]",
+        )}
       >
         <Plus size={18} weight="bold" aria-hidden="true" />
-        Nouvelle note
+        {compact ? <span className="sr-only">Nouvelle note</span> : "Nouvelle note"}
       </button>
 
-      <nav className="mt-5 flex-1 overflow-y-auto px-2 pb-2" aria-label="Navigation du bureau">
-        <div className="mb-1 flex items-center justify-between pr-1">
-          <p className="rail-label">Projets</p>
+      <nav
+        className={cn(
+          "mt-5 flex-1 overflow-y-auto pb-2",
+          compact ? "px-1.5" : "px-2",
+        )}
+        aria-label="Navigation du bureau"
+      >
+        <div className={cn("mb-1 flex items-center", compact ? "justify-center" : "justify-between pr-1")}>
+          {!compact && <p className="rail-label">Projets</p>}
           <button
             type="button"
             onClick={() => setProjectsOpen(true)}
-            className="mb-1.5 flex h-6 items-center gap-1 rounded-md px-1.5 text-[11.5px] font-semibold text-accent hover:bg-surface-2"
+            aria-label="Gérer les projets"
+            title="Gérer les projets"
+            className={cn(
+              "flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-accent hover:bg-surface-2",
+              compact ? "h-8 w-8 justify-center" : "mb-1.5 h-6 px-1.5",
+            )}
           >
-            <FolderPlus size={13} weight="bold" aria-hidden />
-            Gérer
+            <FolderPlus size={15} weight="bold" aria-hidden />
+            {!compact && "Gérer"}
           </button>
         </div>
         <div className="flex flex-col gap-0.5">
           <RailItem
+            compact={compact}
             icon={Stack}
             label="Tous les projets"
             active={activeProjectId === null}
@@ -216,6 +278,7 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
           {projects.map((project) => (
             <RailItem
               key={project.id}
+              compact={compact}
               icon={FolderSimple}
               label={project.name}
               badge={counts.get(project.id)}
@@ -225,11 +288,13 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
           ))}
         </div>
 
-        <p className="rail-label mt-5">Espace</p>
+        {!compact && <p className="rail-label mt-5">Espace</p>}
+        {compact && <div className="mx-2 my-3 h-px bg-line" aria-hidden="true" />}
         <div className="flex flex-col gap-0.5">
           {MAIN.map((item) => (
             <RailItem
               key={item.to}
+              compact={compact}
               icon={item.icon}
               label={item.label}
               badge={item.to === "/review" && due > 0 ? due : undefined}
@@ -239,11 +304,13 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
           ))}
         </div>
 
-        <p className="rail-label mt-5">Réglages</p>
+        {!compact && <p className="rail-label mt-5">Réglages</p>}
+        {compact && <div className="mx-2 my-3 h-px bg-line" aria-hidden="true" />}
         <div className="flex flex-col gap-0.5">
           {SETTINGS.map((item) => (
             <RailItem
               key={item.to}
+              compact={compact}
               icon={item.icon}
               label={item.label}
               active={pathname === item.to}
@@ -253,7 +320,26 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
         </div>
       </nav>
 
-      <div className="border-t border-line p-3">
+      <div className={cn("border-t border-line", compact ? "px-1.5 py-2" : "p-3")}>
+        {compact ? (
+          <button
+            type="button"
+            onClick={() => navigate(due > 0 ? "/review" : "/settings/progress")}
+            aria-label={
+              due > 0 ? `${due} cartes à revoir — commencer la révision` : "Voir le progrès"
+            }
+            title={due > 0 ? `${due} à revoir` : "Progrès"}
+            className="relative mx-auto flex h-11 w-11 items-center justify-center rounded-field bg-accent-soft text-accent-ink"
+          >
+            <ClockCounterClockwise size={19} weight="bold" aria-hidden />
+            {due > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10.5px] font-bold text-on-accent">
+                {due}
+              </span>
+            )}
+          </button>
+        ) : (
+        <>
         <div className="rounded-card bg-accent-soft p-3.5">
           <p className="text-[15px] font-semibold leading-snug text-accent-ink">
             {due > 0
@@ -287,6 +373,8 @@ export function DesktopRail({ onShowShortcuts }: { onShowShortcuts?: () => void 
         <p className="mt-2.5 px-1 text-[12px] leading-[17px] text-muted">
           Tout reste sur cet appareil. Aucun compte.
         </p>
+        </>
+        )}
       </div>
 
       <ProjectsSheet open={projectsOpen} onClose={() => setProjectsOpen(false)} />
@@ -299,12 +387,14 @@ function RailItem({
   label,
   badge,
   active,
+  compact = false,
   onClick,
 }: {
   icon: typeof House;
   label: string;
   badge?: number;
   active: boolean;
+  compact?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -313,8 +403,13 @@ function RailItem({
       onClick={onClick}
       data-active={active}
       aria-current={active ? "page" : undefined}
+      aria-label={compact ? label : undefined}
+      title={compact ? label : undefined}
       className={cn(
-        "flex w-full items-center gap-3 rounded-rect px-3 py-2.5 text-[15px] transition-colors",
+        "flex w-full items-center rounded-rect text-[15px] transition-colors",
+        compact
+          ? "relative h-11 justify-center px-0"
+          : "gap-3 px-3 py-2.5",
         active
           ? "bg-accent-soft font-semibold text-accent-ink"
           : "text-ink hover:bg-surface-2",
@@ -326,12 +421,21 @@ function RailItem({
         aria-hidden="true"
         className={active ? "text-accent" : "text-muted"}
       />
-      <span className="flex-1 truncate text-left">{label}</span>
-      {badge !== undefined && (
-        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-accent">
-          {badge}
-        </span>
+      {compact ? (
+        <span className="sr-only">{label}</span>
+      ) : (
+        <span className="flex-1 truncate text-left">{label}</span>
       )}
+      {badge !== undefined &&
+        (compact ? (
+          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9.5px] font-bold leading-none text-on-accent">
+            {badge}
+          </span>
+        ) : (
+          <span className="rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-accent">
+            {badge}
+          </span>
+        ))}
     </button>
   );
 }

@@ -25,7 +25,17 @@ export function useMediaQuery(query: string) {
   return matches;
 }
 
-/** Seuil de la mise en page bureau (rail latéral visible). */
+/**
+ * Deux seuils, deux décisions différentes :
+ *
+ * - **768 px** : à partir d’ici, la navigation passe dans une **barre latérale**
+ *   (compacte entre 768 et 1023, complète au-delà). En dessous, barre basse.
+ *   C’est le seuil de la *navigation* : une tablette, un aperçu de bureau un peu
+ *   étroit, une fenêtre réduite gardent le rail.
+ * - **1024 px** : à partir d’ici, les écrans riches passent en deux panneaux
+ *   (coffre liste + fiche), avec mini-carte et contrôles de canevas.
+ */
+export const RAIL_QUERY = "(min-width: 768px)";
 export const DESKTOP_QUERY = "(min-width: 1024px)";
 
 /** Préférence de mise en page : suivre l’écran, ou forcer l’un des deux. */
@@ -50,17 +60,45 @@ export function forcedLayout(): LayoutPreference | null {
   return null;
 }
 
-export function useIsDesktop(preference?: LayoutPreference) {
+/**
+ * Préférence effective : adresse (`?bureau=1` / `?mobile=1`) › réglage › écran.
+ * Elle **ne crée pas de largeur** : forcer « bureau » sur un écran de 390 px ne
+ * fabrique pas un rail de 264 px ni deux panneaux. Le forçage agit donc dans la
+ * limite de la place disponible — c’est exactement ce qui distingue une vraie
+ * version web d’une enveloppe mise à l’échelle.
+ */
+function useLayoutPreference(preference?: LayoutPreference) {
   const setting = useAppStore((s) => s.settings.layout);
-  const matches = useMediaQuery(DESKTOP_QUERY);
-  const [forced, setForced] = useState<LayoutPreference | null>(() => forcedLayout());
-  useEffect(() => {
-    /* L’adresse peut changer sans rechargement (navigation interne) : on la
-       relit à chaque rendu de route. */
-    setForced(forcedLayout());
-  }, [matches]);
-  const effective = forced ?? preference ?? setting ?? "auto";
-  if (effective === "desktop") return true;
+  /* Relu à chaque rendu : une navigation interne suffit à changer l’adresse. */
+  return forcedLayout() ?? preference ?? setting ?? "auto";
+}
+
+/** Y a-t-il une **navigation latérale** ? (768 px, ou préférence sans « mobile ».) */
+export function useRail(preference?: LayoutPreference) {
+  const matches = useMediaQuery(RAIL_QUERY);
+  const effective = useLayoutPreference(preference);
   if (effective === "mobile") return false;
   return matches;
+}
+
+/**
+ * Le rail doit-il être **compact** (icônes seules) ?
+ *
+ * Décision purement liée à la **largeur réelle**, jamais à la préférence : le
+ * CSS dimensionne le rail par media query (88 px avant 1024 px). Si le composant
+ * en décidait autrement, une mise en page « bureau » forcée à 820 px afficherait
+ * des libellés dans 88 px de large.
+ */
+export function useCompactRail() {
+  return !useMediaQuery(DESKTOP_QUERY);
+}
+
+/** Y a-t-il la place pour **deux panneaux** ? (1024 px, ou 768 px si forcé.) */
+export function useIsDesktop(preference?: LayoutPreference) {
+  const wide = useMediaQuery(DESKTOP_QUERY);
+  const rail = useMediaQuery(RAIL_QUERY);
+  const effective = useLayoutPreference(preference);
+  if (effective === "mobile") return false;
+  if (effective === "desktop") return wide || rail;
+  return wide;
 }

@@ -104,14 +104,25 @@ branché dans `applySettingsToDom`.
 
 | Contexte | Largeur | Navigation |
 | --- | --- | --- |
-| Mobile | 440 px (`--screen-max`) | barre d’onglets basse |
-| Bureau | 720 px lecture · 1060 px listes · 620 px réglages | rail fixe 264 px |
+| Téléphone (< 768 px) | 440 px (`--screen-max`) | barre d’onglets basse |
+| Tablette (768–1023 px) | 720 px (`--screen-max`) | rail compact 88 px, icônes seules |
+| Bureau (≥ 1024 px) | 720 px lecture · 1060 px listes · 620 px réglages | rail fixe 264 px, libellés |
 
 - Une seule variable décide de la largeur : `--screen-max`, surchargée par
   `.screen-wide` / `.screen-narrow`.
-- Les barres flottantes (`.dock`) se recadrent sur `--rail` en bureau.
-- Le rail n’est **monté** qu’au-delà de 1024 px (`useIsDesktop`), pour éviter
-  un doublon de navigation dans l’arbre d’accessibilité.
+- Les barres flottantes (`.dock`) se recadrent sur `--rail`.
+- Deux seuils, deux rôles : `useRail()` (« y a-t-il une navigation latérale ? »,
+  768 px) et `useIsDesktop()` (« y a-t-il la place pour deux panneaux ? »,
+  1024 px). Le rail et la barre basse ne coexistent jamais : la barre basse
+  rend `null` dès que `useRail()` est vrai.
+- **La forme du rail suit la largeur réelle**, pas la préférence
+  (`useCompactRail()`, qui ignore le forçage) : le CSS dimensionne le rail par
+  media query, donc un « bureau » forcé à 820 px reste en icônes. Sans cela, des
+  libellés se retrouvaient dans 88 px.
+- Le forçage (`?bureau=1`, `?mobile=1`, réglage « Mise en page ») pose
+  `data-layout` sur `<html>` ; le CSS suit (`[data-layout="mobile"]` retire le
+  rail, remet la barre basse, ramène `--screen-max` à 440 px). Il **ne crée pas
+  de largeur** : à 390 px, `?bureau=1` ne fabrique ni rail ni deux panneaux.
 
 ## 6 bis. Personnalisation avancée : chaque attribut pilote du CSS
 
@@ -140,6 +151,25 @@ mêmes valeurs : une seule source, donc aucun risque de divergence.
 Le fond « verre » suit la même règle : le réglage écrit des variables, le CSS
 décide de l’apparence, et `src/lib/glass.ts` calcule les bornes au lieu de les
 supposer. Détail complet : `docs/WALLS.md`.
+
+## 6 quater. Thèmes extérieurs : ce qu’on prend, ce qu’on refuse
+
+Des registres de thèmes existent (tweakcn, presets shadcn, colorswitchcn,
+`@madooei/shadcn-theme-presets`). **Décision : on ne les importe pas.**
+
+| Ce qu’ils vendent | Pourquoi ce n’est pas notre forme |
+| --- | --- |
+| Un `components.json` + des composants shadcn | Le projet n’en a aucun : les primitives sont écrites ici, avec Radix et TipTap. Importer le registre remplacerait nos composants, pas nos couleurs. |
+| Des jetons `--background`, `--primary`, `--ring` en HSL ou oklch | Nos jetons sont des hex consommés par le verre (`--bg`, `--surface`, `--ink`, `--accent`) et **dérivés** par `src/lib/accent.ts` sur la couleur réelle du fond. Un `--primary` opaque ne sait pas s’éclaircir sur un voile sombre. |
+| Un thème par `class="dark"` | Nous avons `data-theme` + 24 fonds + 12 papiers + accents dérivés : un seul attribut ne suffit pas. |
+| Des dégradés prêts | La règle tient : les dégradés viennent des deux générateurs fournis, avec des arrêts calculés, pas choisis à l’œil. |
+
+Ce qui est **déjà** en place et joue le même rôle : le bloc `compat shadcn/ui`
+(§2) expose nos valeurs en HSL pour un composant shadcn éventuel, et
+`applySettingsToDom()` recalcule accents et voiles à chaque changement. Un
+import de thème tiendrait en une fonction `importTheme(css)` qui lirait
+`--primary` / `--background`, convertirait en hex, puis appellerait
+`deriveAccent()` — utile, mais **ce n’est pas ce qui manque aujourd’hui**.
 
 ## 6 ter. Maquette du bureau (avant implémentation)
 
@@ -175,8 +205,11 @@ supposer. Détail complet : `docs/WALLS.md`.
 
 La page `/preview` sert cette maquette **vivante** : deux iframes réelles côte
 à côte (390 × 844 et 1280 × 800), la seconde mise à l’échelle pour tenir dans
-la largeur. Ce ne sont pas des captures : la bascule est celle du vrai
-`@media (min-width: 1024px)`.
+la largeur. Ce ne sont pas des captures, et ce n’est **pas** la version bureau :
+c’est une planche de comparaison. La version bureau, elle, est l’application
+elle-même à sa largeur réelle — rail dès `min-width: 768px`, deux panneaux dès
+`min-width: 1024px`. Aucune enveloppe, aucun `transform: scale()` dans
+l’application.
 
 ## 7. Éditeur : grammaire visuelle
 
