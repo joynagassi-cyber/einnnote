@@ -244,8 +244,19 @@ appliqué, et donc ce qu’il reste à changer.
 6. **Texte** — police, taille, mesure du paragraphe, canevas.
 7. **Confort** — contraste, animations, transparence, mise en page.
 
-Un sommaire d’ancres suit le studio sur mobile ; sur grand écran les sections
-respirent en pleine largeur (`screen-wide`).
+Un sommaire d’ancres suit le studio ; sur grand écran les sections respirent en
+pleine largeur (`screen-wide`).
+
+**Les sept sections sont repliées par défaut** (`SectionState` dans
+`src/pages/Appearance.tsx`). L’écran s’ouvre donc sur l’aperçu, pas sur quatre
+écrans de pastilles ; une bande de recette collante (`RecipeBar`) reprend
+`compositionLine()` dès qu’on descend, avec « Tout replier ». L’en-tête replié
+porte la valeur courante de la couche — replier ne cache jamais ce qui est
+appliqué. Un lien direct (`#couche-accent`) ouvre la couche visée, sinon la
+navigation par ancre montrerait un bloc fermé. Sept tests dédiés
+(`src/test/appearance.test.tsx`) : rien n’est monté quand c’est replié, le
+résumé reste lisible, une ouverture n’en ferme pas une autre, et le sommaire
+comme le lien direct ouvrent bien la bonne couche.
 
 ### L’invariant
 

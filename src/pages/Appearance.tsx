@@ -1,6 +1,14 @@
-import { useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  CaretDown,
   CaretRight,
   Check,
   Eyedropper,
@@ -82,6 +90,28 @@ const FORMES = PRESENTATION.find((section) => section.id === "formes")!;
 const MESURE = PRESENTATION.find((section) => section.id === "mesure")!;
 
 /**
+ * L’état de dépliage des sections.
+ *
+ * Les sections sont **repliées par défaut** : l’écran s’ouvre donc sur
+ * l’aperçu, et non sur quatre écrans de pastilles. Chaque en-tête replié porte
+ * la valeur courante de sa couche — replier ne cache jamais une information,
+ * seulement des contrôles.
+ */
+const SectionState = createContext<{
+  openIds: string[];
+  open: (id: string) => void;
+  toggle: (id: string) => void;
+  goTo: (id: string) => void;
+}>({
+  openIds: [],
+  open: () => {},
+  toggle: () => {},
+  goTo: () => {},
+});
+
+const useSections = () => useContext(SectionState);
+
+/**
  * **Apparence — un studio de composition.**
  *
  * L’écran précédent empilait des listes : mode, 23 palettes, signatures, fonds,
@@ -108,7 +138,53 @@ export default function Appearance() {
   const currentPalette = paletteByKey(settings.paletteKey);
   const fixedMode = currentPalette.key !== "papier";
 
+  const layers = useMemo(() => composeAppearance(settings), [settings]);
+  const [openIds, setOpenIds] = useState<string[]>([]);
+
+  const open = useCallback((id: string) => {
+    setOpenIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  const toggle = useCallback((id: string) => {
+    setOpenIds((prev) =>
+      prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id],
+    );
+  }, []);
+
+  /* Un lien direct (`#couche-accent`) ouvre la couche visée, sinon le bloc
+     resterait replié et l’ancre ne montrerait rien. */
+  const goTo = useCallback((id: string) => {
+    open(id);
+    requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }, [open]);
+
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash.startsWith("couche-")) open(hash);
+  }, [open]);
+
+  const confort = [
+    settings.contrast === "on"
+      ? "contraste élevé"
+      : settings.contrast === "off"
+        ? "contraste normal"
+        : "contraste système",
+    settings.motion === "reduced" ? "animations réduites" : "animations système",
+    settings.transparency === "reduced"
+      ? "transparence réduite"
+      : "transparence système",
+    settings.layout === "auto" || !settings.layout
+      ? "mise en page auto"
+      : `mise en page ${settings.layout}`,
+  ].join(" · ");
+
   return (
+    <SectionState.Provider value={{ openIds, open, toggle, goTo }}>
     <Screen className="screen-wide px-5 lg:px-8">
       <AppBar
         back
@@ -118,12 +194,13 @@ export default function Appearance() {
       />
 
       <p className="mb-3 mt-1 max-w-[62ch] text-[13px] leading-[19px] text-muted">
-        Une apparence se compose en <strong className="font-semibold text-ink">cinq
-        couches</strong>. Le thème est la première, pas la dernière : tout ce qui
-        est en dessous de lui reste réglable, dans n’importe quel ordre.
+        Cinq couches. Le thème est la <strong className="font-semibold text-ink">première</strong>,
+        pas la dernière : tout ce qui vient après lui reste réglable.
       </p>
 
       <CompositionStudio />
+
+      <RecipeBar />
 
       <JumpNav />
 
@@ -136,6 +213,7 @@ export default function Appearance() {
         title="Palette"
         subtitle="Le socle : papier, surfaces, encre, texte secondaire."
         action="socle"
+        summary={layers[0].value}
       >
         <div className="mb-3">
           <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
@@ -245,6 +323,7 @@ export default function Appearance() {
         title="Fond"
         subtitle="L’image derrière l’interface, et la teinte de son voile."
         action="superpose"
+        summary={`${layers[1].value} · voile ${settings.wallDim} %`}
       >
         <Signatures />
 
@@ -262,6 +341,7 @@ export default function Appearance() {
         title="Accent"
         subtitle="La couleur d’action — et le texte posé dessus."
         action="ecrase"
+        summary={layers[2].value}
       >
         <WallAccentPanel />
         <AccentPresets dark={dark} />
@@ -278,6 +358,7 @@ export default function Appearance() {
         title="Formes"
         subtitle="Rayons, densité, traits, relief : la géométrie seule, sans couleur."
         action="geometrie"
+        summary={layers[3].value}
       >
         <div className="flex flex-col gap-4 rounded-card border border-line bg-surface p-4">
           {FORMES.controls.map((control) => (
@@ -327,6 +408,7 @@ export default function Appearance() {
         title="Texte"
         subtitle="Police, taille, interligne, largeur de lecture."
         action="typographie"
+        summary={layers[4].value}
       >
         <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
           Police des notes
@@ -436,6 +518,7 @@ export default function Appearance() {
         title="Confort"
         subtitle="Ce qui aide à lire — et qui ne change aucune apparence."
         action="typographie"
+        summary={confort}
       >
         <div className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
           <div>
@@ -499,6 +582,7 @@ export default function Appearance() {
 
       <div className="h-10" aria-hidden="true" />
     </Screen>
+    </SectionState.Provider>
   );
 }
 
@@ -657,10 +741,15 @@ const ACTION_LABEL: Record<LayerState["action"], string> = {
  * ne touchent qu’à la géométrie.
  */
 function LayerRow({ layer, layers }: { layer: LayerState; layers: LayerState[] }) {
+  const { goTo } = useSections();
   const previous = layers.find((entry) => entry.index === layer.index - 1);
   return (
     <a
       href={`#couche-${layer.id}`}
+      onClick={(event) => {
+        event.preventDefault();
+        goTo(`couche-${layer.id}`);
+      }}
       className="flex items-center gap-2.5 rounded-field border border-line bg-surface-2/40 px-2.5 py-2 transition-colors hover:border-line-strong"
     >
       <span
@@ -695,33 +784,96 @@ function LayerRow({ layer, layers }: { layer: LayerState; layers: LayerState[] }
   );
 }
 
+/**
+ * La recette, en barre collante.
+ *
+ * Quand une section est dépliée, l’aperçu du haut sort de l’écran. Cette bande
+ * le remplace : elle dit en une ligne ce qui est composé, et permet de tout
+ * replier d’un geste pour revenir à l’aperçu.
+ */
+function RecipeBar() {
+  const settings = useAppStore((s) => s.settings);
+  const { openIds, toggle, open } = useSections();
+
+  return (
+    <div className="sticky top-0 z-20 -mx-5 mt-3 border-y border-line bg-surface/85 px-5 py-2 backdrop-blur-xl lg:-mx-8 lg:px-8">
+      <div className="flex items-center gap-2">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+        <p className="min-w-0 flex-1 truncate text-[12px] text-muted">
+          {compositionLine(settings)}
+        </p>
+        {openIds.length > 0 && (
+          <button
+            type="button"
+            onClick={() => openIds.forEach((id) => toggle(id))}
+            className="shrink-0 rounded-full border border-line px-2.5 py-1 text-[11.5px] font-semibold text-ink"
+          >
+            Tout replier
+          </button>
+        )}
+        {openIds.length === 0 && (
+          <button
+            type="button"
+            onClick={() => open("couche-palette")}
+            className="shrink-0 rounded-full border border-line px-2.5 py-1 text-[11.5px] font-semibold text-ink"
+          >
+            Composer
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Sommaire : cinq ancres, pour aller droit à la couche qu’on veut changer. */
 function JumpNav() {
+  const { openIds, goTo } = useSections();
   return (
     <nav
       aria-label="Couches de l’apparence"
-      className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1"
+      className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-1"
     >
-      {LAYERS.map((layer) => (
-        <a
-          key={layer.id}
-          href={`#couche-${layer.id}`}
-          className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-medium text-ink"
-        >
-          {layer.index}. {layer.label}
-        </a>
-      ))}
+      {LAYERS.map((layer) => {
+        const expanded = openIds.includes(`couche-${layer.id}`);
+        return (
+          <a
+            key={layer.id}
+            href={`#couche-${layer.id}`}
+            onClick={(event) => {
+              event.preventDefault();
+              goTo(`couche-${layer.id}`);
+            }}
+            aria-current={expanded ? "true" : undefined}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] font-medium",
+              expanded
+                ? "border-accent bg-accent-soft text-accent-ink"
+                : "border-line bg-surface text-ink",
+            )}
+          >
+            {layer.index}. {layer.label}
+          </a>
+        );
+      })}
     </nav>
   );
 }
 
-/** En-tête de section : l’histoire de la couche, en une phrase. */
+/**
+ * Une section repliable.
+ *
+ * L’en-tête **est** le bouton : titre, verbe de la couche, et — quand la section
+ * est fermée — la valeur courante en clair. Replier ne cache donc jamais ce qui
+ * est appliqué, seulement les contrôles. Tout l’écran tient alors en une page,
+ * et l’aperçu du haut reste sous les yeux.
+ */
 function Section({
   id,
   index,
   title,
   subtitle,
   action,
+  summary,
   children,
 }: {
   id: string;
@@ -729,36 +881,78 @@ function Section({
   title: string;
   subtitle: string;
   action: LayerState["action"];
+  summary: string;
   children: React.ReactNode;
 }) {
+  const { openIds, toggle } = useSections();
+  const expanded = openIds.includes(id);
+
   return (
     <section
       id={id}
       aria-labelledby={`${id}-titre`}
-      className="mt-5 scroll-mt-16 rounded-sheet border border-line bg-surface p-4"
+      className="mt-3 scroll-mt-24 rounded-sheet border border-line bg-surface px-4 py-1"
     >
-      <div className="mb-3 flex items-start gap-2.5">
+      <h2 id={`${id}-titre`} className="sr-only">
+        {title}
+      </h2>
+      <button
+        type="button"
+        onClick={() => toggle(id)}
+        aria-expanded={expanded}
+        aria-controls={`${id}-corps`}
+        aria-label={`${expanded ? "Replier" : "Déplier"} ${title}`}
+        className="flex w-full items-start gap-2.5 py-3 text-left"
+      >
         {index !== undefined && (
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[12.5px] font-semibold text-muted">
+          <span
+            className={cn(
+              "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12.5px] font-semibold",
+              expanded
+                ? "bg-accent text-on-accent"
+                : "bg-surface-2 text-muted",
+            )}
+            aria-hidden
+          >
             {index}
           </span>
         )}
-        <div className="min-w-0 flex-1">
-          <h2 id={`${id}-titre`} className="text-[16px] font-semibold">
-            {title}
-          </h2>
-          <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">{subtitle}</p>
-        </div>
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-            ACTION_STYLE[action],
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="text-[15.5px] font-semibold text-ink">{title}</span>
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                ACTION_STYLE[action],
+              )}
+            >
+              {ACTION_LABEL[action]}
+            </span>
+          </span>
+          <span className="mt-0.5 block text-[12.5px] leading-[18px] text-muted">
+            {subtitle}
+          </span>
+          {!expanded && (
+            <span className="mt-1 block truncate text-[12.5px] font-medium text-ink">
+              {summary}
+            </span>
           )}
-        >
-          {ACTION_LABEL[action]}
         </span>
-      </div>
-      {children}
+        <CaretDown
+          size={18}
+          weight="bold"
+          aria-hidden
+          className={cn(
+            "mt-1 shrink-0 text-muted transition-transform duration-200",
+            expanded && "rotate-180",
+          )}
+        />
+      </button>
+      {expanded && (
+        <div id={`${id}-corps`} className="pb-4">
+          {children}
+        </div>
+      )}
     </section>
   );
 }

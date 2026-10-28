@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fil de fer — Apparence, cinq couches repliées</title>
+    <style>
+      :root {
+        --ink: #1c1c1f; --muted: #6b6b74; --line: #d8d8de; --paper: #fbfbfa;
+        --surface: #ffffff; --soft: #f2f2f4; --accent: #7c6cf6;
+        --accent-soft: #ece9fd;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 40px 28px 72px; background: var(--paper); color: var(--ink);
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      h1 { font: 600 26px/1.2 ui-serif, Georgia, serif; margin: 0 0 6px; }
+      .lede { margin: 0 0 34px; color: var(--muted); max-width: 76ch; }
+      .pair { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+      .frame { border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+        background: var(--surface); box-shadow: 0 18px 40px -30px rgba(0,0,0,.4); }
+      .frame.wide { flex: 1 1 620px; min-width: 520px; }
+      .frame.narrow { width: 300px; flex: none; }
+      .caption { margin: 12px 2px 30px; font-size: 13px; color: var(--muted); max-width: 92ch; }
+      .caption b { color: var(--ink); font-weight: 600; }
+      .appbar { height: 42px; border-bottom: 1px solid var(--line); display: flex;
+        align-items: center; gap: 8px; padding: 0 12px; font-size: 12px; color: var(--muted); }
+      .appbar .title { font: 600 13px ui-serif, Georgia, serif; color: var(--ink); }
+      .pad { padding: 12px 14px; }
+      .intro { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; max-width: 60ch; }
+      .studio { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .studio-head { display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 11px; border-bottom: 1px solid var(--line); font-size: 11.5px; font-weight: 600; }
+      .count { font-size: 9.5px; font-weight: 600; color: var(--muted); border: 1px solid var(--line);
+        border-radius: 999px; padding: 1px 7px; }
+      .studio-body { display: flex; gap: 12px; padding: 11px; }
+      .preview { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 9px;
+        background: linear-gradient(160deg, #f6f2ea 0%, #e8e3ea 55%, #dcd6cc 100%); position: relative; }
+      .pv-top { display: flex; align-items: center; gap: 4px; font-size: 8.5px;
+        text-transform: uppercase; letter-spacing: .08em; color: #4b4b52; }
+      .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); }
+      .pv-card { margin-top: 7px; background: #fff; border-radius: 9px; padding: 8px;
+        border: 1px solid #e6e4e9; }
+      .pv-kicker { font-size: 7.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .08em; color: var(--accent); }
+      .pv-title { font: 600 11.5px/1.3 ui-serif, Georgia, serif; margin-top: 3px; }
+      .pv-text { font-size: 8.5px; color: #6b6b74; margin-top: 3px; }
+      .pv-actions { display: flex; gap: 4px; margin-top: 7px; }
+      .btn { font-size: 8px; font-weight: 600; padding: 3px 7px; border-radius: 999px; }
+      .btn.solid { background: var(--accent); color: #fff; }
+      .btn.ghost { border: 1px solid #dcdae1; }
+      .btn.tag { margin-left: auto; background: var(--accent-soft); color: #5b4bd6; }
+      .pv-meta { display: flex; justify-content: space-between; margin-top: 7px;
+        border: 1px solid #e6e4e9; border-radius: 7px; padding: 4px 6px; font-size: 7.5px; color: #6b6b74; }
+      .stack { flex: 1.15; display: flex; flex-direction: column; gap: 4px; }
+      .layer { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line);
+        border-radius: 8px; padding: 5px 7px; background: #fff; }
+      .num { width: 17px; height: 17px; border-radius: 999px; display: grid; place-items: center;
+        font-size: 9px; font-weight: 600; background: var(--soft); color: var(--muted); flex: none; }
+      .num.on { background: var(--accent); color: #fff; }
+      .layer-main { min-width: 0; flex: 1; }
+      .layer-name { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+      .verb { font-size: 7.5px; font-weight: 600; padding: 1px 5px; border-radius: 999px;
+        background: var(--soft); color: var(--muted); }
+      .verb.superpose { background: var(--accent-soft); color: #5b4bd6; }
+      .verb.ecrase { background: var(--accent); color: #fff; }
+      .verb.line { border: 1px solid var(--line); background: #fff; color: #4b4b52; }
+      .layer-val { font-size: 9px; color: var(--muted); white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; }
+      .recipe { border-top: 1px solid var(--line); background: #fafaf9; padding: 7px 11px; }
+      .recipe .lbl { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+      .recipe .val { font-size: 10px; margin-top: 2px; }
+      .sticky { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 10px;
+        border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+        background: #fbfbfa; padding: 6px 4px; font-size: 9.5px; color: var(--muted); }
+      .sticky .recette { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sticky .mini { border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px;
+        font-size: 8.5px; font-weight: 600; color: var(--ink); background: #fff; }
+      .anchors { display: flex; gap: 5px; margin: 8px 0 10px; flex-wrap: wrap; }
+      .anchor { border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+        font-size: 9.5px; background: #fff; color: var(--ink); }
+      .sec { border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; margin-bottom: 6px;
+        background: #fff; }
+      .sec-head { display: flex; align-items: flex-start; gap: 7px; }
+      .sec-main { flex: 1; min-width: 0; }
+      .sec-title { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+      .sec-sub { font-size: 8.5px; color: var(--muted); }
+      .sec-val { font-size: 9px; font-weight: 600; color: #33333a; margin-top: 2px; }
+      .chev { width: 12px; height: 12px; border-right: 1.4px solid var(--muted);
+        border-bottom: 1.4px solid var(--muted); transform: rotate(45deg); margin-top: 3px; flex: none; }
+      .chev.up { transform: rotate(-135deg); }
+      .note { font-size: 10px; color: var(--muted); margin-top: 8px; }
+      .open-body { border-top: 1px dashed var(--line); margin-top: 7px; padding-top: 7px; }
+      .segment { display: flex; gap: 4px; }
+      .seg { flex: 1; border: 1px solid var(--line); border-radius: 7px; font-size: 8.5px;
+        text-align: center; padding: 3px 0; background: #fff; }
+      .seg.on { background: var(--accent-soft); border-color: #c9c0fb; color: #4a3bc4; font-weight: 600; }
+      .thumbgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 6px; }
+      .thumb { aspect-ratio: 16 / 10; border-radius: 6px; border: 1px solid var(--line);
+        background: linear-gradient(140deg, #d9d3c6, #b7c2c6); }
+      .thumb.a { background: linear-gradient(140deg, #f3c9a6, #d98d7a); }
+      .thumb.b { background: linear-gradient(140deg, #c9d6e6, #8fa4bd); }
+      .thumb.c { background: linear-gradient(140deg, #e9e6e2, #b9b5b0); }
+      .sr { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+        margin: 8px 0 3px; }
+    </style>
+  </head>
+  <body>
+    <h1>Apparence — cinq couches, repliées</h1>
+    <p class="lede">
+      L’écran s’ouvre sur l’<b>aperçu</b>, pas sur quatre écrans de pastilles. Les
+      sept sections sont des accordéons fermés : leur en-tête porte la valeur
+      courante de la couche, donc replier ne cache jamais ce qui est appliqué.
+      Une bande de recette collante reprend la composition dès qu’on descend.
+    </p>
+
+    <div class="pair">
+      <!-- ------------------------------------------------ bureau -->
+      <div class="frame wide">
+        <div class="appbar">
+          <span>←</span><span class="title">Apparence</span>
+        </div>
+        <div class="pad">
+          <div class="intro">
+            Cinq couches. Le thème est la <b>première</b>, pas la dernière : tout
+            ce qui vient après lui reste réglable.
+          </div>
+
+          <div class="studio">
+            <div class="studio-head">
+              <span>Votre composition</span>
+              <span class="count">4 couches actives</span>
+            </div>
+            <div class="studio-body">
+              <div class="preview">
+                <div class="pv-top"><span class="dot"></span> Montagne</div>
+                <div class="pv-card">
+                  <div class="pv-kicker">Cours · droit civil</div>
+                  <div class="pv-title">Conditions de validité du contrat</div>
+                  <div class="pv-text">Consentement exempt de vices, capacité de contracter, contenu licite.</div>
+                  <div class="pv-actions">
+                    <span class="btn solid">Réviser</span>
+                    <span class="btn ghost">Modifier</span>
+                    <span class="btn tag">12 fiches</span>
+                  </div>
+                </div>
+                <div class="pv-meta"><span>Literata · 17 px</span><span>● ● ●</span></div>
+              </div>
+
+              <div class="stack">
+                <div class="layer">
+                  <span class="num">1</span>
+                  <span class="layer-main">
+                    <span class="layer-name">Palette <span class="verb">socle</span></span>
+                    <span class="layer-val">Nord · papier froid</span>
+                  </span>
+                </div>
+                <div class="layer">
+                  <span class="num on">2</span>
+                  <span class="layer-main">
+                    <span class="layer-name">Fond <span class="verb superpose">se superpose</span></span>
+                    <span class="layer-val">Montagne · voile 34 %</span>
+                  </span>
+                </div>
+                <div class="layer">
+                  <span class="num on">3</span>
+                  <span class="layer-main">
+                    <span class="layer-name">Accent <span class="verb ecrase">écrase</span></span>
+                    <span class="layer-val">Tiré du fond · #518ACD</span>
+                  </span>
+                </div>
+                <div class="layer">
+                  <span class="num on">4</span>
+                  <span class="layer-main">
+                    <span class="layer-name">Formes <span class="verb line">géométrie</span></span>
+                    <span class="layer-val">Douces · confort · fines</span>
+                  </span>
+                </div>
+                <div class="layer">
+                  <span class="num">5</span>
+                  <span class="layer-main">
+                    <span class="layer-name">Texte <span class="verb line">typographie</span></span>
+                    <span class="layer-val">Literata · 17 px</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="recipe">
+              <div class="lbl">Recette</div>
+              <div class="val">Nord · fond Montagne · accent tiré du fond · formes douces · Literata 17 px</div>
+            </div>
+          </div>
+
+          <div class="sticky">
+            <span class="dot"></span>
+            <span class="recette">Nord · fond Montagne · accent tiré du fond · formes douces · Literata 17 px</span>
+            <span class="mini">Tout replier</span>
+          </div>
+
+          <div class="anchors">
+            <span class="anchor">1. Palette</span>
+            <span class="anchor">2. Fond</span>
+            <span class="anchor">3. Accent</span>
+            <span class="anchor">4. Formes</span>
+            <span class="anchor">5. Texte</span>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <span class="num">1</span>
+              <span class="sec-main">
+                <span class="sec-title">Palette <span class="verb">socle</span></span>
+                <span class="sec-sub">Le socle : papier, surfaces, encre, texte secondaire.</span>
+                <span class="sec-val">Nord</span>
+              </span>
+              <span class="chev"></span>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <span class="num on">2</span>
+              <span class="sec-main">
+                <span class="sec-title">Fond <span class="verb superpose">se superpose</span></span>
+                <span class="sec-sub">L’image derrière l’interface, et la teinte de son voile.</span>
+                <span class="sec-val">Montagne · voile 34 %</span>
+              </span>
+              <span class="chev up"></span>
+            </div>
+            <div class="open-body">
+              <div class="sr">Signatures · un goût complet en un geste</div>
+              <div class="thumbgrid">
+                <div class="thumb a"></div><div class="thumb b"></div>
+                <div class="thumb c"></div><div class="thumb"></div>
+              </div>
+              <div class="sr">Galerie · 49 fonds, 7 séries</div>
+              <div class="thumbgrid">
+                <div class="thumb"></div><div class="thumb a"></div>
+                <div class="thumb b"></div><div class="thumb c"></div>
+              </div>
+              <div class="note">Flou ───●── · Voile ──●── (bande mesurée : 22 % → 48 %)</div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <span class="num on">3</span>
+              <span class="sec-main">
+                <span class="sec-title">Accent <span class="verb ecrase">écrase</span></span>
+                <span class="sec-sub">La couleur d’action — et le texte posé dessus.</span>
+                <span class="sec-val">Tiré du fond</span>
+              </span>
+              <span class="chev"></span>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <span class="num on">4</span>
+              <span class="sec-main">
+                <span class="sec-title">Formes <span class="verb line">géométrie</span></span>
+                <span class="sec-sub">Rayons, densité, traits, relief : la géométrie seule, sans couleur.</span>
+                <span class="sec-val">Douces · confort · fines · posé</span>
+              </span>
+              <span class="chev"></span>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <span class="num">5</span>
+              <span class="sec-main">
+                <span class="sec-title">Texte <span class="verb line">typographie</span></span>
+                <span class="sec-sub">Police, taille, interligne, largeur de lecture.</span>
+                <span class="sec-val">Literata · 17 px · interligne 28 px</span>
+              </span>
+              <span class="chev"></span>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-head">
+              <span class="sec-main">
+                <span class="sec-title">Confort <span class="verb line">typographie</span></span>
+                <span class="sec-sub">Ce qui aide à lire — et qui ne change aucune apparence.</span>
+                <span class="sec-val">contraste normal · animations système · mise en page auto</span>
+              </span>
+              <span class="chev"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------ mobile -->
+      <div class="frame narrow">
+        <div class="appbar"><span>←</span><span class="title">Apparence</span></div>
+        <div class="pad">
+          <div class="intro" style="font-size:10.5px">
+            Cinq couches. Le thème est la première, pas la dernière.
+          </div>
+          <div class="studio">
+            <div class="studio-head" style="font-size:10px">
+              <span>Votre composition</span><span class="count">4</span>
+            </div>
+            <div class="studio-body" style="flex-direction:column;gap:8px">
+              <div class="preview">
+                <div class="pv-top"><span class="dot"></span> Montagne</div>
+                <div class="pv-card">
+                  <div class="pv-kicker">Cours · droit civil</div>
+                  <div class="pv-title">Conditions de validité du contrat</div>
+                  <div class="pv-text">Consentement exempt de vices, capacité de contracter.</div>
+                  <div class="pv-actions">
+                    <span class="btn solid">Réviser</span>
+                    <span class="btn ghost">Modifier</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stack">
+                <div class="layer"><span class="num">1</span><span class="layer-main"><span class="layer-name">Palette</span><span class="layer-val">Nord</span></span></div>
+                <div class="layer"><span class="num on">2</span><span class="layer-main"><span class="layer-name">Fond</span><span class="layer-val">Montagne</span></span></div>
+                <div class="layer"><span class="num on">3</span><span class="layer-main"><span class="layer-name">Accent</span><span class="layer-val">Tiré du fond</span></span></div>
+                <div class="layer"><span class="num on">4</span><span class="layer-main"><span class="layer-name">Formes</span><span class="layer-val">Douces</span></span></div>
+                <div class="layer"><span class="num">5</span><span class="layer-main"><span class="layer-name">Texte</span><span class="layer-val">Literata 17 px</span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="sticky"><span class="dot"></span><span class="recette">Nord · Montagne · accent du fond</span><span class="mini">Tout replier</span></div>
+          <div class="anchors" style="margin-bottom:6px">
+            <span class="anchor">1. Palette</span><span class="anchor">2. Fond</span><span class="anchor">3. Accent</span>
+          </div>
+          <div class="sec"><div class="sec-head"><span class="num">1</span><span class="sec-main"><span class="sec-title">Palette</span><span class="sec-val">Nord</span></span><span class="chev"></span></div></div>
+          <div class="sec"><div class="sec-head"><span class="num on">2</span><span class="sec-main"><span class="sec-title">Fond</span><span class="sec-val">Montagne · 34 %</span></span><span class="chev"></span></div></div>
+          <div class="sec"><div class="sec-head"><span class="num on">3</span><span class="sec-main"><span class="sec-title">Accent</span><span class="sec-val">Tiré du fond</span></span><span class="chev"></span></div></div>
+          <div class="sec"><div class="sec-head"><span class="num on">4</span><span class="sec-main"><span class="sec-title">Formes</span><span class="sec-val">Douces</span></span><span class="chev"></span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="caption">
+      <b>Ce que le fil de fer impose.</b> (1) L’aperçu et la pile sont avant les
+      réglages : on voit la composition entière avant de toucher à quoi que ce
+      soit. (2) Chaque couche porte son verbe — socle, se superpose, écrase,
+      géométrie, typographie — ce qui montre que les styles se chevauchent au
+      lieu de se succéder. (3) Les sections sont fermées au chargement et
+      n’occupent que leur en-tête, où la valeur courante est écrite : l’écran
+      tient en une page et demi. (4) Une seule couche ouverte à la fois n’est
+      pas imposée : on peut comparer, puis «&nbsp;Tout replier&nbsp;». (5) Aucune
+      grille de 49 vignettes n’est montée tant que la couche Fond est fermée.
+    </p>
+  </body>
+</html>

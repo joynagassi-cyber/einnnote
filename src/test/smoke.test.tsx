@@ -26,6 +26,19 @@ function open(path: string) {
   return render(<App />);
 }
 
+/**
+ * L’écran d’Apparence ouvre ses sections repliées : on déplie celle qu’on teste.
+ * L’en-tête porte « Déplier Palette », « Déplier Accent », etc.
+ */
+async function expand(
+  user: ReturnType<typeof userEvent.setup>,
+  title: string,
+) {
+  const bouton = await screen.findByRole("button", { name: `Déplier ${title}` });
+  await user.click(bouton);
+  return bouton;
+}
+
 /** Simule un poste de travail (media query bureau) le temps d’un test. */
 function withDesktop<T>(run: () => Promise<T> | T): Promise<T> {
   const original = window.matchMedia;
@@ -255,27 +268,50 @@ describe("Engram — écrans", () => {
     expect(screen.getByText("Écrivez d’abord, normalement")).toBeTruthy();
   });
 
-  it("affiche les réglages et l’apparence", () => {
+  it("affiche les réglages et l’apparence", async () => {
+    const user = userEvent.setup();
     open("/settings");
     expect(screen.getByRole("heading", { name: "Réglages" })).toBeTruthy();
     expect(screen.getByText("Apparence")).toBeTruthy();
     cleanup();
     open("/settings/appearance");
+
+    // l’écran s’ouvre sur la composition, sections repliées
+    expect(screen.getByText("Votre composition")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Déplier Palette" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Déplier Fond" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Déplier Accent" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Déplier Formes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Déplier Texte" })).toBeTruthy();
+    // replié : les 23 vignettes ne sont pas rendues
+    expect(screen.queryByLabelText(/Thème Mocha/)).toBeNull();
+
+    await expand(user, "Palette");
     expect(screen.getByText("Mode")).toBeTruthy();
-    expect(screen.getByLabelText("Bleu")).toBeTruthy();
-    expect(screen.getByLabelText("Taille du texte")).toBeTruthy();
     // 23 palettes nommées, chacune avec sa source
     expect(screen.getByLabelText(/Thème Mocha/)).toBeTruthy();
     expect(screen.getByLabelText(/Thème Solarized clair/)).toBeTruthy();
+
+    await expand(user, "Accent");
+    expect(screen.getByLabelText("Bleu")).toBeTruthy();
+
+    await expand(user, "Texte");
+    expect(screen.getByLabelText("Taille du texte")).toBeTruthy();
+
+    // et l’on peut refermer pour retrouver l’aperçu
+    await user.click(screen.getByRole("button", { name: "Replier Texte" }));
+    expect(screen.queryByLabelText("Taille du texte")).toBeNull();
   });
 
   it("change de thème et l’applique au document", async () => {
     const user = userEvent.setup();
     open("/settings/appearance");
+    await expand(user, "Palette");
     await user.click(screen.getByRole("button", { name: "Sombre" }));
     await waitFor(() =>
       expect(document.documentElement.dataset.theme).toBe("dark"),
     );
+    await expand(user, "Accent");
     await user.click(screen.getByLabelText("Terracotta"));
     await waitFor(() =>
       expect(document.documentElement.dataset.accent).toBe("terracotta"),
@@ -285,6 +321,7 @@ describe("Engram — écrans", () => {
   it("applique un accent libre et vérifie son contraste", async () => {
     const user = userEvent.setup();
     open("/settings/appearance");
+    await expand(user, "Accent");
     const hex = screen.getByLabelText("Code hexadécimal");
     await user.clear(hex);
     await user.type(hex, "#FFFF00");
@@ -631,6 +668,7 @@ describe("Engram — écrans", () => {
   it("change de palette et applique ses jetons au document", async () => {
     const user = userEvent.setup();
     open("/settings/appearance");
+    await expand(user, "Palette");
     await user.click(screen.getByLabelText(/Thème Mocha/));
     await waitFor(() => {
       expect(document.documentElement.dataset.palette).toBe("mocha");
@@ -1015,6 +1053,7 @@ describe("Engram — écrans", () => {
   it("applique un fond « verre » et une signature", async () => {
     const user = userEvent.setup();
     open("/settings/appearance");
+    await expand(user, "Fond");
 
     await user.click(screen.getByRole("button", { name: /^Fond Aurore \(/ }));
     expect(document.documentElement.dataset.wall).toBe("aurore");
@@ -1031,6 +1070,7 @@ describe("Engram — écrans", () => {
   it("applique les palettes extrêmes et douces", async () => {
     const user = userEvent.setup();
     open("/settings/appearance");
+    await expand(user, "Palette");
     await user.click(screen.getByLabelText(/Thème Noir absolu/));
     await waitFor(() =>
       expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#000000"),

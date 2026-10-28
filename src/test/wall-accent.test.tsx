@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import App from "@/App";
 import {
   applySettingsToDom,
@@ -119,6 +120,12 @@ describe("écran Apparence", () => {
     /* `App` porte déjà son routeur : on ne l’enveloppe pas, sinon React Router
        refuse (deux routeurs). On règle l’adresse, puis on rend. */
     render(<App />);
+
+    // l’écran ouvre ses couches repliées : on déplie celle de l’accent
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Déplier Accent" }),
+    );
 
     expect(await screen.findByText("Accent du fond")).toBeTruthy();
     const toggle = screen.getByRole("switch", { name: "Accent tiré du fond" });
