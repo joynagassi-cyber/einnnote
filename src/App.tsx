@@ -7,6 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CloudBridge } from "@/components/CloudBridge";
 import { ThemeSync, ToastHost } from "@/components/Layout";
 import { AppShell } from "@/components/DesktopRail";
 import Library from "@/pages/Library";
@@ -15,6 +16,7 @@ import Editor from "@/pages/Editor";
 import Review from "@/pages/Review";
 import ReviewSession from "@/pages/ReviewSession";
 import ReviewSettingsPage from "@/pages/ReviewSettings";
+import CloudSettingsPage from "@/pages/CloudSettings";
 import MindMap from "@/pages/MindMap";
 import Zettelkasten from "@/pages/Zettelkasten";
 import ZettelForm from "@/pages/ZettelForm";
@@ -39,6 +41,7 @@ const App = () => (
   <>
     <BrowserRouter>
       <ThemeSync />
+      <CloudBridge />
       <ToastHost />
       <Shell>
         <RouteGuard>
@@ -67,6 +70,7 @@ const App = () => (
           <Route path="/settings/data" element={<DataBackup />} />
           <Route path="/settings/progress" element={<Progress />} />
           <Route path="/settings/review" element={<ReviewSettingsPage />} />
+          <Route path="/settings/cloud" element={<CloudSettingsPage />} />
           <Route path="/settings/trash" element={<Trash />} />
           <Route path="/settings/about" element={<About />} />
           {/* Anciennes adresses : conservées pour ne pas casser un lien */}

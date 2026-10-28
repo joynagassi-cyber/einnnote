@@ -3,6 +3,7 @@ import {
   CaretRight,
   Brain,
   ChartLineUp,
+  CloudArrowUp,
   DownloadSimple,
   Info,
   PaintBrush,
@@ -37,6 +38,12 @@ export default function Settings() {
       icon: DownloadSimple,
       title: "Données et sauvegarde",
       hint: "Fichier protégé, restauration, export",
+    },
+    {
+      to: "/settings/cloud",
+      icon: CloudArrowUp,
+      title: "Cloud et synchronisation",
+      hint: "Optionnel · 10 $ / mois — vos notes entre appareils",
     },
     {
       to: "/settings/review",
@@ -82,7 +89,8 @@ export default function Settings() {
         <div>
           <div className="text-[15px] font-semibold">Tout reste ici</div>
           <div className="mt-0.5 text-[13px] leading-[19px] text-accent-ink">
-            Aucun compte, aucun serveur, aucun suivi. Fonctionne hors ligne.
+            Aucun compte obligatoire, aucun suivi, fonctionne hors ligne. La
+            synchronisation cloud est optionnelle et payante.
           </div>
         </div>
       </div>

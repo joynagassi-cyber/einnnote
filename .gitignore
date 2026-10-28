@@ -1,3 +1,8 @@
+# Secrets locaux (clés Supabase, Stripe)
+.env
+.env.local
+.env.*.local
+
 # Logs
 logs
 *.log

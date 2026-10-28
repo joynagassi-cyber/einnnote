@@ -9,6 +9,11 @@ Quatre méthodes — **Outline, Cornell, carte mentale, Zettelkasten** — puis 
 cartes de rappel revues à intervalles espacés. Aucun compte, aucun serveur :
 tout reste dans le stockage local de l’appareil.
 
+**Synchronisation optionnelle** (`/settings/cloud`, 10 $/mois) : un backend
+Supabase que l’on peut inspecter, avec un paywall appliqué par la base et non
+par l’interface. Sans abonnement, l’application reste exactement la même.
+Architecture, coûts et mise en service : [`docs/CLOUD.md`](docs/CLOUD.md).
+
 ## Lancer
 
 ```bash
@@ -32,7 +37,8 @@ npm run lint
 | `/vault/:id/new` | Nouvelle carte : formulaire en forme de carte, source, image, lien, référence |
 | `/vault/:id/graph` | Graphe du coffre : carte ouverte et voisines, extensible à 2 niveaux |
 | `/learn` · `/learn/:id` | Apprendre : 6 tutoriels + 9 leçons du cours « Lire pour retenir » |
-| `/settings` | Réglages, dont **Apparence**, **Personnalisation**, **Données**, **Progrès**, **Corbeille**, **À propos** |
+| `/settings` | Réglages, dont **Cloud**, **Apparence**, **Personnalisation**, **Données**, **Progrès**, **Corbeille**, **À propos** |
+| `/settings/cloud` | Cloud : connexion par code, abonnement, synchro manuelle ou automatique, appareils, effacement distant |
 | `/settings/personalization` | Personnalisation avancée : densité, rayons, bordures, relief, papier, interligne, largeur, canevas |
 | `/preview` | Aperçu production : **mobile et bureau côte à côte**, deux iframes réelles |
 
