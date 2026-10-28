@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { Screen } from "@/components/Layout";
 import { FlipCard } from "@/components/review/FlipCard";
+import { TiltCard } from "@/components/ui/3d-card";
 import { NotePreview } from "@/components/NotePreview";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore } from "@/stores/useAppStore";
@@ -238,6 +239,9 @@ export default function ReviewSession() {
             !leaving && "animate-fade-in",
           )}
         >
+          {/* La carte s’incline sous le pointeur (bureau) ou sous le doigt
+              pendant l’appui (téléphone) : c’est un objet, pas une image. */}
+          <TiltCard maxTilt={6} depth={14}>
           <FlipCard
             flipped={revealed}
             onFlip={() => setRevealed((value) => !value)}
@@ -367,6 +371,7 @@ export default function ReviewSession() {
               </div>
             }
           />
+          </TiltCard>
         </div>
 
         {/* Notation — toujours sous la carte, jamais dans la carte */}

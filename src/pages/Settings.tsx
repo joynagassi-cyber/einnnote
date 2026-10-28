@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import {
   CaretRight,
   Brain,
+  CardsThree,
   ChartLineUp,
   CloudArrowUp,
   DownloadSimple,
@@ -38,6 +39,12 @@ export default function Settings() {
       icon: DownloadSimple,
       title: "Données et sauvegarde",
       hint: "Fichier protégé, restauration, export",
+    },
+    {
+      to: "/settings/cards",
+      icon: CardsThree,
+      title: "Studio des cartes",
+      hint: "Éventail, relief, carte image — vos fiches réelles",
     },
     {
       to: "/settings/cloud",

@@ -38,6 +38,7 @@ npm run lint
 | `/vault/:id/graph` | Graphe du coffre : carte ouverte et voisines, extensible à 2 niveaux |
 | `/learn` · `/learn/:id` | Apprendre : 6 tutoriels + 9 leçons du cours « Lire pour retenir » |
 | `/settings` | Réglages, dont **Cloud**, **Apparence**, **Personnalisation**, **Données**, **Progrès**, **Corbeille**, **À propos** |
+| `/settings/cards` | Studio des cartes : éventail 3D, relief, carte image — appliqués à vos fiches |
 | `/settings/cloud` | Cloud : connexion par code, abonnement, synchro manuelle ou automatique, appareils, effacement distant |
 | `/settings/personalization` | Personnalisation avancée : densité, rayons, bordures, relief, papier, interligne, largeur, canevas |
 | `/preview` | Aperçu production : **mobile et bureau côte à côte**, deux iframes réelles |

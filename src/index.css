@@ -1908,3 +1908,181 @@
 :root[data-contrast="high"] .zettel-card {
   box-shadow: 0 1px 0 0 var(--line-strong), 0 12px 26px -18px rgba(0, 0, 0, 0.45);
 }
+
+/* ---------- Éventail de cartes (mode « fan ») ----------
+   La géométrie (positions, rotation, échelle) est calculée en JS ; le CSS ne
+   fait que la peindre. Sans GSAP chargé, les variables `--fan-*` donnent déjà
+   le bon arc : il n’y a jamais de pile au premier rendu. */
+.fan {
+  width: 100%;
+}
+.fan-stage {
+  position: relative;
+  height: 27.5rem;
+  perspective: 1200px;
+  touch-action: pan-y;
+  outline: none;
+}
+.fan-stage:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: var(--r-sheet);
+}
+.fan-card {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 19.5rem;
+  width: 15rem;
+  border-radius: var(--r-sheet);
+  transform: translate3d(var(--fan-x, 0), var(--fan-y, 0), 0)
+    rotate(var(--fan-rot, 0deg)) scale(var(--fan-scale, 1));
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+.fan-card-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.fan-card-hit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.fan-card-face {
+  height: 100%;
+  width: 100%;
+}
+.fan-controls {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.fan-arrow {
+  display: inline-flex;
+  height: 40px;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--muted);
+  backdrop-filter: blur(10px);
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.fan-arrow:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.fan-dots {
+  display: flex;
+  max-width: 15rem;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+}
+.fan-dot {
+  height: 5px;
+  width: 5px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: width 220ms ease, background 220ms ease;
+}
+.fan-dot-active {
+  width: 16px;
+  background: var(--accent);
+}
+.fan-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+@media (min-width: 768px) {
+  .fan-stage {
+    height: 31rem;
+  }
+  .fan-card {
+    height: 24rem;
+    width: 19rem;
+  }
+  .fan-arrow {
+    height: 44px;
+    width: 44px;
+  }
+}
+
+/* ---------- Reflet d’inclinaison ----------
+   Une tache de lumière qui suit le pointeur. Très douce : sur du papier, un
+   reflet marqué ressemble à du plastique. */
+.tilt-glare {
+  position: absolute;
+  z-index: 3;
+  height: 60%;
+  width: 60%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--surface) 92%, white) 0%,
+    transparent 70%
+  );
+}
+:root[data-theme="dark"] .tilt-glare {
+  mix-blend-mode: screen;
+  opacity: 0.18;
+  background: radial-gradient(circle, color-mix(in srgb, white 40%, transparent) 0%, transparent 70%);
+}
+:root[data-contrast="high"] .tilt-glare {
+  display: none;
+}
+
+/* ---------- Carte de coffre, version « feuille » ----------
+   Utilisée dans l’éventail et en relief : même papier que `.zettel-card`, mais
+   sans la marge d’index (elle n’a de sens que sur la fiche ouverte). */
+.zettel-leaf {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-sheet);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 16px 18px 14px;
+  text-align: left;
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--surface) 70%, var(--line)),
+    0 18px 38px -20px rgba(20, 18, 15, 0.45),
+    0 3px 8px -4px rgba(20, 18, 15, 0.12);
+}
+.zettel-leaf::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--accent-soft) 30%, transparent), transparent 60%),
+    radial-gradient(90% 60% at 0% 100%, color-mix(in srgb, var(--surface-2) 55%, transparent), transparent 65%);
+  opacity: 0.6;
+}
+.zettel-leaf > * {
+  position: relative;
+  z-index: 1;
+}
+:root[data-contrast="high"] .zettel-leaf::after {
+  display: none;
+}

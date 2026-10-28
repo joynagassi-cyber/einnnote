@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowsDownUp,
+  CardsThree,
   CaretDown,
   Check,
+  Cube,
   Faders,
   ListBullets,
   SquaresFour,
+  Stack,
   X,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -140,7 +143,16 @@ export function DisplayMenu({
           <div className="grid grid-cols-2 gap-2">
             {views.map((view) => {
               const active = prefs.view === view.value;
-              const Icon = view.value === "grid" ? SquaresFour : ListBullets;
+              const Icon =
+                view.value === "grid"
+                  ? SquaresFour
+                  : view.value === "fan"
+                    ? CardsThree
+                    : view.value === "relief"
+                      ? Cube
+                      : view.value === "stack"
+                        ? Stack
+                        : ListBullets;
               return (
                 <button
                   key={view.value}

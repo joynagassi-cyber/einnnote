@@ -8,8 +8,15 @@
  * une pile de cartes et une liste de nœuds.
  */
 
-/** « stack » : la pile feuilletée du Zettelkasten, une troisième étagère. */
-export type DisplayView = "grid" | "list" | "stack";
+/**
+ * Étagères d’affichage.
+ *
+ * - `grid` et `list` : les deux classiques, utiles pour balayer beaucoup.
+ * - `stack` : la pile feuilletée du Zettelkasten (le geste d’origine).
+ * - `fan` : l’éventail 3D — on choisit une fiche, on ne la lit pas encore.
+ * - `relief` : les cartes s’inclinent sous le pointeur — on compare.
+ */
+export type DisplayView = "grid" | "list" | "stack" | "fan" | "relief";
 
 export interface DisplayPrefs {
   view: DisplayView;

@@ -2,6 +2,9 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cards, CaretRight, Graph, PencilSimple, Plus } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen } from "@/components/Layout";
+import { CardFan } from "@/components/ui/card-fan-carousel";
+import { TiltCard } from "@/components/ui/3d-card";
+import { ZettelLeaf } from "@/components/zettel/ZettelLeaf";
 import { useContentStore } from "@/stores/useContentStore";
 import { cn } from "@/lib/utils";
 import { DisplayMenu } from "@/components/DisplayMenu";
@@ -106,10 +109,236 @@ export default function Zettelkasten() {
   }
 
 
+  /* ----------------------------- ÉTAGÈRES ----------------------------- */
+  /* Cinq étagères, une seule déclaration du menu : la copie d’un menu à deux
+     endroits finit toujours par diverger. */
+  const menu = (
+    <DisplayMenu
+      surface="vault"
+      defaults={{ view: "stack", sortBy: "created" }}
+      views={[
+        { value: "stack", label: "Pile", hint: "Feuilleter au doigt" },
+        { value: "fan", label: "Éventail", hint: "Relief · choisir" },
+        { value: "relief", label: "Relief", hint: "S’incline au pointeur" },
+        { value: "grid", label: "Grille", hint: "Vignettes" },
+        { value: "list", label: "Liste", hint: "Titres" },
+      ]}
+      columns={{
+        min: 1,
+        max: 3,
+        fallback: desktop ? 3 : 2,
+        autoHint: "Automatique : 2 sur téléphone, 3 en bureau.",
+      }}
+      groupOptions={[
+        { value: "source", label: "Source" },
+        { value: "month", label: "Mois de création" },
+        { value: "refs", label: "Nombre de références" },
+      ]}
+      sortOptions={[
+        { value: "created", label: "Création" },
+        { value: "updated", label: "Modification" },
+        { value: "code", label: "Code" },
+        { value: "title", label: "Titre A → Z" },
+        { value: "refs", label: "Références" },
+        { value: "source", label: "Source" },
+      ]}
+    />
+  );
+
+  const openCard = (code: string) => {
+    const target = cards.findIndex((c) => c.code === code);
+    if (target >= 0) setIndex(target);
+  };
+
+  /* Grille, liste et relief partagent une seule mare de rendu : seules la
+     colonne et l’inclinaison changent. */
+  const renderCollection = () => {
+    const columns = columnsFor(display, {
+      fallback: desktop ? 3 : 2,
+      min: 1,
+      max: 3,
+    });
+    const relief = display.view === "relief";
+    const tiles = relief || display.view === "grid";
+
+    return (
+      <div className={cn("mt-5", desktop ? "pb-6" : "pb-28")}>
+        {groups.map((group) => (
+          <section key={group.key} className="mt-4">
+            {group.label && (
+              <h2 className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
+                {group.label}
+                <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] font-bold tabular-nums">
+                  {group.items.length}
+                </span>
+              </h2>
+            )}
+            <ul
+              className={cn(tiles ? "grid gap-2.5" : "flex flex-col gap-2")}
+              style={tiles ? gridStyle(columns) : undefined}
+            >
+              {group.items.map((entry) => (
+                <li key={entry.id}>
+                  <TiltCard maxTilt={7} depth={10} disabled={!relief} className="h-full">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openCard(entry.code);
+                        setDisplay({ view: "stack" });
+                      }}
+                      className={cn(
+                        "w-full rounded-card border border-line bg-surface text-left transition-colors hover:border-line-strong",
+                        tiles ? "flex h-full flex-col p-3" : "flex items-center gap-3 p-3",
+                        relief && "min-h-[13rem] shadow-card",
+                      )}
+                    >
+                      <span className="text-[12.5px] font-semibold text-accent">
+                        {entry.code}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-serif font-semibold",
+                          tiles
+                            ? "mt-1 line-clamp-2 text-[15px] leading-[20px]"
+                            : "min-w-0 flex-1 truncate text-[15px]",
+                        )}
+                      >
+                        {entry.title}
+                      </span>
+                      {tiles ? (
+                        <span
+                          className={cn(
+                            "mt-1 text-[12.5px] leading-[18px] text-muted",
+                            relief ? "line-clamp-5" : "line-clamp-3",
+                          )}
+                        >
+                          {entry.body}
+                        </span>
+                      ) : (
+                        <span className="hidden shrink-0 text-[12px] text-muted sm:block">
+                          {entry.source || "sans source"}
+                        </span>
+                      )}
+                    </button>
+                  </TiltCard>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <p className="mt-4 text-center text-[12.5px] text-muted">
+          {relief
+            ? "Approchez le pointeur — ou appuyez et glissez sur téléphone."
+            : "Touchez une carte pour revenir à la pile, à cet endroit."}
+        </p>
+      </div>
+    );
+  };
+
+  /* ----------------------------- ÉVENTAIL ----------------------------- */
+  /* L’éventail ne remplace pas la pile : il sert à choisir. La carte du centre
+     est lisible, les voisines annoncent. Un clic au centre ouvre la fiche dans
+     la pile, au bon endroit. */
+  if (display.view === "fan") {
+    return (
+      <Screen className={cn("px-5", desktop && "screen-wide")}>
+        <AppBar
+          back
+          onBack={() => navigate("/vaults")}
+          title={undefined}
+          action={
+            <div className="flex items-center gap-1.5">
+              {menu}
+              <button
+                type="button"
+                aria-label="Graphe du coffre"
+                className="icon-btn h-10 w-10 border border-line"
+                onClick={() => navigate(`/vault/${id}/graph`)}
+              >
+                <Graph size={17} weight="duotone" aria-hidden />
+              </button>
+              <button
+                type="button"
+                aria-label="Nouvelle carte"
+                className="icon-btn h-10 w-10 border border-line"
+                onClick={() => navigate(`/vault/${id}/new`)}
+              >
+                <Plus size={17} weight="bold" aria-hidden />
+              </button>
+            </div>
+          }
+        />
+
+        <h1 className="mt-1 font-serif text-[28px] font-semibold leading-tight">
+          {vault.name}
+        </h1>
+        <p className="mt-0.5 text-[15px] text-muted">
+          Éventail · {cards.length} fiche{cards.length > 1 ? "s" : ""}
+        </p>
+
+        <CardFan
+          className="mt-3"
+          initialIndex={Math.max(
+            0,
+            ordered.findIndex((entry) => entry.id === card?.id),
+          )}
+          items={ordered.map((entry) => ({
+            key: entry.id,
+            label: `${entry.code} — ${entry.title}`,
+            onOpen: () => {
+              openCard(entry.code);
+              setDisplay({ view: "stack" });
+            },
+            render: (active) => (
+              <ZettelLeaf card={entry} active={active} refs={entry.refs} />
+            ),
+          }))}
+        />
+
+        <div className="h-24" />
+      </Screen>
+    );
+  }
+
   /* ----------------------------- BUREAU ----------------------------- */
   /* Deux panneaux, comme un fichier de fiches posé à plat : la liste à
      gauche, la carte ouverte à droite. Le feuilletage au doigt n’a aucun sens
      à la souris — il n’existe donc plus sur cette taille d’écran. */
+  if (desktop && display.view !== "stack") {
+    return (
+      <div className="paper screen screen-wide px-6" data-canvas="dots">
+        <div className="sticky top-0 z-20 glass">
+          <AppBar
+            back
+            onBack={() => navigate("/vaults")}
+            center={false}
+            title={`Coffre · ${vault.name}`}
+            action={
+              <div className="flex items-center gap-1.5">
+                {menu}
+                <button
+                  type="button"
+                  className="pill h-10 px-3 text-[13.5px]"
+                  onClick={() => navigate(`/vault/${id}/graph`)}
+                >
+                  <Graph size={16} aria-hidden /> Graphe
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary h-10 px-3.5 text-[13.5px]"
+                  onClick={() => navigate(`/vault/${id}/new`)}
+                >
+                  <Plus size={16} weight="bold" aria-hidden /> Nouvelle carte
+                </button>
+              </div>
+            }
+          />
+        </div>
+        {renderCollection()}
+      </div>
+    );
+  }
+
   if (desktop) {
     const needle = query.trim().toLowerCase();
     const matching = needle
@@ -132,27 +361,7 @@ export default function Zettelkasten() {
             title={`Coffre · ${vault.name}`}
             action={
               <div className="flex items-center gap-1.5">
-                <DisplayMenu surface="vault" defaults={{ view: "stack", sortBy: "created" }}
-                  views={[
-                    { value: "stack", label: "Pile", hint: "Feuilleter" },
-                    { value: "grid", label: "Grille", hint: "Vignettes" },
-                    { value: "list", label: "Liste", hint: "Titres" },
-                  ]}
-                  columns={{ min: 1, max: 3, fallback: 3, autoHint: "Vignettes par ligne." }}
-                  groupOptions={[
-                    { value: "source", label: "Source" },
-                    { value: "month", label: "Mois de création" },
-                    { value: "refs", label: "Nombre de références" },
-                  ]}
-                  sortOptions={[
-                    { value: "created", label: "Création" },
-                    { value: "updated", label: "Modification" },
-                    { value: "code", label: "Code" },
-                    { value: "title", label: "Titre A → Z" },
-                    { value: "refs", label: "Références" },
-                    { value: "source", label: "Source" },
-                  ]}
-                />
+                {menu}
                 <button type="button" className="pill h-10 px-3 text-[13.5px]" onClick={() => navigate(`/vault/${id}/graph`)}>
                   <Graph size={16} aria-hidden /> Graphe
                 </button>
@@ -290,11 +499,6 @@ export default function Zettelkasten() {
     }, 190);
   };
 
-  const openCard = (code: string) => {
-    const target = cards.findIndex((c) => c.code === code);
-    if (target >= 0) setIndex(target);
-  };
-
   const behind = [1, 2]
     .filter((offset) => cards.length > offset)
     .map((offset) => cards[(index + offset) % cards.length]);
@@ -307,34 +511,7 @@ export default function Zettelkasten() {
         title={undefined}
         action={
           <div className="flex items-center gap-1.5">
-            <DisplayMenu
-              surface="vault"
-              defaults={{ view: "stack", sortBy: "created" }}
-              views={[
-                { value: "stack", label: "Pile", hint: "Feuilleter au doigt" },
-                { value: "grid", label: "Grille", hint: "Vignettes" },
-                { value: "list", label: "Liste", hint: "Titres" },
-              ]}
-              columns={{
-                min: 1,
-                max: 3,
-                fallback: desktop ? 3 : 2,
-                autoHint: "Automatique : 2 sur téléphone, 3 en bureau.",
-              }}
-              groupOptions={[
-                { value: "source", label: "Source" },
-                { value: "month", label: "Mois de création" },
-                { value: "refs", label: "Nombre de références" },
-              ]}
-              sortOptions={[
-                { value: "created", label: "Création" },
-                { value: "updated", label: "Modification" },
-                { value: "code", label: "Code" },
-                { value: "title", label: "Titre A → Z" },
-                { value: "refs", label: "Références" },
-                { value: "source", label: "Source" },
-              ]}
-            />
+            {menu}
             <button
               type="button"
               className="pill h-10 px-3 text-[13.5px]"
@@ -362,77 +539,7 @@ export default function Zettelkasten() {
       </p>
 
       {display.view !== "stack" ? (
-        <div className="mt-5 pb-28">
-          {groups.map((group) => {
-            const columns = columnsFor(display, {
-              fallback: desktop ? 3 : 2,
-              min: 1,
-              max: 3,
-            });
-            return (
-              <section key={group.key} className="mt-4">
-                {group.label && (
-                  <h2 className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted">
-                    {group.label}
-                    <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] font-bold tabular-nums">
-                      {group.items.length}
-                    </span>
-                  </h2>
-                )}
-                <ul
-                  className={cn(
-                    display.view === "grid"
-                      ? "grid gap-2.5"
-                      : "flex flex-col gap-2",
-                  )}
-                  style={display.view === "grid" ? gridStyle(columns) : undefined}
-                >
-                  {group.items.map((entry) => (
-                    <li key={entry.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          openCard(entry.code);
-                          setDisplay({ view: "stack" });
-                        }}
-                        className={cn(
-                          "w-full rounded-card border border-line bg-surface text-left hover:border-line-strong",
-                          display.view === "grid" ? "flex h-full flex-col p-3" : "flex items-center gap-3 p-3",
-                        )}
-                      >
-                        <span className="text-[12.5px] font-semibold text-accent">
-                          {entry.code}
-                        </span>
-                        <span
-                          className={cn(
-                            "font-serif font-semibold",
-                            display.view === "grid"
-                              ? "mt-1 line-clamp-2 text-[15px] leading-[20px]"
-                              : "min-w-0 flex-1 truncate text-[15px]",
-                          )}
-                        >
-                          {entry.title}
-                        </span>
-                        {display.view === "grid" ? (
-                          <span className="mt-1 line-clamp-3 text-[12.5px] leading-[18px] text-muted">
-                            {entry.body}
-                          </span>
-                        ) : (
-                          <span className="hidden shrink-0 text-[12px] text-muted sm:block">
-                            {entry.source || "sans source"}
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-          <p className="mt-4 text-center text-[12.5px] text-muted">
-            Touchez une carte pour revenir à la pile, à cet endroit.
-          </p>
-        </div>
+        renderCollection()
       ) : (
       <>
       <div className="relative mx-auto mt-5 h-[500px] w-full max-w-[520px] select-none">
@@ -494,7 +601,13 @@ export default function Zettelkasten() {
             setDrag({ x: 0, y: 0 });
           }}
           style={{
-            transform: `translate(${drag.x}px, ${Math.abs(drag.x) * 0.04}px) rotate(${drag.x / 38}deg)`,
+            /* Trois axes, pas un : la carte glisse, s’incline dans le plan et
+               pivote en profondeur. C’est ce qui donne l’épaisseur au geste —
+               sans elle, on déplace un rectangle. */
+            transform: `perspective(900px) translate(${drag.x}px, ${
+              Math.abs(drag.x) * 0.04
+            }px) rotate(${drag.x / 38}deg) rotateY(${-drag.x / 26}deg)`,
+            transformStyle: "preserve-3d",
             transition:
               dragging || flying ? "none" : "transform .42s cubic-bezier(.18,.9,.22,1.02)",
             touchAction: "pan-y",
