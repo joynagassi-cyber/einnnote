@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, FolderPlus, Trash } from "@phosphor-icons/react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Check, FolderPlus, Trash } from "@phosphor-icons/react";
 import { Sheet } from "@/components/Layout";
 import { useProjects } from "@/lib/useProjects";
 import { useToast } from "@/stores/useToast";
@@ -178,6 +179,16 @@ export function ProjectsSheet({
           Un projet isole ses notes et ses coffres. La vue « Tous les projets »
           reste disponible pour la révision.
         </p>
+        {/* Sur téléphone, le rail n’existe pas : c’est ici que l’on atteint la
+            page qui explique où vit quoi (projet, coffre, note). */}
+        <Link
+          to="/spaces"
+          onClick={() => onClose()}
+          className="mt-3 flex items-center gap-2 rounded-field border border-line px-3 py-2.5 text-[13px] font-medium text-accent"
+        >
+          <ArrowRight size={15} weight="bold" aria-hidden />
+          Comprendre la structure (projets, coffres, notes)
+        </Link>
       </div>
     </Sheet>
   );

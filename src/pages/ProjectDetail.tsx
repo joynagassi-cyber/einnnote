@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Books,
+  ClockCounterClockwise,
   NotePencil,
   Plus,
   SquaresFour,
@@ -150,6 +151,16 @@ export default function ProjectDetail() {
             >
               <SquaresFour size={15} aria-hidden />
               Filtrer
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/review/session?scope=project&id=${project.id}&mode=all`)
+              }
+              className="pill h-9 px-3 text-[13px]"
+            >
+              <ClockCounterClockwise size={15} aria-hidden />
+              Réviser
             </button>
             <button
               type="button"

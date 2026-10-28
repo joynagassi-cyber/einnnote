@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { CaretRight, Graph, PencilSimple, Plus } from "@phosphor-icons/react";
+import { Cards, CaretRight, Graph, PencilSimple, Plus } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen } from "@/components/Layout";
 import { useContentStore } from "@/stores/useContentStore";
 import { cn } from "@/lib/utils";
@@ -155,6 +155,13 @@ export default function Zettelkasten() {
                 />
                 <button type="button" className="pill h-10 px-3 text-[13.5px]" onClick={() => navigate(`/vault/${id}/graph`)}>
                   <Graph size={16} aria-hidden /> Graphe
+                </button>
+                <button
+                  type="button"
+                  className="pill h-10 px-3 text-[13.5px]"
+                  onClick={() => navigate(`/review/session?scope=vault&id=${id}&mode=all`)}
+                >
+                  <Cards size={16} aria-hidden /> Réviser
                 </button>
                 <button type="button" className="btn-primary h-10 px-3.5 text-[13.5px]" onClick={() => navigate(`/vault/${id}/new`)}>
                   <Plus size={16} weight="bold" aria-hidden /> Nouvelle carte
@@ -334,6 +341,14 @@ export default function Zettelkasten() {
               onClick={() => navigate(`/vault/${id}/graph`)}
             >
               Graphe
+            </button>
+            <button
+              type="button"
+              aria-label="Réviser ce coffre"
+              className="icon-btn h-10 w-10 border border-line"
+              onClick={() => navigate(`/review/session?scope=vault&id=${id}&mode=all`)}
+            >
+              <Cards size={17} weight="duotone" aria-hidden />
             </button>
           </div>
         }
