@@ -36,6 +36,21 @@ describe("Calendrier — fil du mois", () => {
     expect(within(timeline).getAllByText(/^(Note|Révision|Échéance|Leçon)$/).length).toBeGreaterThan(0);
   });
 
+  it("compte le mois par nature d’événement", () => {
+    open("/calendar");
+    const timeline = screen.getByRole("region", { name: "Fil du mois" });
+    /* Les quatre natures sont nommées, avec leur total — la grille ne les
+       compte pas, une pastille de couleur ne se compte pas. */
+    const counters = within(timeline)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent?.replace(/\s+/g, " ").trim() ?? "");
+    /* Seules les natures présentes sont comptées : pas de « 0 leçon ». */
+    for (const pattern of ["notes", "échéance"]) {
+      expect(counters.some((text) => text.includes(pattern))).toBe(true);
+    }
+    expect(counters.some((text) => /^0/.test(text))).toBe(false);
+  });
+
   it("donne l’heure et le projet quand ils existent", () => {
     open("/calendar");
     const timeline = screen.getByRole("region", { name: "Fil du mois" });

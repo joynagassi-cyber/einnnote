@@ -269,30 +269,33 @@ export function DesktopRail({
             </span>
           )}
         </button>
+        {/* Deux commandes de la barre, jamais dans le menu : replier, et le
+            thème. Le repli change la largeur du rail, pas son contenu — c’est
+            un réglage d’affichage, donc il vit dans `settings.rail`. */}
         <div className={cn("flex shrink-0 items-center", compact ? "flex-col gap-1" : "gap-0.5")}>
-        <button
-          type="button"
-          onClick={onToggleWidth}
-          aria-label={compact ? "Déplier la barre latérale" : "Replier la barre latérale"}
-          title={compact ? "Déplier" : "Replier"}
-          aria-expanded={!compact}
-          className="icon-btn h-9 w-9 shrink-0"
-        >
-          <SidebarSimple size={18} weight="bold" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={isDark ? "Passer au thème clair" : "Passer au thème sombre"}
-          title={isDark ? "Thème clair" : "Thème sombre"}
-          className="icon-btn h-9 w-9 shrink-0"
-        >
-          {isDark ? (
-            <Sun size={18} weight="bold" aria-hidden="true" />
-          ) : (
-            <Moon size={18} weight="bold" aria-hidden="true" />
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={onToggleWidth}
+            aria-label={compact ? "Déplier la barre latérale" : "Replier la barre latérale"}
+            title={compact ? "Déplier" : "Replier"}
+            aria-expanded={!compact}
+            className="icon-btn h-9 w-9 shrink-0"
+          >
+            <SidebarSimple size={18} weight="bold" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={isDark ? "Passer au thème clair" : "Passer au thème sombre"}
+            title={isDark ? "Thème clair" : "Thème sombre"}
+            className="icon-btn h-9 w-9 shrink-0"
+          >
+            {isDark ? (
+              <Sun size={18} weight="bold" aria-hidden="true" />
+            ) : (
+              <Moon size={18} weight="bold" aria-hidden="true" />
+            )}
+          </button>
         </div>
       </div>
 

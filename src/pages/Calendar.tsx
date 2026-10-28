@@ -117,6 +117,16 @@ export default function Calendar() {
   const shownGroups = showAll ? timeline : timeline.slice(0, 8);
   const hiddenCount = timeline.length - shownGroups.length;
 
+  /* Répartition du mois par nature d’événement : ce que la grille ne peut pas
+     dire, parce qu’une pastille de couleur ne se compte pas. */
+  const monthByKind = useMemo(() => {
+    const counts: Record<EventKind, number> = { note: 0, review: 0, due: 0, lesson: 0 };
+    for (const group of timeline) {
+      for (const event of group.events) counts[event.kind] += 1;
+    }
+    return counts;
+  }, [timeline]);
+
   const shift = (delta: number) => {
     const next = new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1);
     setCursor(next);
@@ -348,6 +358,25 @@ export default function Calendar() {
               {timeline.length > 1 ? "s" : ""}
             </p>
           </div>
+
+          {/* Quatre compteurs, dans l’ordre de lecture des pastilles. */}
+          <ul className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-muted">
+            {(Object.keys(KIND_META) as EventKind[])
+              .filter((kind) => monthByKind[kind] > 0)
+              .map((kind) => {
+                const Icon = KIND_META[kind].icon;
+                return (
+                  <li key={kind} className="flex items-center gap-1">
+                    <Icon size={13} weight="duotone" className="text-muted" aria-hidden />
+                    <span className="tabular-nums">{monthByKind[kind]}</span>
+                    <span>
+                      {KIND_META[kind].label.toLowerCase()}
+                      {monthByKind[kind] > 1 ? "s" : ""}
+                    </span>
+                  </li>
+                );
+              })}
+          </ul>
 
           <ol className="mt-3 flex flex-col">
             {shownGroups.map((group) => (
