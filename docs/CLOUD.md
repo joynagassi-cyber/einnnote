@@ -1,4 +1,4 @@
-# Cloud Engram — architecture, coûts, mise en service
+# Cloud Einnote — architecture, coûts, mise en service
 
 > État réel, pas une intention : **le backend n’est pas déployé.** Aucun projet
 > Supabase n’a pu être créé (quota de projets gratuits de l’organisation atteint,

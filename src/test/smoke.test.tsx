@@ -87,7 +87,7 @@ beforeEach(() => {
   });
 });
 
-describe("Engram — écrans", () => {
+describe("Einnote — écrans", () => {
   it("affiche la bibliothèque et le bandeau des révisions", async () => {
     open("/");
     expect(
@@ -349,15 +349,27 @@ describe("Engram — écrans", () => {
     });
   });
 
-  it("affiche les écrans de données et de progrès", () => {
+  it("affiche les écrans de données, de progrès et de statistiques", () => {
     open("/settings/data");
     expect(screen.getByText("Créer une sauvegarde")).toBeTruthy();
     cleanup();
+    // « Progrès » a rejoint une vraie surface : /stats
     open("/settings/progress");
-    expect(screen.getByText("Notes par méthode")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Statistiques" })).toBeTruthy();
+    expect(screen.getByText("Par méthode")).toBeTruthy();
+    expect(screen.getByText("Rétention par semaine")).toBeTruthy();
     cleanup();
     open("/settings/trash");
     expect(screen.getByText("Corbeille vide")).toBeTruthy();
+  });
+
+  it("ouvre le calendrier sur le mois en cours", () => {
+    open("/calendar");
+    expect(screen.getByRole("heading", { name: "Calendrier" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Aujourd’hui/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mois précédent" })).toBeTruthy();
+    // un jour est sélectionné par défaut : le panneau latéral est rempli
+    expect(screen.getByText(/^\d+ événement|Rien ce jour-là/)).toBeTruthy();
   });
 
   it("choisit une portée, démarre une révision et évalue une carte", async () => {
@@ -500,7 +512,7 @@ describe("Engram — écrans", () => {
       const rail = screen.getByRole("complementary", {
         name: "Barre latérale",
       });
-      expect(within(rail).getByText("Engram")).toBeTruthy();
+      expect(within(rail).getByText("Einnote")).toBeTruthy();
       expect(within(rail).getByRole("button", { name: "Apprendre" })).toBeTruthy();
       // le rail ne crée plus de note : c’est le bouton flottant qui s’en charge
       expect(within(rail).queryByRole("button", { name: /Nouvelle note/ })).toBeNull();

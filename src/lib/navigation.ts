@@ -1,12 +1,11 @@
 import {
-  CardsThree,
+  CalendarBlank,
+  ChartLineUp,
   ClockCounterClockwise,
-  FolderSimple,
   Gear,
   GraduationCap,
   House,
   SquaresFour,
-  Stack,
   type Icon,
 } from "@phosphor-icons/react";
 
@@ -30,6 +29,8 @@ export type NavSurface = "mobile" | "desktop";
 export type NavId =
   | "notes"
   | "spaces"
+  | "calendar"
+  | "stats"
   | "review"
   | "learn"
   | "settings";
@@ -55,7 +56,7 @@ export const NAV_CATALOG: NavDestination[] = [
     to: "/",
     label: "Notes",
     short: "Notes",
-    hint: "La bibliothèque : toutes vos notes, tous vos projets.",
+    hint: "Toutes vos notes, tous vos projets.",
     icon: House,
   },
   {
@@ -63,8 +64,24 @@ export const NAV_CATALOG: NavDestination[] = [
     to: "/spaces",
     label: "Espaces",
     short: "Espaces",
-    hint: "Projet → vault → note. La page qui dit où vit quoi, et où créer.",
+    hint: "Vos projets, leurs coffres et leurs notes.",
     icon: SquaresFour,
+  },
+  {
+    id: "calendar",
+    to: "/calendar",
+    label: "Calendrier",
+    short: "Calendrier",
+    hint: "Un mois d’activité : notes créées, révisions, échéances.",
+    icon: CalendarBlank,
+  },
+  {
+    id: "stats",
+    to: "/stats",
+    label: "Statistiques",
+    short: "Stats",
+    hint: "Rétention, série, charge à venir, répartition par méthode.",
+    icon: ChartLineUp,
   },
   {
     id: "review",
@@ -79,7 +96,7 @@ export const NAV_CATALOG: NavDestination[] = [
     to: "/learn",
     label: "Apprendre",
     short: "Apprendre",
-    hint: "Les leçons et les tutoriels de méthode.",
+    hint: "Les leçons de méthode.",
     icon: GraduationCap,
   },
   {
@@ -87,7 +104,7 @@ export const NAV_CATALOG: NavDestination[] = [
     to: "/settings",
     label: "Réglages",
     short: "Réglages",
-    hint: "Tous les réglages : apparence, données, cloud, navigation.",
+    hint: "Apparence, données, cloud, navigation.",
     icon: Gear,
   },
 ];
@@ -170,8 +187,12 @@ export function fillItems(surface: NavSurface, items: NavId[]): NavId[] {
  * manquait. Le bureau en montre sept : la hauteur du rail ne coûte rien.
  */
 export const DEFAULT_NAV: Record<NavSurface, NavId[]> = {
-  mobile: ["notes", "spaces", "review", "learn", "settings"],
-  desktop: ["notes", "spaces", "review", "learn"],
+  /* Quatre pages dans la barre, le reste derrière « Plus » — le menu s’ouvre
+     vers le haut, avec les icônes (voir `NavMoreMenu`). */
+  mobile: ["notes", "spaces", "calendar", "review", "stats", "learn", "settings"],
+  /* Le rail défile : il porte les six pages de travail, « Réglages » restant
+     en pied (voir `FIXED_ON`). */
+  desktop: ["notes", "spaces", "calendar", "stats", "review", "learn"],
 };
 
 /**

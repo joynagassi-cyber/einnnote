@@ -23,9 +23,9 @@ const source: MarkdownSource = {
 describe("export Markdown du vault", () => {
   it("exporte toute la bibliothèque avec un en-tête YAML", () => {
     const file = buildMarkdown(source);
-    expect(file.filename).toMatch(/^engram-bibliotheque-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(file.filename).toMatch(/^einnote-bibliotheque-\d{4}-\d{2}-\d{2}\.md$/);
     expect(file.content.startsWith("---\n")).toBe(true);
-    expect(file.content).toContain("# Bibliothèque Engram");
+    expect(file.content).toContain("# Bibliothèque Einnote");
     expect(file.notes).toBe(seedNotes.filter((n) => !n.deletedAt).length);
   });
 
@@ -63,7 +63,7 @@ describe("export Markdown du vault", () => {
 
   it("respecte le périmètre d’un projet", () => {
     const file = buildMarkdown(source, { kind: "project", projectId: "p-these" });
-    expect(file.filename).toContain("engram-these-");
+    expect(file.filename).toContain("einnote-these-");
     expect(file.content).toContain("# Thèse");
     const contrats = seedNotes.find((n) => n.id === "n-contrats")!;
     expect(contrats.projectId).toBe("p-general");
@@ -72,7 +72,7 @@ describe("export Markdown du vault", () => {
 
   it("respecte le périmètre d’un vault", () => {
     const file = buildMarkdown(source, { kind: "vault", vaultId: "v-eco" });
-    expect(file.filename).toMatch(/^engram-economie-/);
+    expect(file.filename).toMatch(/^einnote-economie-/);
     expect(file.content).toContain("# Économie");
     expect(file.notes).toBe(0);
     expect(file.cards).toBeGreaterThan(0);
@@ -204,7 +204,7 @@ describe("export en arborescence", () => {
     const tree = buildMarkdownTree(source as never);
     expect(tree.files[0].path).toBe("_index.md");
     expect(tree.files.some((file) => file.path === "Projets/Thèse.md")).toBe(true);
-    expect(tree.root).toMatch(/^Engram \d{4}-\d{2}-\d{2}$/);
+    expect(tree.root).toMatch(/^Einnote \d{4}-\d{2}-\d{2}$/);
   });
 
   it("nettoie les noms de fichiers sans perdre les accents", () => {

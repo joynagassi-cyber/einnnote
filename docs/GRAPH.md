@@ -18,7 +18,7 @@ et qu’une colonne le rétrécirait.
 
 ```
 ┌───────────────┬────────────────────────────────────────────────────────────┐
-│ É Engram  ☾   │  ← Graphe · Économie   [✦ Style] [☰ Affichage] [⑂ Racine]   │
+│ É Einnote  ☾   │  ← Graphe · Économie   [✦ Style] [☰ Affichage] [⑂ Racine]   │
 │               ├────────────────────────────────────────────────────────────┤
 │ Notes         │  12 fiches · 10 liens d’arbre · 2 renvois   ─ arbre ⇢ renvoi│
 │ Projets       │                                                            │

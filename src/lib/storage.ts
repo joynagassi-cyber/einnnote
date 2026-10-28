@@ -12,7 +12,7 @@ export interface KeyUsage {
 }
 
 export interface StorageUsage {
-  /** octets occupés par les clés Engram */
+  /** octets occupés par les clés Einnote */
   usedBytes: number;
   /** octets occupés par toute l’origine (autres apps comprises) */
   originBytes: number;
@@ -31,6 +31,11 @@ export const WARN_RATIO = 0.8;
 export const CRITICAL_RATIO = 0.9;
 
 /** Poids UTF-16 approximatif d’une chaîne, tel que le stocke le navigateur. */
+/*
+ * Les clés de stockage gardent le préfixe `engram.` : c'est un **format de
+ * données**, pas un nom de produit. Le changer sans migration renverrait chaque
+ * utilisateur à une application vide. Le renommage porte sur ce qui se voit.
+ */
 export function byteSize(value: string): number {
   let bytes = 0;
   for (let i = 0; i < value.length; i += 1) {

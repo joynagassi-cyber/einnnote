@@ -104,7 +104,7 @@ export const PALETTES: PaletteSeed[] = [
   {
     key: "papier",
     label: "Papier calme",
-    family: "Engram",
+    family: "Einnote",
     mode: "light",
     sibling: "papier-nuit",
     source: { url: "https://github.com/joynagassi-cyber/einnnote", license: "maison" },
@@ -122,7 +122,7 @@ export const PALETTES: PaletteSeed[] = [
   {
     key: "papier-nuit",
     label: "Papier nuit",
-    family: "Engram",
+    family: "Einnote",
     mode: "dark",
     sibling: "papier",
     source: { url: "https://github.com/joynagassi-cyber/einnnote", license: "maison" },

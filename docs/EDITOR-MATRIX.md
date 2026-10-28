@@ -1,13 +1,13 @@
-# Inventaire de l’éditeur — ce qu’Obsidian sait faire, ce qu’Engram fait
+# Inventaire de l’éditeur — ce qu’Obsidian sait faire, ce qu’Einnote fait
 
 > **But.** Une liste complète, vérifiable et sans complaisance des capacités de
-> l’éditeur Obsidian, confrontées à l’état réel du code d’Engram, pour décider
+> l’éditeur Obsidian, confrontées à l’état réel du code d’Einnote, pour décider
 > quoi construire ensuite — et quoi refuser explicitement.
 >
 > **Sources.** Documentation officielle Obsidian (`obsidianmd/obsidian-help`,
 > dossier `en/`, fichiers cités par leur nom) ; pour la comparaison « outliner
 > par blocs », `logseq/docs` (`pages/Keyboard shortcuts.md`,
-> `pages/Advanced commands.md`). Côté Engram : lecture directe du code
+> `pages/Advanced commands.md`). Côté Einnote : lecture directe du code
 > (`src/lib/editor/*`, `src/components/editor/NoteEditor.tsx`,
 > `src/lib/markdown.ts`). Date de relevé : 2026-10-27.
 >
@@ -19,7 +19,7 @@
 ## 0. La décision d’architecture qui explique tout le reste
 
 Obsidian est un **éditeur de fichiers Markdown** : le texte source est la
-vérité, le rendu est une projection. Engram est un **éditeur de blocs
+vérité, le rendu est une projection. Einnote est un **éditeur de blocs
 structurés** : un document = `Block[]`, chaque bloc porte un `blockId`, un
 `kind`, et des attributs (`bullet`, `ordered`, `indent`, `marked`). C’est ce qui
 permet d’ancrer une question sur un passage précis et de la retrouver après
@@ -43,7 +43,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 
 ## 1. Structure du texte
 
-| Capacité | Obsidian (`Basic formatting syntax`) | Engram | Écart |
+| Capacité | Obsidian (`Basic formatting syntax`) | Einnote | Écart |
 |---|---|---|---|
 | Paragraphes | Ligne vide = paragraphe | ✅ un paragraphe par nœud | — |
 | Saut de ligne interne | `Shift+Entrée` ou deux espaces | ✅ `hardBreak` rendu `<br>` | — |
@@ -61,7 +61,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 
 ## 2. Marques en ligne
 
-| Capacité | Obsidian | Engram | Écart |
+| Capacité | Obsidian | Einnote | Écart |
 |---|---|---|---|
 | Gras | `**a**` / `Ctrl+B` | ✅ | — |
 | Italique | `*a*` / `Ctrl+I` | ✅ | — |
@@ -75,7 +75,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 
 ## 3. Blocs riches
 
-| Capacité | Obsidian (`Advanced formatting syntax`, `Callouts`) | Engram | Écart |
+| Capacité | Obsidian (`Advanced formatting syntax`, `Callouts`) | Einnote | Écart |
 |---|---|---|---|
 | Callouts typés | 13 types (`note`, `tip`, `warning`, `danger`, `quote`, `bug`, `example`…), titres, repliables (`-`/`+`), imbriqués, icônes SVG | ⛔ | **Manque visible.** On a l’ombre d’une citation, pas d’admonition. |
 | Callouts personnalisés | CSS `callout-<id>` | ⛔ | — |
@@ -89,7 +89,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 
 ## 4. Références, liens, circulation
 
-| Capacité | Obsidian | Engram | Écart |
+| Capacité | Obsidian | Einnote | Écart |
 |---|---|---|---|
 | Liens externes | `[t](url)` | ✅ marque `link`, autolink, `target=_blank` + `noopener` | — |
 | Lien interne entre notes | `[[…]]` + autocomplétion | ⛔ | La bibliothèque et les projets organisent, mais un texte ne peut pas *pointer* vers une note. C’est le manque le plus structurant. |
@@ -101,7 +101,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 
 ## 5. Édition et gestes
 
-| Capacité | Obsidian (`Editing shortcuts`, `Multiple cursors`, `Find and replace`, `Folding`) | Engram | Écart |
+| Capacité | Obsidian (`Editing shortcuts`, `Multiple cursors`, `Find and replace`, `Folding`) | Einnote | Écart |
 |---|---|---|---|
 | Annuler / rétablir | `Ctrl+Z` / `Ctrl+Shift+Z` | ✅ barre d’outils + raccourcis | — |
 | Copier / coller sans format | `Ctrl+Shift+V` | 🟡 collage natif ProseMirror seulement | — |
@@ -124,7 +124,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 vues multiples, tri, regroupement, filtres, propriétés affichées, et sur
 téléphone un menu **Display** qui regroupe Results / Sort / Group / Properties.
 
-| Élément de Bases | Engram aujourd’hui |
+| Élément de Bases | Einnote aujourd’hui |
 |---|---|
 | Vue unique par surface | ✅ préférences par surface (`engram.display.v1`) |
 | Mises en page table / cards / list / kanban / map | 🟡 grille, liste, pile (vault) |
@@ -162,7 +162,7 @@ absolu. Effort : S ≤ ½ j, M ≈ 1–2 j, L ≥ 3 j.
 **Ce qu’on refuse et pourquoi (à dire clairement) :** mode source, Mermaid,
 embeds `![[…]]`, plugins communautaires, palette de commandes extensible,
 curseurs multiples. Ce sont les fonctionnalités qui font d’Obsidian un
-*environnement* ; les copier dilue la promesse d’Engram, qui est une **boucle
+*environnement* ; les copier dilue la promesse d’Einnote, qui est une **boucle
 d’apprentissage**, pas un atelier de texte.
 
 ---

@@ -343,7 +343,7 @@ export function parseGraphDocument(raw: string): ParsedDocument {
   }
   const document = value as Partial<GraphDocument>;
   if (document.format !== "engram-graphe") {
-    return { ok: false, reason: "Ce fichier n’a pas été exporté depuis Engram." };
+    return { ok: false, reason: "Ce fichier n’a pas été exporté depuis Einnote." };
   }
   if (!Array.isArray(document.cards)) {
     return { ok: false, reason: "Le fichier ne contient aucune fiche." };

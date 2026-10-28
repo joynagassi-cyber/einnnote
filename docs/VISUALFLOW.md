@@ -17,7 +17,7 @@
 dépôt GitHub, soit à un bac à sable CodeSandbox, soit à une démo Netlify ;
 le catalogue « Pro » est payant et ne publie ni code ni capture exploitable.
 
-| # | Exemple | Source publique | Motif de fond | Verdict pour Engram |
+| # | Exemple | Source publique | Motif de fond | Verdict pour Einnote |
 |---|---|---|---|---|
 | 1 | Concept map | GitHub | liens **nommés** entre concepts | **adopté** → style `carte-conceptuelle`, étiquettes calculées |
 | 2 | Kanban | GitHub | colonnes d’états + glisser | refusé : un tableau d’états n’est pas un graphe de fiches |
@@ -65,7 +65,7 @@ Dépôt lu intégralement (`src/` : `FlowCanvas.jsx`, `CustomEdge`, `NodeA`,
 
 | Fait | Détail | Ce qu’on en garde |
 |---|---|---|
-| **Étiquette sur le trait** | le chemin SVG reçoit un `id`, puis `<text><textPath href="#id" startOffset="50%" textAnchor="middle">` | notre `EngramEdge` (`src/lib/graph/edges.tsx`), **avec un liseré** `paint-order: stroke` pour rester lisible sur le trait |
+| **Étiquette sur le trait** | le chemin SVG reçoit un `id`, puis `<text><textPath href="#id" startOffset="50%" textAnchor="middle">` | notre `EinnoteEdge` (`src/lib/graph/edges.tsx`), **avec un liseré** `paint-order: stroke` pour rester lisible sur le trait |
 | **Palette en données** | `FlowData/index.js` décrit types de nœuds et de liens | nos `GRAPH_STYLES` (13) et `VAULT_TEMPLATES` (6) sont aussi des données pures, testées |
 | **Identité d’arête déterministe** | `id` unique obligatoire par arête | `tree-${source}-${target}` / `echo-…`, dérivé des codes de fiches |
 | **Export depuis le canevas** | `helpers/index.js` : PNG (`html-to-image`) + JSON (`Blob`) | export **SVG** + JSON validé (voir plus bas) |

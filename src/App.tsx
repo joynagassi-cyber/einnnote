@@ -31,10 +31,11 @@ import Appearance from "@/pages/Appearance";
 import Personalization from "@/pages/Personalization";
 import Preview from "@/pages/Preview";
 import Spaces from "@/pages/Spaces";
+import CalendarPage from "@/pages/Calendar";
+import Stats from "@/pages/Stats";
 import ProjectSpace from "@/pages/ProjectSpace";
 import ProjectGraph from "@/pages/ProjectGraph";
 import DataBackup from "@/pages/DataBackup";
-import Progress from "@/pages/Progress";
 import Trash from "@/pages/Trash";
 import About from "@/pages/About";
 import NotFound from "@/pages/NotFound";
@@ -51,6 +52,8 @@ const App = () => (
           <Route path="/" element={<Library />} />
           <Route path="/review" element={<Review />} />
           <Route path="/review/session" element={<ReviewSession />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/stats" element={<Stats />} />
           <Route path="/spaces" element={<Spaces />} />
           <Route path="/spaces/:id" element={<ProjectSpace />} />
           <Route path="/spaces/:id/graph" element={<ProjectGraph />} />
@@ -69,7 +72,7 @@ const App = () => (
             element={<Personalization />}
           />
           <Route path="/settings/data" element={<DataBackup />} />
-          <Route path="/settings/progress" element={<Progress />} />
+          <Route path="/settings/progress" element={<Navigate to="/stats" replace />} />
           <Route path="/settings/review" element={<ReviewSettingsPage />} />
           <Route path="/settings/cloud" element={<CloudSettingsPage />} />
           <Route path="/settings/cards" element={<CardStudio />} />

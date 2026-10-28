@@ -24,7 +24,7 @@
 5. **Deux surfaces manquent** : Calendrier et Statistiques. Les bibliothèques
    nécessaires sont déjà installées et inutilisées (`recharts`,
    `react-day-picker`, `date-fns`) : aucun paquet à ajouter.
-6. **Le produit s’appelle Einnote** — l’application s’appelle encore « Engram »
+6. **Le produit s’appelle Einnote** — l’application s’appelle encore « Einnote »
    dans 76 endroits du dépôt.
 
 ---
@@ -39,7 +39,7 @@
 | Les statistiques sont invisibles | `/settings/progress` (`Progress.tsx`) : 4 chiffres + des barres maison, enterré dans les réglages. `recharts` est installé, l’enveloppe `ui/chart.tsx` existe, **aucune page ne l’importe** | §11 : `/stats` |
 | Espaces se lit comme un cours | Le bouton « Apprendre en 3 minutes : un projet, des vaults, des notes » (`Spaces.tsx:120`) ouvre un tutoriel depuis une page de travail ; les cartes affichent `vaults` **et** `fiches` séparément (`:170-186`), trace des deux modèles | §7 : une page opérationnelle, projet → vault → notes |
 | Un vault est traité comme un style | Deux modèles parallèles : `ZettelVault` + `ZettelCard` d’un côté, `Note` + `method` de l’autre (`src/types/index.ts:39-135`). **108** occurrences de `vaultId` | §6 : un seul modèle, `Note.method` |
-| Le nom | `index.html:16` : « Engram — des notes qui font apprendre ». `package.json` : `vite_react_shadcn_ts`. 76 occurrences d’« Engram » | Phase 0 : renommage Einnote |
+| Le nom | `index.html:16` : « Einnote — des notes qui font apprendre ». `package.json` : `vite_react_shadcn_ts`. 76 occurrences d’« Einnote » | Phase 0 : renommage Einnote |
 
 **Le vrai problème n’est pas visuel, il est structurel :** l’application n’a
 jamais décidé ce qu’est un écran. Elle a accumulé 37 routes, dont 8 redirections,
@@ -467,7 +467,7 @@ Contraintes déjà en place, qu’aucune refonte n’a le droit de casser :
 
 | Phase | Contenu | Critère d’acceptation |
 |---|---|---|
-| **P0 · Nom** | Engram → Einnote (76 occurrences), `index.html`, `package.json`, docs, notifications | `grep -ri engram src` = 0 |
+| **P0 · Nom** | Einnote → Einnote (76 occurrences), `index.html`, `package.json`, docs, notifications | `grep -ri engram src` = 0 |
 | **P1 · Overlays** | `overlay-root`, `<Overlay>` portalé, échelle de plans, dialogue bureau / feuille mobile, piège de focus | un test monte deux pages et vérifie que le dialogue est **enfant de `body`** ; aucune capture « encastrée » possible |
 | **P2 · Coquille** | trois zones, `--screen-max 1024`, en-tête de page, variantes `grid`, panneau de contexte | un écran de 1440 px montre 3 colonnes de cartes, pas une colonne de 720 |
 | **P3 · Espaces → Vault → Notes** | nettoyage de `Spaces`, carte de coffre (nom, date, notes, méthodes), route `/spaces/:p/:v`, filtre par méthode | un vault contenant 3 méthodes l’affiche ; le graphe reste accessible aux deux échelles |
@@ -495,3 +495,37 @@ statistiques, en gardant deux tableaux mais une seule promesse à l’écran (M1
 Mon avis : M1 tout de suite, M2 après P4/P5, parce que le calendrier et les
 statistiques ont besoin de la **promesse** (un coffre = des notes de plusieurs
 méthodes) mais pas de la **table unique**.
+
+---
+
+## 15. État d’avancement — 28 octobre 2026 (soir)
+
+Ce qui est **fait** dans cette phase, et ce qui ne l’est pas encore. Un
+document d’architecture qui ne dit pas où en est le code finit par mentir.
+
+### Fait
+
+| Point | Détail |
+|---|---|
+| **P0 · Nom** | Le produit s’appelle **Einnote** dans l’interface, le titre de la page, les notifications, les noms de fichiers exportés, les docs et `package.json`. Les **clés de stockage restent `engram.*`** : c’est un format de données, les renommer sans migration viderait l’application de chaque utilisateur. Le format de sauvegarde écrit désormais `einnote.backup` et **relit encore `engram.backup`** (testé). |
+| **Rail épuré** | Le bloc « Projets » a disparu du rail : les projets se parcourent dans **Espaces**, pas dans la navigation. Une seule entrée en pied de rail, **Réglages** — Apparence, Données, Corbeille, À propos, Progrès sont des sections de Réglages, pas des pages de travail. « Aperçu bureau » a quitté la navigation (l’adresse `/preview` reste, pour les tests côte à côte). |
+| **Sept surfaces** | `Note`, `Espaces`, `Calendrier`, `Statistiques`, `Réviser`, `Apprendre` dans le rail ; `Réglages` en pied. Sur téléphone : quatre pages + « Plus », qui ouvre **vers le haut** avec les icônes. |
+| **Calendrier `/calendar`** | Grille du mois (semaines complètes, 5 ou 6 lignes selon le mois), panneau du jour, filtres projet et familles d’événements. **Tout est dérivé** : notes créées, révisions faites, échéances FSRS, leçons terminées. Aucun événement saisi à la main. |
+| **Statistiques `/stats`** | Quatre indicateurs (notes créées, série, rétention, à revoir), activité jour par jour, rétention hebdomadaire, charge à venir sur 14 jours, répartition par méthode, tableau par projet. `/settings/progress` redirige ici. |
+| **Logique testée** | `src/lib/stats.ts` (16 tests) et `src/lib/calendar.ts` (12 tests) : jour **local** et non UTC, jours vides présents, retard replié sur aujourd’hui, échéances agrégées par jour, mois à 5 semaines. |
+
+### Pas encore
+
+| Point | Pourquoi ce n’est pas fait |
+|---|---|
+| **P1 · Overlays portalés** | Le diagnostic est posé (§5) mais le correctif n’est pas appliqué : `Sheet` rend toujours dans la page. C’est la prochaine étape, et elle est indépendante du reste. |
+| **P2 · Coquille à trois zones** | Le contenu reste plafonné à 720 px au-delà de 1024 px. Les deux nouvelles pages utilisent déjà la largeur (`screen-wide`), mais le panneau de contexte n’existe pas. |
+| **P3 · Vault = coffre** | La route `/spaces/:projet/:vault` et la carte de coffre (nom, description, date, **nombre de notes**, **méthodes**) restent à faire. Les deux modèles (`ZettelCard` / `Note`) coexistent toujours — la fusion est M2 de §6. |
+| **P6 · Modèle unifié** | Non commencé, comme prévu : après P4/P5. |
+
+### Ce que ce tour n’a pas inventé
+
+- Pas de graphique de **temps d’étude** : aucune durée n’est enregistrée.
+- Pas d’**événement de calendrier** créé à la main : ce serait une entité de plus.
+- Pas de couleur en dur dans les graphiques : ils lisent `var(--accent)` et suivent donc le thème, la palette et l’accent tiré du fond.
+- Les bibliothèques `recharts` et `react-day-picker` restent installées mais **non utilisées** : les graphiques et la grille sont écrits en SVG et en CSS, parce qu’ils doivent prendre les jetons du thème et rester mesurables dans les tests.

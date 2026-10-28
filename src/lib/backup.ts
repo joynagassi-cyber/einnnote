@@ -4,8 +4,13 @@
  * Tout se fait localement : aucune donnée ne quitte l’appareil.
  */
 
+/** Les anciens fichiers portent « engram.backup » : on continue de les lire. */
+export type BackupFormat = "einnote.backup" | "engram.backup";
+
+export const BACKUP_FORMATS: BackupFormat[] = ["einnote.backup", "engram.backup"];
+
 export interface BackupEnvelope {
-  format: "engram.backup";
+  format: BackupFormat;
   version: 1;
   createdAt: string;
   kdf: "PBKDF2-SHA256";
@@ -80,7 +85,7 @@ export async function encryptBackup(
   );
 
   return {
-    format: "engram.backup",
+    format: "einnote.backup",
     version: 1,
     createdAt: new Date().toISOString(),
     kdf: "PBKDF2-SHA256",
@@ -96,8 +101,8 @@ export async function decryptBackup(
   envelope: BackupEnvelope,
   password: string,
 ): Promise<unknown> {
-  if (envelope.format !== "engram.backup" || envelope.version !== 1) {
-    throw new Error("Ce fichier n’est pas une sauvegarde Engram.");
+  if (!BACKUP_FORMATS.includes(envelope.format) || envelope.version !== 1) {
+    throw new Error("Ce fichier n’est pas une sauvegarde Einnote.");
   }
   const key = await deriveKey(
     password,

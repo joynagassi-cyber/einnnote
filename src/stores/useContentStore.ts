@@ -800,7 +800,7 @@ export const useContentStore = create<ContentState>()(
           progress,
         } = get();
         return {
-          app: "Engram",
+          app: "Einnote",
           version: 2,
           exportedAt: new Date().toISOString(),
           projects,

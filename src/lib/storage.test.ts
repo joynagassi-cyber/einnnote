@@ -58,7 +58,7 @@ describe("stockage", () => {
     expect(usageLevel(1)).toBe("critical");
   });
 
-  it("mesure les clés Engram et l’origine entière", () => {
+  it("mesure les clés Einnote et l’origine entière", () => {
     const storage = fakeStorage({
       "engram.content.v1": "x".repeat(1000),
       "engram.settings.v1": "x".repeat(500),

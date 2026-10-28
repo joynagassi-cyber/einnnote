@@ -33,7 +33,7 @@ export default function About() {
         </div>
         <div>
           <h1 className="font-serif text-[22px] font-semibold leading-tight">
-            Engram
+            Einnote
           </h1>
           <p className="text-[14px] text-muted">
             Prototype 0.3 · cahier des charges v3.0
@@ -85,7 +85,7 @@ export default function About() {
       </ul>
 
       <p className="mt-6 pb-10 text-[13px] leading-[19px] text-muted">
-        « Engram » est un nom de travail, déjà utilisé ailleurs : un nouveau nom
+        « Einnote » est un nom de travail, déjà utilisé ailleurs : un nouveau nom
         reste à choisir avant toute publication.
       </p>
     </Screen>

@@ -149,11 +149,11 @@ Recherche menée dans le dépôt `xyflow/xyflow`, dossier
 `examples/react/src/examples/` (dépouillé exemple par exemple), et non sur des
 articles de blog.
 
-| Exemple officiel | Idée | État dans Engram |
+| Exemple officiel | Idée | État dans Einnote |
 |---|---|---|
 | `Layouting` (dagre) | recalculer les positions, `fitView` après | ✅ **réimplémenté sans dagre** : nos dispositions sont analytiques, donc testables et sans dépendance |
 | `FloatingEdges` | choisir le côté de la poignée par géométrie, pas par hasard | ✅ **repris** : 4 poignées invisibles par nœud, `sidesFor()` choisit `s-*`/`t-*` selon la position relative. Indispensable en radial, frise et arête de poisson |
-| `CustomNode` | un type de nœud maison | ✅ déjà en place (`EngramNode`), enrichi : rendu par niveau (racine / carte / pastille) |
+| `CustomNode` | un type de nœud maison | ✅ déjà en place (`EinnoteNode`), enrichi : rendu par niveau (racine / carte / pastille) |
 | `NodeToolbar` / `EdgeToolbar` | actions contextuelles sur le nœud sélectionné | ✅ version intégrée : `+` et crayon apparaissent sur le nœud sélectionné |
 | `Controls`, `MiniMap` | navigation sur grande carte | ✅ sur bureau uniquement (`useIsDesktop`) : 16 nœuds se perdent vite au doigt |
 | `Subflow` (groupes) | nœuds parents contenant des enfants | ⛔ non retenu : incompatible avec notre modèle `parentId` (qui décrit le sens, pas l’emboîtement visuel) |

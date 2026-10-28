@@ -27,7 +27,7 @@ import {
  * qu’on emporte.
  *
  * L’import est volontairement strict : `parseGraphDocument` refuse un fichier
- * qui n’est pas un export Engram ou qui pointe vers une fiche absente, et on
+ * qui n’est pas un export Einnote ou qui pointe vers une fiche absente, et on
  * affiche la raison. Le modèle VisualFlow (`Flow_renderer_test`) faisait
  * `JSON.parse` puis `concat` : un fichier étranger cassait le canevas.
  */
@@ -178,7 +178,7 @@ export function GraphExchange({ input, style, display, onDisplay, onImport }: Pr
           Reprendre un fichier
         </h3>
         <p className="mb-2.5 text-[12.5px] leading-[18px] text-muted">
-          Un JSON exporté depuis Engram devient un nouveau vault, avec ses
+          Un JSON exporté depuis Einnote devient un nouveau vault, avec ses
           codes et ses renvois. Tout autre fichier est refusé avec la raison.
         </p>
         <input

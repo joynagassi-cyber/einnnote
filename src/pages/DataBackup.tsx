@@ -94,7 +94,7 @@ export default function DataBackup() {
     toast("Export lisible téléchargé", "accent");
   };
 
-  /* Markdown : lisible par Obsidian, Logseq, GitHub, sans outil Engram */
+  /* Markdown : lisible par Obsidian, Logseq, GitHub, sans outil Einnote */
   const exportMarkdown = () => {
     const store = useContentStore.getState();
     const scope: MarkdownScope =
@@ -152,7 +152,7 @@ export default function DataBackup() {
       const text = await readFileAsText(chosen);
       const envelope = JSON.parse(text) as BackupEnvelope;
       if (envelope.format !== "engram.backup") {
-        toast("Ce fichier n’est pas une sauvegarde Engram");
+        toast("Ce fichier n’est pas une sauvegarde Einnote");
         return;
       }
       setFile({ name: chosen.name, envelope });

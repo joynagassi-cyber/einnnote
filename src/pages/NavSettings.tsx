@@ -334,7 +334,7 @@ function DesktopPreview({ items }: { items: ReturnType<typeof useNavStore.getSta
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-[12px] font-bold text-on-accent">
             É
           </span>
-          <span className="font-serif text-[12.5px] font-semibold">Engram</span>
+          <span className="font-serif text-[12.5px] font-semibold">Einnote</span>
         </div>
         <div className="mb-2 flex h-7 items-center justify-center gap-1 rounded-md bg-accent text-[11px] font-semibold text-on-accent">
           + Nouvelle note

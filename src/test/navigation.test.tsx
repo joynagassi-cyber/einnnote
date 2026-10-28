@@ -75,28 +75,32 @@ describe("Barre du bas", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/spaces"));
   });
 
-  it("affiche cinq entrées — et aucun « + » dans la barre", () => {
+  it("affiche quatre pages et « Plus », et aucun « + » dans la barre", () => {
     open("/");
     const nav = bottomNav();
     const labels = [...nav.querySelectorAll(".nav-item")].map((item) =>
       item.textContent?.trim().replace(/\d+/g, ""),
     );
-    expect(labels).toEqual(["Notes", "Espaces", "Réviser", "Apprendre", "Réglages"]);
+    expect(labels).toEqual(["Notes", "Espaces", "Calendrier", "Réviser", "Plus"]);
     /* Le « + » est sorti de la barre : une barre sert à aller quelque part, le
        bouton de création flotte au-dessus. */
     expect(within(nav).queryByRole("button", { name: /Nouvelle note/ })).toBeNull();
     expect(document.querySelector(".fab")).toBeTruthy();
   });
 
-  it("suit l’ordre choisi, sans rien pouvoir perdre", async () => {
+  it("respecte l’ordre choisi et laisse rejoindre les pages de côté", async () => {
     const user = userEvent.setup();
     useNavStore.getState().setItems("mobile", ["review", "notes"]);
     open("/settings/navigation");
 
-    // masquer n’existe plus : la liste est complétée et enregistrée
+    // une liste courte reste courte : rien n’est réinjecté sans son accord
     await waitFor(() =>
-      expect(useNavStore.getState().mobile).toContain("spaces"),
+      expect(useNavStore.getState().mobile).toEqual(["review", "notes"]),
     );
+    // et les pages absentes restent atteignables d’un bouton
+    expect(
+      await screen.findByRole("button", { name: "Afficher Espaces" }),
+    ).toBeTruthy();
     cleanup();
     open("/");
     const labels = [...bottomNav().querySelectorAll(".nav-item")].map((item) =>
@@ -246,12 +250,26 @@ describe("Réglages de navigation", () => {
     expect(screen.queryByRole("button", { name: "Téléphone" })).toBeNull();
   });
 
-  it("ne propose ni « Retirer » ni « Afficher » : tout tient, rien à masquer", async () => {
+  it("propose de retirer ou d’afficher une page quand le catalogue dépasse la barre", async () => {
     open("/settings/navigation");
     expect(await screen.findByText("Pages affichées")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Retirer / })).toBeNull();
+    /* Sept pages pour cinq places : l’arbitrage existe. Par défaut tout est
+       affiché, donc seule l’action « Retirer » est proposée ; une page retirée
+       réapparaît aussitôt dans « Afficher », jamais perdue. */
+    expect(screen.getAllByRole("button", { name: /^Retirer / }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^Afficher / })).toBeNull();
-    // le réordonnancement, lui, reste
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Retirer Statistiques" }));
+    expect(
+      await screen.findByRole("button", { name: "Afficher Statistiques" }),
+    ).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Afficher Statistiques" }));
+    await waitFor(() =>
+      expect(useNavStore.getState().mobile).toContain("stats"),
+    );
+
+    // le réordonnancement, lui, reste disponible
     expect(screen.getByRole("button", { name: "Monter Réviser" })).toBeTruthy();
   });
 
@@ -264,8 +282,8 @@ describe("Réglages de navigation", () => {
     await waitFor(() =>
       expect(useNavStore.getState().mobile.slice(0, 3)).toEqual([
         "notes",
-        "review",
         "spaces",
+        "review",
       ]),
     );
     expect(useNavStore.getState().desktop).toEqual(desktopBefore);
@@ -300,7 +318,9 @@ describe("Réglages de navigation", () => {
       expect(useNavStore.getState().mobile).toEqual([
         "notes",
         "spaces",
+        "calendar",
         "review",
+        "stats",
         "learn",
         "settings",
       ]),

@@ -2,7 +2,7 @@
  * Export Markdown lisible par Obsidian, Logseq, GitHub…
  *
  * Trois portées : un projet, un vault, ou toute la bibliothèque. Le fichier
- * produit est autonome : il ne dépend d’aucune ressource Engram.
+ * produit est autonome : il ne dépend d’aucune ressource Einnote.
  */
 
 import { blocksToMarkdown } from "@/lib/editor/blocks";
@@ -170,14 +170,14 @@ export function buildMarkdown(
     const cards = source.zettel.filter((card) => card.vaultId === scope.vaultId);
     if (!vault) {
       return {
-        filename: `engram-vault-${today}.md`,
+        filename: `einnote-vault-${today}.md`,
         content: "",
         notes: 0,
         cards: 0,
       };
     }
     return {
-      filename: `engram-${slug(vault.name)}-${today}.md`,
+      filename: `einnote-${slug(vault.name)}-${today}.md`,
       content: vaultToMarkdown(vault, cards),
       notes: 0,
       cards: cards.length,
@@ -198,13 +198,13 @@ export function buildMarkdown(
 
   const header = [
     frontMatter({
-      application: "Engram",
+      application: "Einnote",
       export: project ? `projet ${project.name}` : "bibliothèque",
       date: today,
       notes: inScope.length,
       cartes: cards.length,
     }),
-    `# ${project ? project.name : "Bibliothèque Engram"}\n`,
+    `# ${project ? project.name : "Bibliothèque Einnote"}\n`,
     project?.description ? `${project.description}\n` : "",
     `> Export du ${today} · ${inScope.length} note${inScope.length > 1 ? "s" : ""} · ${cards.length} carte${cards.length > 1 ? "s" : ""}\n`,
   ].join("\n");
@@ -219,7 +219,7 @@ export function buildMarkdown(
     .join("\n---\n\n");
 
   return {
-    filename: `engram-${project ? slug(project.name) : "bibliotheque"}-${today}.md`,
+    filename: `einnote-${project ? slug(project.name) : "bibliotheque"}-${today}.md`,
     content: `${header}\n${body}`.trimEnd() + "\n",
     notes: inScope.length,
     cards: cards.length,
@@ -235,7 +235,7 @@ export function buildMarkdown(
  * lier une note, ni la déplacer, ni la renommer. L’export produit donc une
  * **arborescence de fichiers** :
  *
- *   Engram-2025-10-28/
+ *   Einnote-2025-10-28/
  *     Projets/Thèse.md                  ← fiche du projet + sommaire
  *     Notes/Thèse/Plan du chapitre 3.md ← une note, un fichier
  *     Vaults/Thèse/Économie/_vault.md ← index du vault
@@ -334,10 +334,10 @@ export function buildMarkdownTree(
   const today = new Date().toISOString().slice(0, 10);
   const root =
     scope.kind === "project"
-      ? `Engram ${fileSafe(source.projects.find((item) => item.id === scope.projectId)?.name ?? "projet")} ${today}`
+      ? `Einnote ${fileSafe(source.projects.find((item) => item.id === scope.projectId)?.name ?? "projet")} ${today}`
       : scope.kind === "vault"
-        ? `Engram ${fileSafe(source.vaults.find((item) => item.id === scope.vaultId)?.name ?? "vault")} ${today}`
-        : `Engram ${today}`;
+        ? `Einnote ${fileSafe(source.vaults.find((item) => item.id === scope.vaultId)?.name ?? "vault")} ${today}`
+        : `Einnote ${today}`;
 
   const files: MarkdownTreeNode[] = [];
   const liveNotes = source.notes.filter((note) => !note.deletedAt);
@@ -435,13 +435,13 @@ export function buildMarkdownTree(
   /* --- Index général. --- */
   const index = [
     "---",
-    "application: Engram",
+    "application: Einnote",
     `date: ${today}`,
     `notes: ${notes.length}`,
     `cartes: ${cards}`,
     "---",
     "",
-    `# ${scope.kind === "library" ? "Bibliothèque Engram" : root}`,
+    `# ${scope.kind === "library" ? "Bibliothèque Einnote" : root}`,
     "",
     `> Export du ${today} · ${notes.length} note${notes.length > 1 ? "s" : ""} · ${cards} fiche${cards > 1 ? "s" : ""}`,
     "",

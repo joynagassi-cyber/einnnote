@@ -5,6 +5,7 @@ import {
   NAV_CATALOG,
   SURFACE_SLOTS,
   availableItems,
+  catalogFor,
   fillItems,
   needsPicker,
   moveItem,
@@ -123,19 +124,21 @@ describe("availableItems", () => {
 });
 
 describe("splitMobile", () => {
-  it("laisse tout dans la barre jusqu’à cinq entrées", () => {
-    expect(DEFAULT_NAV.mobile).toHaveLength(MOBILE_SLOTS);
-    expect(splitMobile(DEFAULT_NAV.mobile).overflow).toEqual([]);
+  it("garde quatre pages dans la barre et parque le reste derrière « Plus »", () => {
+    /* Deux surfaces ont été ajoutées (Calendrier, Statistiques) : le catalogue
+       dépasse désormais les cinq places du téléphone. Rien ne disparaît pour
+       autant — le surplus s’ouvre vers le haut, avec ses icônes. */
+    const { bar, overflow } = splitMobile(DEFAULT_NAV.mobile);
+    expect(bar).toEqual(["notes", "spaces", "calendar", "review"]);
+    expect(overflow).toEqual(["stats", "learn", "settings"]);
+    expect(bar.length + overflow.length).toBe(DEFAULT_NAV.mobile.length);
   });
 
-  it("parque le surplus au lieu de le faire déborder", () => {
-    /* Le catalogue actuel tient exactement dans la barre. La règle de
-       débordement reste testée pour le jour où une page s’ajoute : une entrée
-       de plus et la dernière passe derrière « ··· », jamais hors écran. */
+  it("ne perd aucune entrée quand la liste grandit encore", () => {
     const many: NavId[] = [...DEFAULT_NAV.mobile, "learn"];
     const { bar, overflow } = splitMobile(many);
     expect(bar).toHaveLength(MOBILE_SLOTS - 1);
-    expect(overflow).toEqual(["settings", "learn"]);
+    expect(overflow).toEqual(["stats", "learn", "settings", "learn"]);
   });
 });
 
@@ -168,13 +171,14 @@ describe("catalogue", () => {
  * propose d’y masquer des pages que s’il y a un arbitrage à faire.
  */
 describe("choix des pages, surface par surface", () => {
-  it("ne force aucun choix tant que tout tient", () => {
-    /* 5 pages, 5 places sur téléphone, 12 dans le rail : il n’y a rien à
-       masquer, donc rien à cocher. La règle s’inverse d’elle-même le jour où
-       le catalogue dépasse la place. */
-    expect(needsPicker("mobile")).toBe(false);
+  it("demande un choix sur téléphone, jamais sur bureau", () => {
+    /* 7 pages pour 5 places sur téléphone : il faut choisir, et le réglage de
+       navigation le propose. 6 pages pour 12 places dans le rail : rien à
+       masquer, donc aucune question posée au bureau. */
+    expect(needsPicker("mobile")).toBe(true);
     expect(needsPicker("desktop")).toBe(false);
-    expect(NAV_CATALOG.length).toBeLessThanOrEqual(SURFACE_SLOTS.mobile);
+    expect(NAV_CATALOG.length).toBeGreaterThan(SURFACE_SLOTS.mobile);
+    expect(catalogFor("desktop").length).toBeLessThanOrEqual(SURFACE_SLOTS.desktop);
   });
 
   it("complète la liste d’une surface sans choix, sans rien perdre", () => {

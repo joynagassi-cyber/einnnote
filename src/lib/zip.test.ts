@@ -28,8 +28,8 @@ describe("CRC-32", () => {
 
 describe("archive ZIP", () => {
   const files = [
-    { path: "Engram/Notes/Thèse/Plan.md", content: "# Plan\n\nContenu accentué : éàü\n" },
-    { path: "Engram/Vaults/Thèse/Économie/#1A - Inflation.md", content: "corps" },
+    { path: "Einnote/Notes/Thèse/Plan.md", content: "# Plan\n\nContenu accentué : éàü\n" },
+    { path: "Einnote/Vaults/Thèse/Économie/#1A - Inflation.md", content: "corps" },
   ];
 
   it("écrit un en-tête local par fichier, avec la bonne taille", () => {

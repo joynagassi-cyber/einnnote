@@ -68,7 +68,7 @@ extérieur, à `Échap`, ou après choix. Aucun voile, aucune feuille.
 
 ```
 ┌───────────────┬───────────────────────────────────────────────┐
-│ É  Engram     │  Espaces                              ⚙      │
+│ É  Einnote     │  Espaces                              ⚙      │
 │ + Nouvelle note│  Un projet contient des vaults.              │
 │               │                                               │
 │ ▢ Notes       │  ┌─────────────┐ ┌─────────────┐              │

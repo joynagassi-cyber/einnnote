@@ -41,7 +41,7 @@ export function ReviewReminder() {
     const key = `${todayKey}-notified`;
     if (window.sessionStorage.getItem(key) === "1") return;
     try {
-      new Notification("Engram — révision", {
+      new Notification("Einnote — révision", {
         body: `${due} carte${due > 1 ? "s" : ""} vous attend${due > 1 ? "ent" : ""}.`,
         tag: "engram-review",
       });

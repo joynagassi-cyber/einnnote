@@ -1,4 +1,4 @@
-# Engram — prototype « papier calme »
+# Einnote — prototype « papier calme »
 
 Application de notes qui oblige à l’**apprentissage actif**, construite d’après le
 cahier des charges **v3.0** et les maquettes mobiles « papier calme ».
@@ -198,7 +198,7 @@ native :
 - pas de code PIN, de biométrie ni de verrouillage automatique ;
 - bureau sans panneau redimensionnable ni raccourcis clavier (le rail, lui,
   est en place) ;
-- « Engram » est un nom de travail : à remplacer avant publication.
+- « Einnote » est un nom de travail : à remplacer avant publication.
 
 ## Tests
 

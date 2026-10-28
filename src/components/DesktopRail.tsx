@@ -28,8 +28,6 @@ import {
   useIsDesktop,
   useRail,
 } from "@/lib/useMediaQuery";
-import { ProjectsSheet } from "@/components/ProjectSwitcher";
-import { useProjects } from "@/lib/useProjects";
 import { wallById, wallUrl } from "@/lib/walls";
 import { useWallPalette } from "@/lib/useWallPalette";
 import {
@@ -160,15 +158,10 @@ export function WallLayer() {
    viennent des préférences (`/settings/navigation`), dans l’ordre choisi, et
    se réorganisent ici même d’un clic. La liste écrite en dur était la cause
    d’un écart réel entre le téléphone et le bureau. */
-const SETTINGS = [
-  { to: "/settings", label: "Tous les réglages", icon: Gear },
-  { to: "/settings/appearance", label: "Apparence", icon: PaintBrush },
-  { to: "/preview", label: "Aperçu bureau", icon: MonitorPlay },
-  { to: "/settings/data", label: "Données", icon: Database },
-  { to: "/settings/progress", label: "Progrès", icon: ChartLineUp },
-  { to: "/settings/trash", label: "Corbeille", icon: Trash },
-  { to: "/settings/about", label: "À propos", icon: Info },
-] as const;
+/* Une seule entrée. Apparence, Données, Corbeille, À propos, Progrès sont des
+   **sections de Réglages**, pas des pages de travail : elles y sont rangées, et
+   les répéter ici donnait deux fois la même chose à deux endroits. */
+const SETTINGS = [{ to: "/settings", label: "Réglages", icon: Gear }] as const;
 
 export function DesktopRail({
   compact = false,
@@ -186,8 +179,6 @@ export function DesktopRail({
 
   const due = dueCards(cards).length;
   const isDark = resolvedTheme(settings.theme) === "dark";
-  const { projects, counts, activeProjectId, setActiveProject } = useProjects();
-  const [projectsOpen, setProjectsOpen] = useState(false);
 
   /* Réorganisation en place : un clic sur une page la prend, un clic sur une
      autre la dépose devant. Pas de glisser-déposer invisible — le geste est
@@ -223,11 +214,11 @@ export function DesktopRail({
             É
           </span>
           {compact ? (
-            <span className="sr-only">Engram — accueil</span>
+            <span className="sr-only">Einnote — accueil</span>
           ) : (
             <span className="min-w-0">
               <span className="block truncate font-serif text-[17px] font-semibold leading-none">
-                Engram
+                Einnote
               </span>
               <span className="mt-1.5 block truncate text-[12px] leading-none text-muted">
                 Des notes qui font apprendre
@@ -261,43 +252,6 @@ export function DesktopRail({
         )}
         aria-label="Navigation du bureau"
       >
-        <div className={cn("mb-1 flex items-center", compact ? "justify-center" : "justify-between pr-1")}>
-          {!compact && <p className="rail-label">Espaces</p>}
-          <button
-            type="button"
-            onClick={() => setProjectsOpen(true)}
-            aria-label="Gérer les projets"
-            title="Gérer les projets"
-            className={cn(
-              "flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-accent hover:bg-surface-2",
-              compact ? "h-8 w-8 justify-center" : "mb-1.5 h-6 px-1.5",
-            )}
-          >
-            <FolderPlus size={15} weight="bold" aria-hidden />
-            {!compact && "Gérer"}
-          </button>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <RailItem
-            compact={compact}
-            icon={Stack}
-            label="Tous les projets"
-            active={activeProjectId === null}
-            onClick={() => setActiveProject(null)}
-          />
-          {projects.map((project) => (
-            <RailItem
-              key={project.id}
-              compact={compact}
-              icon={FolderSimple}
-              label={project.name}
-              badge={counts.get(project.id)}
-              active={activeProjectId === project.id}
-              onClick={() => setActiveProject(project.id)}
-            />
-          ))}
-        </div>
-
         <div className={cn("flex items-center", compact ? "justify-center" : "mt-5 justify-between pr-1")}>
           {!compact && <p className="rail-label">Espace</p>}
           <button
@@ -382,19 +336,6 @@ export function DesktopRail({
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate("/settings/navigation")}
-          className={cn(
-            "mt-1.5 flex w-full items-center gap-1.5 rounded-md py-1.5 text-[11.5px] font-medium text-muted hover:bg-surface-2 hover:text-ink",
-            compact ? "justify-center" : "px-1.5",
-          )}
-          aria-label="Choisir les pages du rail"
-        >
-          <SlidersHorizontal size={13} weight="bold" aria-hidden />
-          {!compact && "Choisir les pages"}
-        </button>
-
         {!compact && <p className="rail-label mt-5">Réglages</p>}
         {compact && <div className="mx-2 my-3 h-px bg-line" aria-hidden="true" />}
         <div className="flex flex-col gap-0.5">
@@ -415,11 +356,11 @@ export function DesktopRail({
         {compact ? (
           <button
             type="button"
-            onClick={() => navigate(due > 0 ? "/review" : "/settings/progress")}
+            onClick={() => navigate(due > 0 ? "/review" : "/stats")}
             aria-label={
-              due > 0 ? `${due} cartes à revoir — commencer la révision` : "Voir le progrès"
+              due > 0 ? `${due} cartes à revoir — commencer la révision` : "Voir les statistiques"
             }
-            title={due > 0 ? `${due} à revoir` : "Progrès"}
+            title={due > 0 ? `${due} à revoir` : "Statistiques"}
             className="relative mx-auto flex h-11 w-11 items-center justify-center rounded-field bg-accent-soft text-accent-ink"
           >
             <ClockCounterClockwise size={19} weight="bold" aria-hidden />
@@ -444,10 +385,10 @@ export function DesktopRail({
           </p>
           <button
             type="button"
-            onClick={() => navigate(due > 0 ? "/review" : "/settings/progress")}
+            onClick={() => navigate(due > 0 ? "/review" : "/stats")}
             className="mt-3 h-9 w-full rounded-rect bg-accent text-[14px] font-semibold text-on-accent transition-opacity active:opacity-90"
           >
-            {due > 0 ? "Commencer la révision" : "Voir le progrès"}
+            {due > 0 ? "Commencer la révision" : "Voir les statistiques"}
           </button>
         </div>
         <button
@@ -468,7 +409,6 @@ export function DesktopRail({
         )}
       </div>
 
-      <ProjectsSheet open={projectsOpen} onClose={() => setProjectsOpen(false)} />
     </aside>
   );
 }

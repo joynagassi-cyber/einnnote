@@ -32,7 +32,7 @@ Deux causes, cumulatives :
    feuille de React Flow n’est pas en couche — une règle en couche perdait
    contre elle).
 2. **Les nœuds n’avaient plus de poignées.** En dessinant nos propres arêtes
-   (`EngramEdge`), les `<Handle>` avaient été retirés. React Flow refuse de
+   (`EinnoteEdge`), les `<Handle>` avaient été retirés. React Flow refuse de
    dessiner une arête dont la source ou la cible n’a pas d’ancre : les arêtes
    étaient déclarées, jamais rendues. Les poignées invisibles sont revenues, et
    l’arête s’ancre sur le côté calculé par `floatingParams`.

@@ -26,7 +26,7 @@ import type { GraphEdgeKind } from "@/lib/graph/styles";
  * « connection line text » codé en dur de l’exemple.
  */
 
-export interface EngramEdgeData extends Record<string, unknown> {
+export interface EinnoteEdgeData extends Record<string, unknown> {
   kind: GraphEdgeKind;
   label?: string;
   echo?: boolean;
@@ -65,14 +65,14 @@ export function pathFor(kind: GraphEdgeKind, from: Box, to: Box, weight = 2): st
   }
 }
 
-export function EngramEdge({ id, source, target, data, style, markerEnd }: EdgeProps) {
+export function EinnoteEdge({ id, source, target, data, style, markerEnd }: EdgeProps) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   const a = boxOf(sourceNode, 150, 60);
   const b = boxOf(targetNode, 150, 60);
   if (!a || !b) return null;
 
-  const config = (data ?? {}) as EngramEdgeData;
+  const config = (data ?? {}) as EinnoteEdgeData;
   const kind = config.kind ?? "floating";
   const echo = Boolean(config.echo);
   const weight = config.weight ?? 2;
@@ -150,5 +150,5 @@ export function EngramEdge({ id, source, target, data, style, markerEnd }: EdgeP
 }
 
 export const GRAPH_EDGE_TYPES = {
-  engram: EngramEdge,
+  engram: EinnoteEdge,
 } as const;

@@ -17,7 +17,7 @@ export class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Journal local : utile pour diagnostiquer sans serveur.
-    console.error("[Engram] écran en erreur", this.props.route, error, info);
+    console.error("[Einnote] écran en erreur", this.props.route, error, info);
     try {
       sessionStorage.setItem(
         "engram.lastError",

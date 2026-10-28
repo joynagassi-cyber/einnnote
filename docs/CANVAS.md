@@ -1,7 +1,7 @@
 # Canevas — ce que Miro et tldraw font, ce qu’on en prend
 
 Recherche faite sur la documentation publique de tldraw et de Miro, puis
-confrontée à ce que le canevas d’Engram sait déjà faire (React Flow 12).
+confrontée à ce que le canevas d’Einnote sait déjà faire (React Flow 12).
 Objectif : **prendre les gestes**, pas copier l’interface.
 
 Sources principales :
@@ -18,7 +18,7 @@ Sources principales :
 
 ## 1. Matrice de décision
 
-| Geste attendu sur un canevas infini | Miro | tldraw | Engram — état |
+| Geste attendu sur un canevas infini | Miro | tldraw | Einnote — état |
 |---|---|---|---|
 | Déplacer le canevas au glissement | oui | oui | **fait** (`panOnScroll`, `panOnDrag`) |
 | Zoom molette / pincement | oui | oui | **fait** (`zoomOnPinch`, `minZoom 0.35`) |

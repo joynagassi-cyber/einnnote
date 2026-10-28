@@ -110,7 +110,7 @@ const EDGE_KIND: Record<EdgeStyle, GraphEdgeKind> = {
 };
 
 /**
- * Toutes les arêtes de la carte passent par `EngramEdge` : un seul composant
+ * Toutes les arêtes de la carte passent par `EinnoteEdge` : un seul composant
  * sait dessiner les cinq familles de trait et accrocher le trait au bord réel
  * des nœuds. Les types intégrés de React Flow ne connaissent que des poignées
  * fixes, ce qui faisait disparaître les liens dès qu’un nœud changeait de
@@ -562,7 +562,7 @@ export default function MindMap() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          nodeTypes={{ engram: EngramNode }}
+          nodeTypes={{ engram: EinnoteNode }}
           edgeTypes={GRAPH_EDGE_TYPES}
           fitView
           /* Sur téléphone, ne pas dézoomer au point que le texte devienne
@@ -930,7 +930,7 @@ function shapeIcon(shape: MindNode["shape"]) {
   return <Rectangle size={20} />;
 }
 
-function EngramNode({ id, data }: NodeProps<FlowNode>) {
+function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
   const { text, shape, root, depth, sel, onAdd, onOpen } = data;
 
   const base =

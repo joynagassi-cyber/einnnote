@@ -1,4 +1,4 @@
-# Engram — structure du design
+# Einnote — structure du design
 
 Ce document décrit **comment le thème est construit**, pas à quoi il ressemble.
 Objectif : qu’une personne puisse ajouter un écran, un accent ou un composant
@@ -184,7 +184,7 @@ import de thème tiendrait en une fonction `importTheme(css)` qui lirait
 
 ```
 ┌───────────────┬───────────────────────────────────────────────────────────┐
-│ É Engram  ☾   │  ← rail 264 px, fixe                 colonne 720–1060 px │
+│ É Einnote  ☾   │  ← rail 264 px, fixe                 colonne 720–1060 px │
 │               │                                                          │
 │ [+ Nouvelle note]                                                         │
 │               │  Bibliothèque                                            │
