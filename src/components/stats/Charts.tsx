@@ -166,32 +166,42 @@ export function RegularityHeatmap({
             </span>
           ))}
         </div>
+        {/* Une case est décorative tant que personne ne peut cliquer dessus :
+            `role="img"` cache ses enfants aux lecteurs d’écran, donc on n’y met
+            des boutons que si un clic mène quelque part. */}
         <div
           className="flex flex-1 gap-[3px] overflow-hidden"
-          role="img"
+          role={onSelect ? "group" : "img"}
           aria-label={`Régularité : ${active} jours actifs sur ${counts.length} jours affichés.`}
         >
           {weeks.map((week, index) => (
             <div key={index} className="flex flex-1 flex-col gap-[3px]">
-              {week.days.map((day) => (
-                <button
-                  key={day.date}
-                  type="button"
-                  disabled={day.count < 0 || !onSelect}
-                  onClick={() => onSelect?.(day.date)}
-                  title={`${day.date} · ${day.count < 0 ? "à venir" : `${day.count} action${day.count > 1 ? "s" : ""}`}`}
-                  aria-label={`${day.date} : ${day.count < 0 ? "à venir" : `${day.count} action${day.count > 1 ? "s" : ""}`}`}
-                  className={cn(
-                    "h-[11px] w-full rounded-[3px] transition-transform",
-                    day.count >= 0 && onSelect && "hover:scale-110",
-                    day.count < 0 && "opacity-30",
-                  )}
-                  style={{
-                    background: shade(day.count),
-                    border: day.count === 0 ? `1px solid ${LINE}` : "none",
-                  }}
-                />
-              ))}
+              {week.days.map((day) => {
+                const label = `${day.date} · ${day.count < 0 ? "à venir" : `${day.count} action${day.count > 1 ? "s" : ""}`}`;
+                const style = {
+                  background: shade(day.count),
+                  border: day.count === 0 ? `1px solid ${LINE}` : "none",
+                };
+                const base = cn(
+                  "h-[11px] w-full rounded-[3px] transition-transform",
+                  day.count < 0 && "opacity-30",
+                );
+
+                if (!onSelect || day.count < 0) {
+                  return <span key={day.date} title={label} className={base} style={style} />;
+                }
+                return (
+                  <button
+                    key={day.date}
+                    type="button"
+                    onClick={() => onSelect(day.date)}
+                    title={label}
+                    aria-label={label}
+                    className={cn(base, "hover:scale-110")}
+                    style={style}
+                  />
+                );
+              })}
             </div>
           ))}
         </div>

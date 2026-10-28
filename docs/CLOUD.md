@@ -187,6 +187,28 @@ ajoutée (courriel de bienvenue), il faudra une table `processed_events`.
 
 ---
 
+### Tester la synchronisation avant d’avoir Stripe
+
+L’écriture est refusée sans abonnement — c’est le point de conception, pas un
+bug. Pour éprouver la synchro de bout en bout sur son propre compte, on ouvre
+soi-même le droit, en SQL, avec le rôle `service_role` (jamais depuis le
+client) :
+
+```sql
+insert into engram.entitlements (owner_id, plan, status, current_period_end)
+values ('<uuid de auth.users>', 'cloud', 'active', now() + interval '30 days')
+on conflict (owner_id) do update
+  set plan = 'cloud', status = 'active', current_period_end = excluded.current_period_end;
+```
+
+Puis, côté application : `/settings/cloud` → connexion par code → « Synchroniser ».
+Vérifier ensuite dans le tableau de bord que `engram.entities` se remplit, et
+que deux appareils convergent. `delete from engram.entitlements where owner_id = …`
+remet le compte en gratuit, et la synchro doit alors refuser d’écrire en le
+disant.
+
+---
+
 ## 7. Économie du produit à 10 $/mois
 
 | Poste | Montant |
