@@ -1,7 +1,7 @@
 /**
  * Export Markdown lisible par Obsidian, Logseq, GitHub…
  *
- * Trois portées : un projet, un coffre, ou toute la bibliothèque. Le fichier
+ * Trois portées : un projet, un vault, ou toute la bibliothèque. Le fichier
  * produit est autonome : il ne dépend d’aucune ressource Engram.
  */
 
@@ -107,7 +107,7 @@ function noteToMarkdown(source: MarkdownSource, note: Note): string {
     }
   } else if (note.method === "zettelkasten") {
     const cards = source.zettel.filter((card) => card.vaultId === note.vaultId);
-    parts.push(`## Cartes du coffre (${cards.length})\n`);
+    parts.push(`## Cartes du vault (${cards.length})\n`);
     for (const card of cards) {
       parts.push(
         `### ${card.code} · ${card.title}\n\n${card.body}\n\n> ${card.source}\n`,
@@ -135,7 +135,7 @@ function vaultToMarkdown(vault: ZettelVault, cards: ZettelCard[]): string {
   const parts = [
     frontMatter({
       titre: vault.name,
-      type: "coffre",
+      type: "vault",
       cartes: cards.length,
     }),
     `# ${vault.name}\n`,
@@ -170,7 +170,7 @@ export function buildMarkdown(
     const cards = source.zettel.filter((card) => card.vaultId === scope.vaultId);
     if (!vault) {
       return {
-        filename: `engram-coffre-${today}.md`,
+        filename: `engram-vault-${today}.md`,
         content: "",
         notes: 0,
         cards: 0,
@@ -227,7 +227,7 @@ export function buildMarkdown(
 }
 
 /* ------------------------------------------------------------------ */
-/* Arborescence : un fichier par note, rangé par projet puis par coffre */
+/* Arborescence : un fichier par note, rangé par projet puis par vault */
 /* ------------------------------------------------------------------ */
 
 /*
@@ -238,8 +238,8 @@ export function buildMarkdown(
  *   Engram-2025-10-28/
  *     Projets/Thèse.md                  ← fiche du projet + sommaire
  *     Notes/Thèse/Plan du chapitre 3.md ← une note, un fichier
- *     Coffres/Thèse/Économie/_coffre.md ← index du coffre
- *     Coffres/Thèse/Économie/#1A L'inflation….md
+ *     Vaults/Thèse/Économie/_vault.md ← index du vault
+ *     Vaults/Thèse/Économie/#1A L'inflation….md
  *     _index.md                          ← table des matières générale
  *
  * Le nom du fichier est le **titre de la note** : c’est ce qu’on cherche dans
@@ -314,7 +314,7 @@ function cardFileContent(
   return `---
 titre: "${card.title.replace(/"/g, '\\"')}"
 code: "${card.code}"
-coffre: "${vault?.name ?? ""}"
+vault: "${vault?.name ?? ""}"
 cree: ${card.createdAt.slice(0, 10)}
 modifie: ${card.updatedAt.slice(0, 10)}
 ---
@@ -336,7 +336,7 @@ export function buildMarkdownTree(
     scope.kind === "project"
       ? `Engram ${fileSafe(source.projects.find((item) => item.id === scope.projectId)?.name ?? "projet")} ${today}`
       : scope.kind === "vault"
-        ? `Engram ${fileSafe(source.vaults.find((item) => item.id === scope.vaultId)?.name ?? "coffre")} ${today}`
+        ? `Engram ${fileSafe(source.vaults.find((item) => item.id === scope.vaultId)?.name ?? "vault")} ${today}`
         : `Engram ${today}`;
 
   const files: MarkdownTreeNode[] = [];
@@ -364,11 +364,11 @@ export function buildMarkdownTree(
     files.push({ path: `${folder}/${fileName}`, content: noteToMarkdown(source, note) });
   }
 
-  /* --- Coffres : un fichier par fiche, sous « Coffres / <projet> / <coffre> ». --- */
+  /* --- Vaults : un fichier par fiche, sous « Vaults / <projet> / <vault> ». --- */
   let cards = 0;
   for (const vault of vaults) {
     const project = projectName(source, vault.projectId);
-    const vaultFolder = `Coffres/${project}/${fileSafe(vault.name)}`;
+    const vaultFolder = `Vaults/${project}/${fileSafe(vault.name)}`;
     const vaultCards = source.zettel
       .filter((card) => card.vaultId === vault.id)
       .sort((a, b) => a.code.localeCompare(b.code, "fr", { numeric: true }));
@@ -377,10 +377,10 @@ export function buildMarkdownTree(
 
     const taken = new Set<string>();
     files.push({
-      path: `${vaultFolder}/_coffre.md`,
+      path: `${vaultFolder}/_vault.md`,
       content: vaultToMarkdown(vault, vaultCards),
     });
-    taken.add("_coffre.md");
+    taken.add("_vault.md");
     for (const card of vaultCards) {
       files.push({
         path: `${vaultFolder}/${uniqueName(taken, cardFileName(card))}`,
@@ -408,7 +408,7 @@ export function buildMarkdownTree(
       `titre: "${project.name.replace(/"/g, '\\"')}"`,
       "type: projet",
       `notes: ${projectNotes.length}`,
-      `coffres: ${projectVaults.length}`,
+      `vaults: ${projectVaults.length}`,
       "---",
       "",
       `# ${project.name}`,
@@ -421,7 +421,7 @@ export function buildMarkdownTree(
         (note) => `- [[${fileSafe(note.title)}]] — ${METHOD_LABELS[note.method]}`,
       ),
       "",
-      "## Coffres",
+      "## Vaults",
       "",
       ...projectVaults.map((vault) => `- ${vault.name} (${countCards(vault.id)} fiches)`),
       "",
@@ -449,7 +449,7 @@ export function buildMarkdownTree(
     "",
     ...projects.map((project) => `- [[${fileSafe(project.name)}]]`),
     "",
-    "## Coffres",
+    "## Vaults",
     "",
     ...vaults.map(
       (vault) =>

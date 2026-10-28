@@ -136,7 +136,7 @@ et trois variables continues. Aucun contrôle n’est décoratif.
 | Rayons | `data-radius` | `--r-rect/field/card/sheet` → jetons Tailwind |
 | Bordures | `data-borders` | couleur de `--line` (45 % → `--line-strong`) |
 | Relief | `data-elevation` | `--shadow-*`, `--elev-card` (aucune → 34 px) |
-| Papier | `data-paper` | `--bg`, `--surface`, `--surface-2`, `--line` |
+| Papier | `data-paper` | `--bg`, `--surface`, `--surface-2`, `--line` — **calculés en JS** |
 | Interligne | `--note-leading` | hauteur de ligne des notes (20–38 px) |
 | Largeur de lecture | `--reading-width` | `.note-column` (520–980 px) |
 | Force du canevas | `--canvas-strength` | opacité du pointillé/lignes (0–100 %) |
@@ -144,6 +144,14 @@ et trois variables continues. Aucun contrôle n’est décoratif.
 | Flou du fond | `--wall-blur` | 18–48 px (voir `docs/WALLS.md`) |
 | Voile | `--wall-dim` | 0–1, ramené dans la bande lisible du couple (thème, fond) |
 | Accent | `--accent` recalculé | dérivé **sur la couleur réelle du verre**, pas sur le papier |
+
+**Le papier et les traits ne sont plus écrits en CSS.** Ils l’étaient
+(`:root[data-paper="ivory"] { --bg: … }`) alors que la palette pose les mêmes
+variables en style en ligne : le style en ligne gagnait, donc ces deux réglages
+ne faisaient rien. Ils se calculent maintenant dans `src/lib/presentation.ts`,
+qui est la **seule** source de vérité de l’apparence (registre des contrôles,
+teintes, traits, variables DOM). Un test interdit d’y ajouter un contrôle sans
+effet. Détail : `docs/PRESENTATION.md`.
 
 La barre de note de l’éditeur (taille, interligne, largeur, papier) écrit les
 mêmes valeurs : une seule source, donc aucun risque de divergence.

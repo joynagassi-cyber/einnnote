@@ -1,5 +1,5 @@
 /**
- * Modèles de **coffre** — plusieurs fiches liées, posées d’un seul geste.
+ * Modèles de **vault** — plusieurs fiches liées, posées d’un seul geste.
  *
  * Les modèles de fiche (`notes.ts`) remplissent une fiche ; ceux-ci remplissent
  * un *réseau*. Chacun vient d’un motif vu sur VisualFlow (`/free-examples`) et

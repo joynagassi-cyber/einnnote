@@ -178,7 +178,7 @@ export interface ImageCard3DProps {
 /**
  * Carte à fond plein, inclinable — reprise du composant « travel card » fourni,
  * ramenée aux jetons de l’application. Elle sert au studio pour montrer à quoi
- * ressemblerait une fiche de coffre avec couverture, **sans** prétendre que la
+ * ressemblerait une fiche de vault avec couverture, **sans** prétendre que la
  * fonctionnalité existe déjà : les données restent nos fonds d’écran locaux.
  */
 export function ImageCard3D({

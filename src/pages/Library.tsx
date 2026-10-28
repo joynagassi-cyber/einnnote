@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   CaretRight,
@@ -84,6 +84,13 @@ export default function Library() {
     return () => document.removeEventListener(FOCUS_SEARCH_EVENT, focusSearch);
   }, []);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  /* `/‑?project=` : arriver depuis un projet filtre la bibliothèque sur lui.
+     Le filtre vit dans le magasin, l’adresse ne fait que le poser. */
+  const [search] = useSearchParams();
+  useEffect(() => {
+    const target = search.get("project");
+    if (target) setActiveProject(target);
+  }, [search, setActiveProject]);
 
   /* Le projet ouvert agit comme un périmètre, avant les filtres :
      les compteurs, les facettes et la recherche restent cohérents. */
@@ -184,7 +191,7 @@ export default function Library() {
     } else if (note.method === "zettelkasten") {
       const vault = vaults.find((v) => v.id === note.vaultId);
       const count = zettel.filter((c) => c.vaultId === note.vaultId).length;
-      if (vault) parts.push(`coffre ${vault.name}`);
+      if (vault) parts.push(`vault ${vault.name}`);
       parts.push(`${count} carte${count > 1 ? "s" : ""}`);
     } else if (stats && stats.questions > 0) {
       parts.push(`${stats.questions} question${stats.questions > 1 ? "s" : ""}`);
@@ -261,21 +268,21 @@ export default function Library() {
             Bibliothèque
           </h1>
           {/* Sur téléphone, le rail n’existe pas : ces deux raccourcis sont
-              le seul chemin vers les projets et les coffres. */}
+              le seul chemin vers les projets et les vaults. */}
           <div className="mt-2 flex gap-1.5 lg:hidden">
             <button
               type="button"
-              onClick={() => navigate("/projects")}
+              onClick={() => navigate("/spaces")}
               className="flex h-8 items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[12.5px] font-medium"
             >
               Projets
             </button>
             <button
               type="button"
-              onClick={() => navigate("/vaults")}
+              onClick={() => navigate("/spaces")}
               className="flex h-8 items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[12.5px] font-medium"
             >
-              Coffres
+              Vaults
             </button>
           </div>
           <p className="mt-1 text-[14px] text-muted" data-testid="library-count">

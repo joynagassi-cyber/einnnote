@@ -22,7 +22,7 @@ export interface ShortcutActions {
 
 const CHORD_TARGETS: Record<string, { path: string; label: string }> = {
   n: { path: "/", label: "Notes" },
-  p: { path: "/projects", label: "Projets" },
+  p: { path: "/spaces", label: "Espaces" },
   r: { path: "/review", label: "Réviser" },
   l: { path: "/learn", label: "Apprendre" },
   a: { path: "/settings/appearance", label: "Apparence" },

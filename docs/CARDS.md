@@ -1,4 +1,4 @@
-# Cartes — relief 3D, éventail, et les modes d’affichage du coffre
+# Cartes — relief 3D, éventail, et les modes d’affichage du vault
 
 > Ce document précède le code : les maquettes d’abord, puis les décisions, puis
 > ce qui a été construit et vérifié.
@@ -38,7 +38,7 @@ requête vers un tiers — ce qui est précisément la promesse de l’applicati
 
 ```
 ┌──────────────────────────────────────┐
-│ ‹  Coffre · Économie      ⚙︎  ⊕      │
+│ ‹  Vault · Économie      ⚙︎  ⊕      │
 │                                      │
 │          ÉVENTAIL · 12 fiches        │
 │                                      │
@@ -60,7 +60,7 @@ requête vers un tiers — ce qui est précisément la promesse de l’applicati
 
 ```
 ┌────────────┬───────────────────────────────────────────────────────────┐
-│ rail 264px │  Coffre · Économie        [Pile][Éventail][Relief][Grille] │
+│ rail 264px │  Vault · Économie        [Pile][Éventail][Relief][Grille] │
 │            │                                                           │
 │  Notes     │            ╱╲   ╱╲  ┌────────┐  ╱╲   ╱╲                    │
 │  Réviser   │           ╱  ╲ ╱  ╲ │  #1A   │ ╱  ╲ ╱  ╲                   │
@@ -101,13 +101,13 @@ téléphone                          bureau
 │  Voir avant d’appliquer. Vos vraies fiches.  │
 ├──────────────────────────────────────────────┤
 │ ① ÉVENTAIL 3D                                │
-│    [ éventail vivant, 7 fiches du coffre ]   │
+│    [ éventail vivant, 7 fiches du vault ]   │
 │    Glissez · flèches · clavier               │
-│    [ Utiliser l’éventail dans mes coffres ]  │
+│    [ Utiliser l’éventail dans mes vaults ]  │
 ├──────────────────────────────────────────────┤
 │ ② RELIEF 3D                                  │
 │    [ 3 cartes qui s’inclinent au pointeur ]  │
-│    [ Utiliser le relief dans mes coffres ]   │
+│    [ Utiliser le relief dans mes vaults ]   │
 ├──────────────────────────────────────────────┤
 │ ③ CARTE IMAGE (démonstration isolée)         │
 │    [ carte avec fond, titre, action ]        │
@@ -142,7 +142,7 @@ téléphone                          bureau
    titre. C’est ce qui distingue un carrousel décoratif d’un outil de lecture.
 6. **Aucun mode ne remplace les autres.** La pile reste le geste par défaut
    (feuilleter), l’éventail sert à choisir, le relief à comparer, la grille et la
-   liste à balayer un coffre de 200 fiches.
+   liste à balayer un vault de 200 fiches.
 
 ---
 
@@ -166,7 +166,7 @@ téléphone                          bureau
 
 ## 4 bis. La fiche ouverte : une implémentation, deux surfaces
 
-La fiche de coffre existait **deux fois** — une dans la pile du téléphone, une
+La fiche de vault existait **deux fois** — une dans la pile du téléphone, une
 dans le panneau du bureau — avec des marges, des tailles et des règles de
 défilement différentes. C'est ainsi qu'une carte « mal codée » apparaît : sur
 un appareil le contenu pousse le pied de carte hors du cadre et les cartes de
@@ -192,7 +192,7 @@ Ce que chaque surface ajoute, et qui reste local :
 - **bureau** : `actions` dans l'en-tête (Modifier, Situer), la liste des fiches
   à gauche et le panneau de lecture à droite.
 
-Tests : `src/test/cards.test.tsx`, bloc « Fiche de coffre, une seule
+Tests : `src/test/cards.test.tsx`, bloc « Fiche de vault, une seule
 implémentation » — une seule fiche dans le DOM, cadre borné, corps seul
 défilant, actions du bureau dans l'en-tête, et une relecture de `index.css`
 qui échoue si la hauteur du cadre redevient un nombre de pixels en dur.
@@ -203,7 +203,7 @@ qui échoue si la hauteur du cadre redevient un nombre de pixels en dur.
 |---|---|
 | Suite complète | **351 tests / 32 fichiers**, tous verts |
 | Géométrie de l’éventail | 12 tests (centre à l’échelle 1, symétrie, bornes, 7 vs 5 cartes, rotation circulaire) |
-| Modes du coffre + studio | 8 tests d’écran (éventail mobile et bureau, ouverture dans la pile, relief, application du réglage) |
+| Modes du vault + studio | 8 tests d’écran (éventail mobile et bureau, ouverture dans la pile, relief, application du réglage) |
 | `tsc -p tsconfig.app.json` | propre |
 | `eslint` | 0 erreur (5 avertissements « fast refresh » dus au fait que `components/ui` est ignoré par la configuration du dépôt — ces fichiers sont traités comme du code importé) |
 | `vite build` | 3,4 s, `gsap` bien isolé dans son propre morceau de 70 ko |

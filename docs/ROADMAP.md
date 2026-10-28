@@ -74,7 +74,7 @@ utilité de 1 (confort) à 5 (sans quoi le produit ne tient pas), effort S/M/L/X
 | Liens par `[[ ]]` avec autocomplétion | absent | 4 | M | Aujourd’hui les références sont saisies à la main (`#1A`, `#1B`), donc source d’erreurs. |
 | Panneau de rétroliens | [Probable] le graphe calcule les voisines, mais aucun panneau dans la pile | 4 | S | « Qui cite cette carte ? » est la moitié de la valeur du Zettelkasten. |
 | Numérotation automatique des cartes | absent | 2 | S | Le code est saisi par l’utilisateur. |
-| Graphe global du coffre | [Établi] volontairement limité à 2 niveaux | 2 | M | Décision produit : éviter la pelote. Un mode « tout le coffre » en lecture seule reste possible. |
+| Graphe global du vault | [Établi] volontairement limité à 2 niveaux | 2 | M | Décision produit : éviter la pelote. Un mode « tout le vault » en lecture seule reste possible. |
 | Mise en page automatique de la carte mentale | absent | 2 | M | Les nœuds se placent à la main ; un layout radial/branché aiderait les grosses cartes. |
 | Export de la carte mentale (PNG/SVG) | absent | 3 | S | Très demandé pour les révisions sur papier. |
 
@@ -83,7 +83,7 @@ utilité de 1 (confort) à 5 (sans quoi le produit ne tient pas), effort S/M/L/X
 | Fonction | État | Utilité | Effort | Commentaire |
 | --- | --- | --- | --- | --- |
 | SQLite + Capacitor / Electron | [Établi] non implémenté | 5 | XL | Condition pour tenir la promesse « hors ligne, sans serveur » sur mobile et pour dépasser 5 Mo. |
-| ~~Export Markdown en un seul fichier~~ | ✅ fait : **arborescence** `.zip`, un fichier par note et par fiche, par projet puis par coffre (`docs/TEMPLATES.md` §7) | — | — | — |
+| ~~Export Markdown en un seul fichier~~ | ✅ fait : **arborescence** `.zip`, un fichier par note et par fiche, par projet puis par vault (`docs/TEMPLATES.md` §7) | — | — | — |
 | Import Markdown / Obsidian | absent | 4 | M | Le pont existe dans l’autre sens (`blocksToMarkdown`). L’import demanderait un parseur et une politique de blocs. |
 | Export PDF | absent | 3 | M | Passe par l’impression CSS d’abord. |
 | Versionnage du format | [Établi] sauvegarde `version: 1` avec contrôle | 4 | S | Un refus explicite vaut mieux qu’une restauration partielle. |
@@ -101,7 +101,7 @@ transforment des écrans déjà écrits en boucle d’usage.
 | Idée | Feature améliorée | Effet | Effort |
 | --- | --- | --- | --- |
 | **Révision depuis la bibliothèque** : appui long sur une carte → « Réviser cette note » | Bibliothèque + révision | 5 | S |
-| **Fusion de deux coffres** avec réindexation des références | Zettelkasten, projets | 4 | M |
+| **Fusion de deux vaults** avec réindexation des références | Zettelkasten, projets | 4 | M |
 | **Question ↔ bloc ré-ancrable** (glisser la question sur un autre passage) | Cornell, ancrage | 4 | S |
 | **Raccourcis clavier** (`1-4`, `Espace`, `Échap`, `⌘K` recherche globale) | Révision, bibliothèque | 4 | S |
 | **Carte mentale → plan** (export de l’arbre en titres de note) | Carte mentale, éditeur | 3 | M |
@@ -109,7 +109,7 @@ transforment des écrans déjà écrits en boucle d’usage.
 | **Statistiques par projet** (temps, cartes, notes) sur Progrès | Projets, progrès | 3 | S |
 | **Import Markdown inverse** (front-matter → note + projet) | Export Markdown | 4 | M |
 | **Compagnon de lecture** : passage collé → découpage en blocs + questions suggérées | Éditeur | 4 | L |
-| **Recherche globale `⌘K`** notes + cartes + coffres | Bibliothèque | 5 | M |
+| **Recherche globale `⌘K`** notes + cartes + vaults | Bibliothèque | 5 | M |
 
 ## 3. Décisions d’architecture prises dans ce passage
 
@@ -175,5 +175,5 @@ compositeur mobile au-dessus du clavier, page `/preview` mobile + bureau.
 Puis (passage VisualFlow, `docs/VISUALFLOW.md`) : 13ᵉ style **Carte
 conceptuelle** (liens nommés), arête unique `EngramEdge` (5 dessins, étiquette
 sur le chemin), réglages d’affichage (étiquettes / renvois / animation), export
-SVG clair-sombre + JSON validé, import d’un graphe en coffre, et **6 modèles de
-coffre** appliqués en un geste depuis `Coffres → + Coffre`.
+SVG clair-sombre + JSON validé, import d’un graphe en vault, et **6 modèles de
+vault** appliqués en un geste depuis `Vaults → + Vault`.

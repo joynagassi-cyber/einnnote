@@ -178,7 +178,7 @@ export function GraphExchange({ input, style, display, onDisplay, onImport }: Pr
           Reprendre un fichier
         </h3>
         <p className="mb-2.5 text-[12.5px] leading-[18px] text-muted">
-          Un JSON exporté depuis Engram devient un nouveau coffre, avec ses
+          Un JSON exporté depuis Engram devient un nouveau vault, avec ses
           codes et ses renvois. Tout autre fichier est refusé avec la raison.
         </p>
         <input
@@ -231,7 +231,7 @@ export function GraphExchange({ input, style, display, onDisplay, onImport }: Pr
               onClick={() => onImport(verdict.document)}
             >
               <ArrowDown size={16} aria-hidden />
-              En faire un coffre
+              En faire un vault
             </button>
           </div>
         )}

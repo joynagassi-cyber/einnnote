@@ -133,7 +133,7 @@ describe("graphe zettelkasten", () => {
     expect(layout.positions.filter((position) => position.detached).length).toBe(2);
   });
 
-  it("attribue un code unique par coffre (clé du graphe)", () => {
+  it("attribue un code unique par vault (clé du graphe)", () => {
     const codes = seedZettel.map((entry) => entry.code);
     expect(new Set(codes).size).toBe(codes.length);
   });

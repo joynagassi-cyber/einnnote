@@ -8,7 +8,7 @@ import { useDisplayStore } from "@/stores/useDisplayStore";
 import { useNavStore } from "@/stores/useNavStore";
 
 /**
- * Apprendre est la porte d’entrée du modèle : un projet, des coffres, des
+ * Apprendre est la porte d’entrée du modèle : un projet, des vaults, des
  * notes. On vérifie trois choses visibles, pas trois détails d’implémentation :
  * le schéma est en tête de page, il est calculé sur les données réelles, et le
  * bouton principal mène à la leçon du socle.
@@ -45,7 +45,7 @@ describe("Apprendre, centré sur Espaces", () => {
     open("/learn");
 
     expect(
-      screen.getByRole("heading", { name: "Un projet, des coffres, des notes" }),
+      screen.getByRole("heading", { name: "Un projet, des vaults, des notes" }),
     ).toBeTruthy();
 
     const headings = screen.getAllByRole("heading").map((node) => node.textContent ?? "");
@@ -60,7 +60,7 @@ describe("Apprendre, centré sur Espaces", () => {
 
     const vault = useContentStore.getState().vaults[0];
     const cards = useContentStore.getState().zettel.filter((c) => c.vaultId === vault.id);
-    // le schéma nomme le projet et compte les fiches du coffre
+    // le schéma nomme le projet et compte les fiches du vault
     expect(screen.getAllByText(vault.name).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(new RegExp(`${cards.length} fiche`)).length,

@@ -21,6 +21,11 @@ import {
 } from "@/lib/themes";
 import { WALL_BLUR_MAX, effectiveBlur, effectiveVeil, glassColor, toRgb } from "@/lib/glass";
 import { wallById } from "@/lib/walls";
+import {
+  presentTokens,
+  presentationAttributes,
+  presentationVars,
+} from "@/lib/presentation";
 import { DEFAULT_GRAPH_STYLE, graphStyleById as styleById } from "@/lib/graph/styles";
 
 interface AppState {
@@ -147,8 +152,13 @@ export function applySettingsToDom(settings: AppSettings) {
   root.dataset.accent = settings.accent;
   root.dataset.palette = palette.key;
 
-  /* 1. La palette pose tous les jetons neutres (et son accent d’origine). */
-  const tokens = tokensFor(palette.key);
+  /* 1. La palette pose tous les jetons neutres (et son accent d’origine),
+     puis les réglages de présentation les déplacent — teinte de papier et
+     contraste des traits. Ce calcul est en JavaScript et non en CSS parce que
+     les jetons sont posés en style en ligne : une règle `[data-paper]` serait
+     écrasée, ce qui rendait ces deux réglages silencieusement inopérants. */
+  const ui = settings.personalization ?? DEFAULT_PERSONALIZATION;
+  const tokens = presentTokens(tokensFor(palette.key), ui);
   for (const [name, value] of Object.entries(themeVars(tokens))) {
     root.style.setProperty(name, value);
   }
@@ -224,17 +234,14 @@ export function applySettingsToDom(settings: AppSettings) {
     (settings.transparency === "system" && prefersReducedTransparency);
   root.dataset.transparency = reducedTransparency ? "reduced" : "full";
 
-  /* Personnalisation : les attributs basculent des blocs CSS entiers,
-     les variables couvrent les valeurs continues. */
-  const ui = settings.personalization ?? DEFAULT_PERSONALIZATION;
-  root.dataset.density = ui.density;
-  root.dataset.radius = ui.radius;
-  root.dataset.borders = ui.borders;
-  root.dataset.elevation = ui.elevation;
-  root.dataset.paper = ui.paper;
-  root.style.setProperty("--note-leading", `${ui.noteLeading}px`);
-  root.style.setProperty("--reading-width", `${ui.readingWidth}px`);
-  root.style.setProperty("--canvas-strength", String(ui.canvasStrength / 100));
+  /* Présentation : les attributs viennent du registre, comme les variables.
+     Aucun écran ne connaît cette liste (voir `src/lib/presentation.ts`). */
+  for (const [name, value] of Object.entries(presentationAttributes(ui))) {
+    root.dataset[name] = value;
+  }
+  for (const [name, value] of Object.entries(presentationVars(ui))) {
+    root.style.setProperty(name, value);
+  }
 
   root.style.setProperty("--note-size", `${settings.fontSize}px`);
   root.style.setProperty(

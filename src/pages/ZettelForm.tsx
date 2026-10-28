@@ -69,7 +69,7 @@ export default function ZettelForm() {
         source: finalSource,
         refs: finalRefs,
       });
-      toast("Carte ajoutée au coffre", "accent");
+      toast("Carte ajoutée au vault", "accent");
       navigate(`/vault/${id}?card=${encodeURIComponent(created.code)}`, { replace: true });
       return;
     }
@@ -79,7 +79,7 @@ export default function ZettelForm() {
   if (!vault) {
     return (
       <Screen className="px-5">
-        <p className="mt-10 text-center text-muted">Coffre introuvable.</p>
+        <p className="mt-10 text-center text-muted">Vault introuvable.</p>
       </Screen>
     );
   }
@@ -149,7 +149,7 @@ export default function ZettelForm() {
 
       <div className="mt-3 rounded-sheet border border-line bg-surface p-[22px] shadow-lift">
         <div className="text-[14px] font-semibold text-accent">
-          {nextCode} · Coffre {vault.name}
+          {nextCode} · Vault {vault.name}
         </div>
 
         <label

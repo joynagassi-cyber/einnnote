@@ -17,7 +17,7 @@ import {
  * dur de quatre entrées, et le rail du bureau une autre liste, également en
  * dur. Résultat, « Espaces » existait sur ordinateur et n’existait pas sur
  * téléphone — alors que c’est précisément la page qui explique où créer un
- * projet, un coffre, une note. Deux listes qui divergent, c’est une fonction
+ * projet, un vault, une note. Deux listes qui divergent, c’est une fonction
  * qui disparaît d’un appareil sans que personne ne l’ait décidé.
  *
  * Désormais : un catalogue, deux listes de préférences (téléphone, bureau),
@@ -32,9 +32,6 @@ export type NavId =
   | "spaces"
   | "review"
   | "learn"
-  | "projects"
-  | "vaults"
-  | "cards"
   | "settings";
 
 export interface NavDestination {
@@ -66,7 +63,7 @@ export const NAV_CATALOG: NavDestination[] = [
     to: "/spaces",
     label: "Espaces",
     short: "Espaces",
-    hint: "Projet → coffre → note. La page qui dit où vit quoi, et où créer.",
+    hint: "Projet → vault → note. La page qui dit où vit quoi, et où créer.",
     icon: SquaresFour,
   },
   {
@@ -74,7 +71,7 @@ export const NAV_CATALOG: NavDestination[] = [
     to: "/review",
     label: "Réviser",
     short: "Réviser",
-    hint: "Les cartes du jour, par portée : projet, coffre ou note.",
+    hint: "Les cartes du jour, par portée : projet, vault ou note.",
     icon: ClockCounterClockwise,
   },
   {
@@ -84,30 +81,6 @@ export const NAV_CATALOG: NavDestination[] = [
     short: "Apprendre",
     hint: "Les leçons et les tutoriels de méthode.",
     icon: GraduationCap,
-  },
-  {
-    id: "projects",
-    to: "/projects",
-    label: "Projets",
-    short: "Projets",
-    hint: "Créer, renommer, supprimer un projet — le classeur d’un travail.",
-    icon: FolderSimple,
-  },
-  {
-    id: "vaults",
-    to: "/vaults",
-    label: "Coffres",
-    short: "Coffres",
-    hint: "Créer un coffre dans un projet, et voir ses fiches.",
-    icon: Stack,
-  },
-  {
-    id: "cards",
-    to: "/settings/cards",
-    label: "Studio des cartes",
-    short: "Cartes",
-    hint: "Éventail, relief, carte image — vos fiches réelles.",
-    icon: CardsThree,
   },
   {
     id: "settings",
@@ -198,7 +171,7 @@ export function fillItems(surface: NavSurface, items: NavId[]): NavId[] {
  */
 export const DEFAULT_NAV: Record<NavSurface, NavId[]> = {
   mobile: ["notes", "spaces", "review", "learn", "settings"],
-  desktop: ["notes", "spaces", "review", "learn", "projects", "vaults", "cards"],
+  desktop: ["notes", "spaces", "review", "learn"],
 };
 
 /**

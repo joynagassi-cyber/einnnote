@@ -276,7 +276,7 @@ export default function DataBackup() {
         <p className="text-[14px] leading-[21px] text-muted">
           Une archive <code className="font-mono text-[13px]">.zip</code> :{" "}
           <strong className="font-semibold text-ink">un fichier par note</strong>{" "}
-          (nommé de son titre), rangé par projet puis par coffre, avec un index.
+          (nommé de son titre), rangé par projet puis par vault, avec un index.
           Les liens entre fiches deviennent des liens wiki{" "}
           <code className="font-mono text-[13px]">[[…]]</code> : on ouvre le
           dossier dans Obsidian, Logseq ou GitHub, et tout reste cliquable.
@@ -298,7 +298,7 @@ export default function DataBackup() {
           ))}
           {vaults.map((vault) => (
             <option key={vault.id} value={`vault:${vault.id}`}>
-              Coffre — {vault.name}
+              Vault — {vault.name}
             </option>
           ))}
         </select>

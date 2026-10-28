@@ -95,7 +95,7 @@ describe("portées et séances de révision", () => {
     expect(all.map((item) => item.id).sort()).toEqual(["card:c1", "card:c2", "card:c3", "fiche:z2"]);
   });
 
-  it("un coffre ouvre ses fiches, y compris neuves", () => {
+  it("un vault ouvre ses fiches, y compris neuves", () => {
     const items = allReviewItems(data());
     const vault = itemsInTarget(items, { kind: "vault", id: "v1" });
     expect(vault.map((item) => item.id).sort()).toEqual(["card:c2", "card:c3", "fiche:z1", "fiche:z2"]);
@@ -109,7 +109,7 @@ describe("portées et séances de révision", () => {
     expect(note[0].body).toBe("Art. 1128");
   });
 
-  it("un projet réunit ses questions et les fiches de ses coffres", () => {
+  it("un projet réunit ses questions et les fiches de ses vaults", () => {
     const items = allReviewItems(data());
     const project = itemsInTarget(items, { kind: "project", id: "p2" });
     expect(project.map((item) => item.id).sort()).toEqual(["card:c2", "card:c3", "fiche:z1", "fiche:z2"]);

@@ -245,21 +245,9 @@ export function DesktopRail({
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={() => navigate("/new")}
-        aria-label="Nouvelle note"
-        title="Nouvelle note"
-        className={cn(
-          "btn-primary mt-4 h-11",
-          compact
-            ? "mx-auto w-11 justify-center px-0"
-            : "mx-3 gap-2 px-4 text-[15px]",
-        )}
-      >
-        <Plus size={18} weight="bold" aria-hidden="true" />
-        {compact ? <span className="sr-only">Nouvelle note</span> : "Nouvelle note"}
-      </button>
+      {/* Le bouton « Nouvelle note » a quitté le rail : la création passe par
+          le bouton flottant, présent sur les mêmes pages, et un seul point
+          d'entrée évite d'en chercher deux. */}
 
       <nav
         className={cn(
@@ -269,7 +257,7 @@ export function DesktopRail({
         aria-label="Navigation du bureau"
       >
         <div className={cn("mb-1 flex items-center", compact ? "justify-center" : "justify-between pr-1")}>
-          {!compact && <p className="rail-label">Projets</p>}
+          {!compact && <p className="rail-label">Espaces</p>}
           <button
             type="button"
             onClick={() => setProjectsOpen(true)}

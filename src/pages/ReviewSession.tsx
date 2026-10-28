@@ -183,7 +183,7 @@ export default function ReviewSession() {
 
   const methodLabel =
     item.kind === "fiche"
-      ? "Fiche de coffre"
+      ? "Fiche de vault"
       : item.method
         ? METHOD_LABELS[item.method]
         : "Question";
@@ -357,7 +357,7 @@ export default function ReviewSession() {
                       onClick={() => navigate(`/vault/${item.vaultId}?card=${encodeURIComponent(item.code ?? "")}`)}
                       className="btn-secondary h-10 px-3 text-[13.5px]"
                     >
-                      Ouvrir le coffre
+                      Ouvrir le vault
                     </button>
                   )}
                   <button

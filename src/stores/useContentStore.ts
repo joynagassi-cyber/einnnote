@@ -92,7 +92,7 @@ interface ContentState {
   }) => Question;
   deleteQuestion: (questionId: string) => void;
   rateCard: (cardId: string, rating: Rating, options?: { retention?: number }) => void;
-  /** Une fiche de coffre se planifie comme une carte (verso = corps). */
+  /** Une fiche de vault se planifie comme une carte (verso = corps). */
   rateZettel: (cardId: string, rating: Rating, options?: { retention?: number }) => void;
   resetReviewSession: () => void;
 
@@ -158,7 +158,7 @@ const starterBlocks = (method: Method): Block[] => {
  * Migration v1 → v2 : les données n’avaient pas de projets.
  *
  * Tout est rattaché au premier projet connu (sinon au projet par défaut) ;
- * aucun note ni coffre n’est laissé orphelin, ce qui garantit qu’un
+ * aucun note ni vault n’est laissé orphelin, ce qui garantit qu’un
  * utilisateur existant retrouve ses notes après la mise à jour.
  */
 export function migrateContentData(persisted: unknown, version: number) {
@@ -288,8 +288,8 @@ export const useContentStore = create<ContentState>()(
         }
 
         if (method === "zettelkasten") {
-          /* Un coffre appartient à un projet. S’il n’en existe pas encore,
-             on le crée : sinon la note tombe dans le coffre d’un autre
+          /* Un vault appartient à un projet. S’il n’en existe pas encore,
+             on le crée : sinon la note tombe dans le vault d’un autre
              projet, ce qui est le bug le plus déroutant de l’écran. */
           const existing = get().vaults.find((v) => v.projectId === projectId);
           if (existing) {
@@ -299,7 +299,7 @@ export const useContentStore = create<ContentState>()(
             const vault: ZettelVault = {
               id: uid("v"),
               projectId,
-              name: `Coffre ${project?.name ?? "principal"}`,
+              name: `Vault ${project?.name ?? "principal"}`,
               note: "Fiches créées depuis cet espace",
             };
             set((s) => ({ vaults: [...s.vaults, vault] }));
@@ -571,7 +571,7 @@ export const useContentStore = create<ContentState>()(
         const vault: ZettelVault = {
           id: uid("v"),
           projectId,
-          name: name.trim() || "Nouveau coffre",
+          name: name.trim() || "Nouveau vault",
           note: note?.trim() || undefined,
         };
         set((s) => ({ vaults: [...s.vaults, vault] }));
@@ -591,14 +591,14 @@ export const useContentStore = create<ContentState>()(
           ),
         })),
 
-      /* Un coffre qui contient des fiches ne se supprime pas en silence :
+      /* Un vault qui contient des fiches ne se supprime pas en silence :
          on renvoie la raison, l’écran propose alors de déplacer les fiches. */
       deleteVault: (id) => {
         const cards = get().zettel.filter((card) => card.vaultId === id).length;
         if (cards > 0) {
           return {
             ok: false,
-            reason: `Ce coffre contient ${cards} fiche${cards > 1 ? "s" : ""}. Déplacez-les ou supprimez-les d’abord.`,
+            reason: `Ce vault contient ${cards} fiche${cards > 1 ? "s" : ""}. Déplacez-les ou supprimez-les d’abord.`,
           };
         }
         const remaining = get().vaults.filter((vault) => vault.id !== id);
@@ -820,7 +820,7 @@ export const useContentStore = create<ContentState>()(
       name: "engram.content.v1",
       version: 2,
       /* v1 n’avait pas de projets : tout est rattaché au projet par défaut,
-         et les coffres héritent du même projet. */
+         et les vaults héritent du même projet. */
       migrate: migrateContentData,
     },
   ),

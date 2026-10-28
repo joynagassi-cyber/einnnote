@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * Projets : le conteneur de premier niveau.
  *
  * Un projet n’est pas un dossier de plus : il change le périmètre de la
- * bibliothèque, des coffres et des créations. La suppression est refusée
+ * bibliothèque, des vaults et des créations. La suppression est refusée
  * tant que des notes y vivent — on ne perd jamais de contenu par mégarde.
  */
 
@@ -176,18 +176,18 @@ export function ProjectsSheet({
           </button>
         </div>
         <p className="mt-2 text-[12.5px] leading-[18px] text-muted">
-          Un projet isole ses notes et ses coffres. La vue « Tous les projets »
+          Un projet isole ses notes et ses vaults. La vue « Tous les projets »
           reste disponible pour la révision.
         </p>
         {/* Sur téléphone, le rail n’existe pas : c’est ici que l’on atteint la
-            page qui explique où vit quoi (projet, coffre, note). */}
+            page qui explique où vit quoi (projet, vault, note). */}
         <Link
           to="/spaces"
           onClick={() => onClose()}
           className="mt-3 flex items-center gap-2 rounded-field border border-line px-3 py-2.5 text-[13px] font-medium text-accent"
         >
           <ArrowRight size={15} weight="bold" aria-hidden />
-          Comprendre la structure (projets, coffres, notes)
+          Comprendre la structure (projets, vaults, notes)
         </Link>
       </div>
     </Sheet>

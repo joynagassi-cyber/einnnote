@@ -149,7 +149,7 @@ export function noteStats(
 }
 
 /* ------------------------------------------------------------------ */
-/* Texte indexé : blocs, nœuds de carte mentale, cartes du coffre      */
+/* Texte indexé : blocs, nœuds de carte mentale, cartes du vault      */
 /* ------------------------------------------------------------------ */
 
 function htmlToText(html: string) {

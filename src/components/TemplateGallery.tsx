@@ -90,7 +90,7 @@ function TemplateCard({
 /* ------------------------------------------------------------------ */
 
 /**
- * Vignette d’un coffre : la **vraie** disposition du graphe, réduite.
+ * Vignette d’un vault : la **vraie** disposition du graphe, réduite.
  * Les cartes du modèle deviennent des fiches jetables, on appelle le même
  * moteur que la page Graphe, puis on dessine les liens et les cartes à
  * l’échelle du cadre. Aucune maquette à maintenir en parallèle du moteur.
@@ -408,7 +408,7 @@ export function VaultTemplateGallery({
             preview={<VaultPreview template={template} />}
             selected={selectedId === template.id}
             onPick={() => onPick(template)}
-            actionLabel="Créer le coffre"
+            actionLabel="Créer le vault"
           />
         </li>
       ))}

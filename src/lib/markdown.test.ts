@@ -55,9 +55,9 @@ describe("export Markdown du vault", () => {
     expect(file.content).toMatch(/^- /m);
   });
 
-  it("rend les cartes d’un coffre Zettelkasten", () => {
+  it("rend les cartes d’un vault Zettelkasten", () => {
     const file = buildMarkdown(source);
-    expect(file.content).toContain("## Cartes du coffre");
+    expect(file.content).toContain("## Cartes du vault");
     expect(file.content).toContain("### #1A ·");
   });
 
@@ -70,7 +70,7 @@ describe("export Markdown du vault", () => {
     expect(file.content).not.toContain(`# ${contrats.title}`);
   });
 
-  it("respecte le périmètre d’un coffre", () => {
+  it("respecte le périmètre d’un vault", () => {
     const file = buildMarkdown(source, { kind: "vault", vaultId: "v-eco" });
     expect(file.filename).toMatch(/^engram-economie-/);
     expect(file.content).toContain("# Économie");
@@ -90,7 +90,7 @@ describe("export Markdown du vault", () => {
     expect(file.notes).toBe(seedNotes.length - 1);
   });
 
-  it("ne produit pas un fichier vide pour un coffre inconnu", () => {
+  it("ne produit pas un fichier vide pour un vault inconnu", () => {
     const file = buildMarkdown(source, { kind: "vault", vaultId: "inconnu" });
     expect(file.content).toBe("");
     expect(file.cards).toBe(0);
@@ -178,16 +178,16 @@ describe("export en arborescence", () => {
     expect(notes.some((file) => file.path.includes("Plan du chapitre 3 - 2.md"))).toBe(true);
   });
 
-  it("range les fiches par projet puis par coffre, une par fichier", () => {
+  it("range les fiches par projet puis par vault, une par fichier", () => {
     const tree = buildMarkdownTree(source as never);
-    const cards = tree.files.filter((file) => file.path.startsWith("Coffres/"));
+    const cards = tree.files.filter((file) => file.path.startsWith("Vaults/"));
     expect(cards.map((file) => file.path)).toEqual([
-      "Coffres/Thèse/Économie/_coffre.md",
-      "Coffres/Thèse/Économie/#1A L’inflation l’épargne.md",
-      "Coffres/Thèse/Économie/#1B Taux nominal.md",
+      "Vaults/Thèse/Économie/_vault.md",
+      "Vaults/Thèse/Économie/#1A L’inflation l’épargne.md",
+      "Vaults/Thèse/Économie/#1B Taux nominal.md",
     ]);
     expect(tree.cards).toBe(2);
-    /* un coffre vide ne crée pas de dossier fantôme */
+    /* un vault vide ne crée pas de dossier fantôme */
     expect(tree.files.some((file) => file.path.includes("/Vide/"))).toBe(false);
   });
 

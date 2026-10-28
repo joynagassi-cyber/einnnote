@@ -34,7 +34,7 @@ const b = (
 /* ------------------------------------------------------------------ */
 
 /**
- * Un projet = un espace de travail. La note et le coffre y sont rattachés ;
+ * Un projet = un espace de travail. La note et le vault y sont rattachés ;
  * la bibliothèque et les créations suivent le projet ouvert.
  */
 export const seedProjects: Project[] = [
@@ -577,12 +577,12 @@ export const seedLessons: Lesson[] = [
   /* ---------- Couche 0 : le socle, « où vivent les notes » ----------
      Placée en tête parce que c’est la question qui précède toutes les autres :
      avant de choisir entre outline et Cornell, il faut savoir dans quoi la note
-     va tomber. Un projet contient des coffres, un coffre contient des notes. */
+     va tomber. Un projet contient des vaults, un vault contient des notes. */
   {
     id: "x-1",
     track: 3,
     index: 1,
-    title: "Un projet, des coffres, des notes",
+    title: "Un projet, des vaults, des notes",
     subtitle: "La seule hiérarchie de l’app, en trois minutes",
     minutes: 3,
     steps: [
@@ -593,21 +593,21 @@ export const seedLessons: Lesson[] = [
         illustration: "map",
         practice: {
           title: "À vous",
-          text: "Ouvrez Espaces : vos deux projets y sont, avec le nombre de coffres de chacun.",
+          text: "Ouvrez Espaces : vos deux projets y sont, avec le nombre de vaults de chacun.",
           href: "/spaces",
           hrefLabel: "Ouvrir Espaces",
         },
       },
       {
-        title: "Un coffre est un sujet à l’intérieur du projet",
+        title: "Un vault est un sujet à l’intérieur du projet",
         body:
-          "Dans « Thèse », le coffre « Économie » rassemble les fiches sur la monnaie, les prix et le travail. Un projet porte plusieurs coffres : un par question, jamais un par source. Deux lectures du même sujet partagent un coffre ; deux sujets voisins n’en partagent pas.",
+          "Dans « Thèse », le vault « Économie » rassemble les fiches sur la monnaie, les prix et le travail. Un projet porte plusieurs vaults : un par question, jamais un par source. Deux lectures du même sujet partagent un vault ; deux sujets voisins n’en partagent pas.",
         illustration: "cards",
       },
       {
         title: "Une note raconte, une fiche relie",
         body:
-          "Une note — outline, Cornell, carte mentale — garde la trace d’un moment de lecture, avec son contexte. Une fiche de coffre isole une seule idée et la cite par son code : #1A appelle #1A1. Les deux vivent dans le même projet ; seules les fiches se rangent en coffres, et c’est ce qui rend le graphe lisible.",
+          "Une note — outline, Cornell, carte mentale — garde la trace d’un moment de lecture, avec son contexte. Une fiche de vault isole une seule idée et la cite par son code : #1A appelle #1A1. Les deux vivent dans le même projet ; seules les fiches se rangent en vaults, et c’est ce qui rend le graphe lisible.",
         illustration: "book",
       },
     ],
@@ -634,7 +634,7 @@ export const seedLessons: Lesson[] = [
         practice: {
           title: "À vous",
           text: "Créez un projet pour le travail en cours, puis revenez sur Espaces.",
-          href: "/projects?new=1",
+          href: "/spaces?new=1",
           hrefLabel: "Créer un projet",
         },
       },
@@ -644,32 +644,32 @@ export const seedLessons: Lesson[] = [
     id: "x-3",
     track: 3,
     index: 3,
-    title: "Ouvrir un coffre dans ce projet",
-    subtitle: "Un coffre relie, un dossier range",
+    title: "Ouvrir un vault dans ce projet",
+    subtitle: "Un vault relie, un dossier range",
     minutes: 2,
     steps: [
       {
-        title: "Le coffre est le seul endroit qui relie",
+        title: "Le vault est le seul endroit qui relie",
         body:
-          "Les fiches d’un coffre se citent entre elles et le graphe montre ce qui revient d’une source à l’autre. C’est pour cela qu’il ne se crée pas « à part » : il appartient à un projet, et il emprunte son nom à une question, pas à un auteur.",
+          "Les fiches d’un vault se citent entre elles et le graphe montre ce qui revient d’une source à l’autre. C’est pour cela qu’il ne se crée pas « à part » : il appartient à un projet, et il emprunte son nom à une question, pas à un auteur.",
         illustration: "map",
       },
       {
         title: "Deux fiches qui ne se parlent pas",
         body:
-          "Si deux fiches ne se citeront jamais, elles n’ont rien à faire dans le même coffre. Si trois sources disent la même chose autrement, elles en ont besoin : ce sont ces recoupements que vous relirez dans six mois.",
+          "Si deux fiches ne se citeront jamais, elles n’ont rien à faire dans le même vault. Si trois sources disent la même chose autrement, elles en ont besoin : ce sont ces recoupements que vous relirez dans six mois.",
         illustration: "cards",
       },
       {
-        title: "Le coffre se crée depuis le projet",
+        title: "Le vault se crée depuis le projet",
         body:
-          "Espaces, étape 2 : choisissez le projet, nommez le coffre. La page des coffres garde le projet d’origine, si bien que vous n’avez jamais à le re-sélectionner. Un projet sans coffre reste possible : toutes ses notes y vivent à plat.",
+          "Espaces, étape 2 : choisissez le projet, nommez le vault. La page des vaults garde le projet d’origine, si bien que vous n’avez jamais à le re-sélectionner. Un projet sans vault reste possible : toutes ses notes y vivent à plat.",
         illustration: "book",
         practice: {
           title: "À vous",
-          text: "Ajoutez un coffre au projet créé à l’étape précédente.",
-          href: "/vaults?new=1",
-          hrefLabel: "Ouvrir un coffre",
+          text: "Ajoutez un vault au projet créé à l’étape précédente.",
+          href: "/spaces",
+          hrefLabel: "Ouvrir un vault",
         },
       },
     ],
@@ -691,7 +691,7 @@ export const seedLessons: Lesson[] = [
       {
         title: "La note appartient au projet",
         body:
-          "Une note se crée avec le bouton « + » de la barre, et se range dans un projet au moment de l’écrire. Ce n’est qu’après qu’on décide si elle donne une fiche : toutes les notes ne méritent pas un coffre, et c’est très bien ainsi.",
+          "Une note se crée avec le bouton « + » de la barre, et se range dans un projet au moment de l’écrire. Ce n’est qu’après qu’on décide si elle donne une fiche : toutes les notes ne méritent pas un vault, et c’est très bien ainsi.",
         illustration: "cards",
         practice: {
           title: "À vous",
@@ -713,7 +713,7 @@ export const seedLessons: Lesson[] = [
       {
         title: "Quatre portes, et aucune n’est un doublon",
         body:
-          "Notes : la bibliothèque, toutes les notes de tous les projets. Espaces : la carte — quel projet, quels coffres, quelles fiches. Réviser : ce qui est dû aujourd’hui, par projet, par coffre ou par note. Studio des cartes : l’apparence des fiches, jamais leur contenu.",
+          "Notes : la bibliothèque, toutes les notes de tous les projets. Espaces : la carte — quel projet, quels vaults, quelles fiches. Réviser : ce qui est dû aujourd’hui, par projet, par vault ou par note. Studio des cartes : l’apparence des fiches, jamais leur contenu.",
         illustration: "review",
         practice: {
           title: "À vous",
@@ -731,7 +731,7 @@ export const seedLessons: Lesson[] = [
       {
         title: "Le test des dix secondes",
         body:
-          "Prenez une idée que vous avez notée la semaine dernière. Si vous ne la retrouvez pas en dix secondes, ce n’est pas votre mémoire qui est en cause mais le rangement : le projet est trop large, ou le coffre n’existe pas encore.",
+          "Prenez une idée que vous avez notée la semaine dernière. Si vous ne la retrouvez pas en dix secondes, ce n’est pas votre mémoire qui est en cause mais le rangement : le projet est trop large, ou le vault n’existe pas encore.",
         illustration: "timer",
       },
     ],
@@ -876,7 +876,7 @@ export const seedLessons: Lesson[] = [
         practice: {
           title: "À vous",
           text:
-            "Ouvrez le coffre Économie et créez une carte sur une notion vue cette semaine.",
+            "Ouvrez le vault Économie et créez une carte sur une notion vue cette semaine.",
           noteId: "n-inflation",
         },
       },
@@ -1137,7 +1137,7 @@ export const seedLessons: Lesson[] = [
     track: 2,
     index: 8,
     title: "Lire plusieurs sources",
-    subtitle: "Lecture syntopique et coffre Zettelkasten",
+    subtitle: "Lecture syntopique et vault Zettelkasten",
     minutes: 4,
     steps: [
       {
@@ -1147,14 +1147,14 @@ export const seedLessons: Lesson[] = [
         illustration: "cards",
       },
       {
-        title: "Un coffre par projet",
+        title: "Un vault par projet",
         body:
-          "Chaque projet a son coffre. Les cartes se ressemblent, les références se croisent. Le graphe vous montre les idées que plusieurs sources partagent.",
+          "Chaque projet a son vault. Les cartes se ressemblent, les références se croisent. Le graphe vous montre les idées que plusieurs sources partagent.",
         illustration: "map",
         practice: {
           title: "À vous",
           text:
-            "Créez une carte dans le coffre Économie et reliez-la à #1A par « Voir… ».",
+            "Créez une carte dans le vault Économie et reliez-la à #1A par « Voir… ».",
           noteId: "n-inflation",
         },
       },

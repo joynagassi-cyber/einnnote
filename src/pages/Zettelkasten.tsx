@@ -39,7 +39,7 @@ export default function Zettelkasten() {
   );
 
   /* Affichage : la pile reste la vue par défaut (c’est le geste), mais on
-     peut basculer en grille ou en liste pour relire un coffre de 200 cartes. */
+     peut basculer en grille ou en liste pour relire un vault de 200 cartes. */
   const { prefs: display, set: setDisplay } = useSurfacePrefs("vault", {
     view: "stack",
     sortBy: "created",
@@ -93,7 +93,7 @@ export default function Zettelkasten() {
         <AppBar back title="" />
         <EmptyState
           icon={Graph}
-          title="Ce coffre est vide"
+          title="Ce vault est vide"
           description="Une carte par idée, écrite avec vos mots, avec sa source. Commencez par la première."
           action={
             <button
@@ -101,7 +101,7 @@ export default function Zettelkasten() {
               className="btn-primary"
               onClick={() => navigate(`/vault/${id}/new`)}
             >
-              <Plus size={18} weight="bold" /> Nouvelle carte
+              <Plus size={18} weight="bold" /> Créer la première fiche
             </button>
           }
         />
@@ -245,26 +245,18 @@ export default function Zettelkasten() {
       <Screen className={cn("px-5", desktop && "screen-wide")}>
         <AppBar
           back
-          onBack={() => navigate("/vaults")}
+          onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
           title={undefined}
           action={
             <div className="flex items-center gap-1.5">
               {menu}
               <button
                 type="button"
-                aria-label="Graphe du coffre"
+                aria-label="Graphe du vault"
                 className="icon-btn h-10 w-10 border border-line"
                 onClick={() => navigate(`/vault/${id}/graph`)}
               >
                 <Graph size={17} weight="duotone" aria-hidden />
-              </button>
-              <button
-                type="button"
-                aria-label="Nouvelle carte"
-                className="icon-btn h-10 w-10 border border-line"
-                onClick={() => navigate(`/vault/${id}/new`)}
-              >
-                <Plus size={17} weight="bold" aria-hidden />
               </button>
             </div>
           }
@@ -311,9 +303,9 @@ export default function Zettelkasten() {
         <div className="sticky top-0 z-20 glass">
           <AppBar
             back
-            onBack={() => navigate("/vaults")}
+            onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
             center={false}
-            title={`Coffre · ${vault.name}`}
+            title={`Vault · ${vault.name}`}
             action={
               <div className="flex items-center gap-1.5">
                 {menu}
@@ -323,13 +315,6 @@ export default function Zettelkasten() {
                   onClick={() => navigate(`/vault/${id}/graph`)}
                 >
                   <Graph size={16} aria-hidden /> Graphe
-                </button>
-                <button
-                  type="button"
-                  className="btn-primary h-10 px-3.5 text-[13.5px]"
-                  onClick={() => navigate(`/vault/${id}/new`)}
-                >
-                  <Plus size={16} weight="bold" aria-hidden /> Nouvelle carte
                 </button>
               </div>
             }
@@ -357,9 +342,9 @@ export default function Zettelkasten() {
         <div className="sticky top-0 z-20 glass">
           <AppBar
             back
-            onBack={() => navigate("/vaults")}
+            onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
             center={false}
-            title={`Coffre · ${vault.name}`}
+            title={`Vault · ${vault.name}`}
             action={
               <div className="flex items-center gap-1.5">
                 {menu}
@@ -372,9 +357,6 @@ export default function Zettelkasten() {
                   onClick={() => navigate(`/review/session?scope=vault&id=${id}&mode=all`)}
                 >
                   <Cards size={16} aria-hidden /> Réviser
-                </button>
-                <button type="button" className="btn-primary h-10 px-3.5 text-[13.5px]" onClick={() => navigate(`/vault/${id}/new`)}>
-                  <Plus size={16} weight="bold" aria-hidden /> Nouvelle carte
                 </button>
               </div>
             }
@@ -482,13 +464,14 @@ export default function Zettelkasten() {
     <Screen className="px-5">
       <AppBar
         back
-        onBack={() => navigate("/")}
+        onBack={() => navigate(vault?.projectId ? `/spaces/${vault.projectId}` : "/spaces")}
         title={undefined}
         action={
           <div className="flex items-center gap-1.5">
             {menu}
             <button
               type="button"
+              aria-label="Graphe du vault"
               className="pill h-10 px-3 text-[13.5px]"
               onClick={() => navigate(`/vault/${id}/graph`)}
             >
@@ -496,7 +479,7 @@ export default function Zettelkasten() {
             </button>
             <button
               type="button"
-              aria-label="Réviser ce coffre"
+              aria-label="Réviser ce vault"
               className="icon-btn h-10 w-10 border border-line"
               onClick={() => navigate(`/review/session?scope=vault&id=${id}&mode=all`)}
             >
@@ -510,7 +493,7 @@ export default function Zettelkasten() {
         {vault.name}
       </h1>
       <p className="mt-0.5 text-[15px] text-muted">
-        Coffre · {cards.length} carte{cards.length > 1 ? "s" : ""}
+        Vault · {cards.length} carte{cards.length > 1 ? "s" : ""}
       </p>
 
       {display.view !== "stack" ? (
@@ -655,15 +638,9 @@ export default function Zettelkasten() {
 
       <div className="h-28" />
 
-      <div className="dock pointer-events-none fixed inset-x-0 bottom-[calc(20px+var(--safe-bottom))] z-20 mx-auto px-5">
-        <button
-          type="button"
-          onClick={() => navigate(`/vault/${id}/new`)}
-          className="btn-primary pointer-events-auto h-14 w-full rounded-big text-[16px]"
-        >
-          <Plus size={20} weight="bold" /> Nouvelle carte
-        </button>
-      </div>
+      {/* Le bouton « Nouvelle fiche » n’est plus ici : il flotte, un peu plus
+          haut, sur toutes les pages qui créent quelque chose. Deux boutons
+          pour le même geste, l’un au-dessus de l’autre, c’était un doublon. */}
     </Screen>
   );
 }

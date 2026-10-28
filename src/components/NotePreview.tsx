@@ -34,7 +34,7 @@ export function NotePreview({
   const shown = typeof limit === "number" ? blocks.slice(0, limit) : blocks;
 
   if (shown.length === 0) {
-    /* Les méthodes sans blocs (carte mentale, coffre) ont leur propre matière :
+    /* Les méthodes sans blocs (carte mentale, vault) ont leur propre matière :
        la montrer vaut mieux qu’un « note vide » mensonger. */
     const map = mindmaps.find((m) => m.noteId === note.id || m.id === note.mindmapId);
     if (map && map.nodes.length > 0) {
@@ -57,7 +57,7 @@ export function NotePreview({
       return (
         <div className={className}>
           <p className={cn("text-muted", compact ? "text-[12.5px]" : "text-[13.5px]")}>
-            Coffre {vault.name} · {fiches.length} fiche{fiches.length > 1 ? "s" : ""}
+            Vault {vault.name} · {fiches.length} fiche{fiches.length > 1 ? "s" : ""}
           </p>
           <ul className="mt-1.5 flex flex-col gap-1">
             {fiches.slice(0, limit ?? 4).map((card) => (

@@ -2,7 +2,7 @@
  * Écriture d’une archive ZIP sans dépendance.
  *
  * Pourquoi c’est ici : l’export Markdown doit produire **une arborescence de
- * fichiers** (un fichier par note, rangé par catégorie, par projet, par coffre),
+ * fichiers** (un fichier par note, rangé par catégorie, par projet, par vault),
  * et un navigateur ne sait pas écrire un dossier. Le seul format que tous les
  * systèmes ouvrent d’un double-clic est le ZIP ; ajouter `jszip` (~100 ko) pour
  * poser des fichiers tels quels serait payer une bibliothèque de compression

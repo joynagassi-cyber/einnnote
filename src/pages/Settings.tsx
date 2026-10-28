@@ -32,8 +32,8 @@ export default function Settings() {
     {
       to: "/settings/personalization",
       icon: SlidersHorizontal,
-      title: "Personnalisation",
-      hint: "Densité, rayons, bordures, papier, interligne",
+      title: "Présentation",
+      hint: "Formes, teinte du papier, interligne, largeur de lecture",
     },
     {
       to: "/settings/data",
@@ -51,7 +51,7 @@ export default function Settings() {
       to: "/settings/cards",
       icon: CardsThree,
       title: "Studio des cartes",
-      hint: "Éventail, relief, carte image — vos fiches réelles",
+      hint: "Éventail, relief, carte image — un réglage d’affichage, pas une page",
     },
     {
       to: "/settings/cloud",

@@ -93,7 +93,7 @@ export default function NavSettingsPage() {
           </p>
           <p className="mt-1 text-[12.5px] leading-[18px] text-muted">
             {surface === "mobile"
-              ? "La barre du bas ne défile pas : ce qui ne tient pas passe derrière « Plus »."
+              ? "La barre du bas ne défile pas : ce qui ne tient pas s’ouvre derrière « ··· », vers le haut."
               : "Le rail défile : toutes les pages y ont place. L’autre appareil garde ses propres réglages."}
           </p>
         </div>
@@ -113,8 +113,8 @@ export default function NavSettingsPage() {
             overflow.length > 0 ? (
               <>
                 {overflow.length} page{overflow.length > 1 ? "s" : ""} en trop pour la barre :
-                elle{overflow.length > 1 ? "s" : ""} passe
-                {overflow.length > 1 ? "nt" : ""} derrière « Plus », jamais hors de portée.
+                elle{overflow.length > 1 ? "s" : ""} s’ouvre
+                {overflow.length > 1 ? "nt" : ""} derrière « ··· », vers le haut.
               </>
             ) : (
               <>
@@ -215,9 +215,9 @@ export default function NavSettingsPage() {
           )
         ) : (
           <p className="mt-2 text-[12px] leading-[17px] text-muted">
-            {SURFACE_SLOTS.desktop} places dans le rail pour {shown.length} pages : tant qu’il
-            reste de la place, il n’y a rien à masquer. Le choix d’afficher ou non apparaîtra
-            de lui-même quand le catalogue dépassera la place disponible.
+            {SURFACE_SLOTS[surface]} places pour {shown.length} pages : tant qu’il reste de la
+            place, il n’y a rien à masquer. Le choix d’afficher ou non apparaîtra de lui-même
+            quand le catalogue dépassera la place disponible.
           </p>
         )}
       </section>

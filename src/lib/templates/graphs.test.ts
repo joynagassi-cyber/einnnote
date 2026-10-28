@@ -6,7 +6,7 @@ import { zettelGraph } from "@/lib/graph/zettel";
 import type { ZettelCard } from "@/types";
 
 /**
- * Un modèle de coffre est une donnée : s’il est faux, il casse le graphe au
+ * Un modèle de vault est une donnée : s’il est faux, il casse le graphe au
  * premier geste, sans erreur visible. Ces tests vérifient donc les invariants
  * qu’on ne peut pas voir à l’œil : codes uniques, références résolues, style
  * connu, et un graphe réellement connexe.
@@ -25,7 +25,7 @@ const asCards = (id: string): ZettelCard[] =>
     updatedAt: "",
   }));
 
-describe("modèles de coffre", () => {
+describe("modèles de vault", () => {
   it("en propose six, tous identifiables", () => {
     expect(VAULT_TEMPLATES).toHaveLength(6);
     expect(new Set(VAULT_TEMPLATES.map((template) => template.id)).size).toBe(6);

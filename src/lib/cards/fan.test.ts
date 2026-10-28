@@ -60,9 +60,9 @@ describe("fanLayout", () => {
     expect(layout[2].geometry.rotation).toBeGreaterThan(0);
   });
 
-  it("fait le tour du coffre sans jamais dépasser la taille", () => {
+  it("fait le tour du vault sans jamais dépasser la taille", () => {
     const layout = fanLayout(10, 0, 3);
-    // la carte au centre est l’index 0 ; à sa gauche, la dernière du coffre
+    // la carte au centre est l’index 0 ; à sa gauche, la dernière du vault
     expect(layout[3].index).toBe(0);
     expect(layout[2].index).toBe(9);
     expect(layout.every((entry) => entry.index >= 0 && entry.index < 10)).toBe(true);
@@ -80,7 +80,7 @@ describe("fanLayout", () => {
     expect(fanLayout(20, 0, 2)).toHaveLength(5);
   });
 
-  it("ne renvoie rien pour un coffre vide", () => {
+  it("ne renvoie rien pour un vault vide", () => {
     expect(fanLayout(0, 0, 3)).toEqual([]);
   });
 });

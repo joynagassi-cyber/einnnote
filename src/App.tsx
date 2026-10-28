@@ -7,6 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Fab } from "@/components/Fab";
 import { CloudBridge } from "@/components/CloudBridge";
 import { ThemeSync, ToastHost } from "@/components/Layout";
 import { AppShell } from "@/components/DesktopRail";
@@ -29,10 +30,9 @@ import Settings from "@/pages/Settings";
 import Appearance from "@/pages/Appearance";
 import Personalization from "@/pages/Personalization";
 import Preview from "@/pages/Preview";
-import Projects from "@/pages/Projects";
 import Spaces from "@/pages/Spaces";
-import ProjectDetail from "@/pages/ProjectDetail";
-import Vaults from "@/pages/Vaults";
+import ProjectSpace from "@/pages/ProjectSpace";
+import ProjectGraph from "@/pages/ProjectGraph";
 import DataBackup from "@/pages/DataBackup";
 import Progress from "@/pages/Progress";
 import Trash from "@/pages/Trash";
@@ -52,9 +52,8 @@ const App = () => (
           <Route path="/review" element={<Review />} />
           <Route path="/review/session" element={<ReviewSession />} />
           <Route path="/spaces" element={<Spaces />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/vaults" element={<Vaults />} />
+          <Route path="/spaces/:id" element={<ProjectSpace />} />
+          <Route path="/spaces/:id/graph" element={<ProjectGraph />} />
           <Route path="/new" element={<ChooseMethod />} />
           <Route path="/note/:id" element={<Editor />} />
           <Route path="/mindmap/:id" element={<MindMap />} />
@@ -79,6 +78,12 @@ const App = () => (
           <Route path="/settings/about" element={<About />} />
           {/* Anciennes adresses : conservées pour ne pas casser un lien */}
           <Route path="/library" element={<Navigate to="/" replace />} />
+          {/* « Projets », « Vaults » et leur détail ont fusionné dans
+              « Espaces » : une seule hiérarchie, une seule adresse. */}
+          <Route path="/projects" element={<Navigate to="/spaces" replace />} />
+          <Route path="/vaults" element={<Navigate to="/spaces" replace />} />
+          <Route path="/projects/:id" element={<LegacyProjectRedirect />} />
+          <Route path="/projects/:id/graph" element={<LegacyProjectGraphRedirect />} />
           <Route path="/editor/:id" element={<LegacyEditorRedirect />} />
           <Route path="/zettel/:id" element={<LegacyZettelRedirect />} />
           <Route path="/zettel/:id/graph" element={<LegacyGraphRedirect />} />
@@ -88,6 +93,10 @@ const App = () => (
         </Routes>
         </RouteGuard>
       </Shell>
+      {/* Le bouton de création flotte au-dessus de la coquille : une seule
+          instance pour toute l’application, un seul emplacement, des actions
+          qui changent avec la page (voir `src/lib/fab.ts`). */}
+      <Fab />
     </BrowserRouter>
   </>
 );
@@ -112,6 +121,14 @@ function RouteGuard({ children }: { children: ReactNode }) {
   );
 }
 
+function LegacyProjectRedirect() {
+  const parts = window.location.pathname.split("/");
+  return <Navigate to={`/spaces/${parts[2] ?? ""}`} replace />;
+}
+function LegacyProjectGraphRedirect() {
+  const parts = window.location.pathname.split("/");
+  return <Navigate to={`/spaces/${parts[2] ?? ""}/graph`} replace />;
+}
 function LegacyEditorRedirect() {
   const id = window.location.pathname.split("/").pop() ?? "";
   return <Navigate to={`/note/${id}`} replace />;

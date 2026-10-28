@@ -6,7 +6,7 @@ import type { Lesson, LessonProgress } from "@/types";
  *
  * L’ordre est le message. « Le socle » passe avant les tutoriels parce qu’avant
  * de savoir *comment* prendre une note, il faut savoir *où* elle vit : un
- * projet contient des coffres, un coffre contient des notes. C’était le trou du
+ * projet contient des vaults, un vault contient des notes. C’était le trou du
  * parcours — on apprenait six méthodes et on ne savait toujours pas où ranger
  * le résultat. Les tutoriels viennent ensuite (un outil à la fois), puis le
  * cours de lecture, qui est du contenu et non plus de la manipulation.
@@ -25,7 +25,7 @@ export const TRACKS: Track[] = [
   {
     id: 3,
     label: "Le socle · vos espaces",
-    blurb: "Où vivent vos notes : un projet, ses coffres, leurs fiches.",
+    blurb: "Où vivent vos notes : un projet, ses vaults, leurs fiches.",
   },
   {
     id: 1,

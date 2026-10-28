@@ -512,7 +512,7 @@ supabase functions deploy stripe-webhook --no-verify-jwt`}
                   <p>
                     <span className="text-ink">Synchronisé :</span> projets, notes et
                     blocs, questions Cornell, liaisons, cartes et journal de révision,
-                    coffres, fiches zettelkasten, canevas, progression des leçons.
+                    vaults, fiches zettelkasten, canevas, progression des leçons.
                   </p>
                   <p className="mt-1.5">
                     <span className="text-ink">Non synchronisé :</span> apparence,

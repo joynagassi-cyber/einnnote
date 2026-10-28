@@ -4,9 +4,9 @@ import { placeColumns, placeFrieze } from "@/lib/mindmap/levels";
 import type { GraphLayoutKind } from "@/lib/graph/styles";
 
 /**
- * Le graphe d’un coffre Zettelkasten.
+ * Le graphe d’un vault Zettelkasten.
  *
- * Un coffre est un **réseau** de fiches (chacune cite les autres par code),
+ * Un vault est un **réseau** de fiches (chacune cite les autres par code),
  * mais un réseau illisible ne montre rien : 13 fiches reliées dans tous les
  * sens donnent une pelote. On en tire donc un **arbre** (parcours en largeur
  * depuis une racine choisie), et on garde les liens qui ne sont pas dans
@@ -16,9 +16,9 @@ import type { GraphLayoutKind } from "@/lib/graph/styles";
  *
  * Trois propriétés tenues par les tests :
  *
- * 1. **Rien ne disparaît** : chaque fiche du coffre a une position, y compris
+ * 1. **Rien ne disparaît** : chaque fiche du vault a une position, y compris
  *    les fiches isolées (« hors arbre »).
- * 2. **C’est déterministe** : même coffre → même dessin, quel que soit l’ordre
+ * 2. **C’est déterministe** : même vault → même dessin, quel que soit l’ordre
  *    d’insertion dans le stockage (tri naturel des codes, jamais l’ordre d’un
  *    `Map` ou d’un objet).
  * 3. **Ça ne se chevauche pas** : les cartes font 208 × 84 px et le pas de la
@@ -395,7 +395,7 @@ export function layoutZettelGraph(
         x: Math.round(node.cx - minX),
         y: Math.round(node.cy - minY + cursorY),
         detached: component.detached,
-        /* une fiche « hors arbre » n’est pas la racine du coffre : elle ne doit
+        /* une fiche « hors arbre » n’est pas la racine du vault : elle ne doit
            pas porter le même traitement visuel */
         root: !component.detached && node.code === component.rootCode,
         depth: graph.nodes.find((item) => item.code === node.code)?.depth ?? 0,
@@ -425,7 +425,7 @@ export function layoutZettelGraph(
  * Un arbre de douze fiches fait ~2 000 px de large : réduit à 390 px de large,
  * le texte des cartes devient illisible (7 px). On ne montre donc, sur mobile,
  * que la racine et ses voisins directs ; chaque carte touchée devient la
- * nouvelle racine, ce qui permet de parcourir le coffre sans jamais dézoomer.
+ * nouvelle racine, ce qui permet de parcourir le vault sans jamais dézoomer.
  */
 export function focusGraph(graph: ZettelGraph, depth = 1): ZettelGraph {
   if (!graph.rootCode) return graph;

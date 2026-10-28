@@ -83,8 +83,8 @@ désactivé sous 1024 px, ignoré dès qu’on tape (`input`, `textarea`, `selec
 
 Rien de structurel : il portait déjà la marque, « Nouvelle note », les projets,
 les espaces, les réglages et la carte de révision. Ajout d’une entrée
-**Raccourcis** avec la touche `?` affichée, plus une entrée **Coffres** (les
-coffres Zettelkasten sont une destination, pas un sous-onglet des projets).
+**Raccourcis** avec la touche `?` affichée, plus une entrée **Vaults** (les
+vaults Zettelkasten sont une destination, pas un sous-onglet des projets).
 
 ### 2.7 Fond et verre sur le bureau
 

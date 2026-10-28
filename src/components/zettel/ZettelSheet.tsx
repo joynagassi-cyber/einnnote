@@ -33,7 +33,7 @@ export function ZettelSheet({
   bodyClassName,
 }: {
   card: ZettelCard;
-  /** toutes les fiches du coffre, pour nommer les renvois */
+  /** toutes les fiches du vault, pour nommer les renvois */
   cards?: ZettelCard[];
   onOpenRef?: (code: string) => void;
   /** boutons de l’en-tête (bureau : Modifier, Situer) */

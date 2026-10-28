@@ -33,7 +33,7 @@ describe("styles de graphe", () => {
     expect(graphStyleById(null).id).toBe(DEFAULT_GRAPH_STYLE);
   });
 
-  it("réserve l’arbre binaire aux coffres (il lui faut un graphe de fiches)", () => {
+  it("réserve l’arbre binaire aux vaults (il lui faut un graphe de fiches)", () => {
     const zettel = graphStylesFor("zettel");
     const mindmap = graphStylesFor("mindmap");
     expect(zettel.length).toBeGreaterThan(mindmap.length);

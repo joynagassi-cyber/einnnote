@@ -100,7 +100,7 @@ export interface VaultSeed {
 }
 
 /**
- * Déplie un modèle de coffre. Les codes sont **déjà** ceux du modèle : c’est ce
+ * Déplie un modèle de vault. Les codes sont **déjà** ceux du modèle : c’est ce
  * qui permet aux références de survivre telles quelles, fiche par fiche.
  */
 export function vaultFromTemplate(template: VaultTemplate): VaultSeed {

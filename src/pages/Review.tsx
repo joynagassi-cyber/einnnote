@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
  *
  * Pourquoi un écran d’entrée plutôt qu’une séance automatique : une séance qui
  * démarre sur « tout ce qui est dû » ne laisse aucune prise. Ici on peut
- * réviser un projet entier, un coffre, ou une seule note Cornell — et voir,
+ * réviser un projet entier, un vault, ou une seule note Cornell — et voir,
  * avant de cliquer, combien de cartes cela représente.
  */
 export default function Review() {
@@ -58,7 +58,7 @@ export default function Review() {
   const now = new Date();
   /* Le compteur du haut décrit exactement ce que fera le bouton « Tout » :
      questions dues + fiches déjà travaillées. Les fiches neuves entrent par
-     leur coffre, pas par surprise. */
+     leur vault, pas par surprise. */
   const overall = summarize(itemsInTarget(items, { kind: "all" }), now);
 
   const byProject = useMemo(
@@ -91,8 +91,8 @@ export default function Review() {
             now,
           ),
         }))
-        // Un coffre sans fiche n’a rien à réviser : le montrer serait un
-        // faux bouton. Il reste accessible depuis l’écran Coffres.
+        // Un vault sans fiche n’a rien à réviser : le montrer serait un
+        // faux bouton. Il reste accessible depuis l’écran Vaults.
         .filter((row) => row.summary.total > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vaults, items],
@@ -128,7 +128,7 @@ export default function Review() {
   const scopeOptions = [
     { value: "all" as const, label: "Tout" },
     { value: "project" as const, label: "Projet" },
-    { value: "vault" as const, label: "Coffre" },
+    { value: "vault" as const, label: "Vault" },
     { value: "note" as const, label: "Note" },
   ];
 
@@ -144,7 +144,7 @@ export default function Review() {
         <p className="mt-1.5 max-w-[56ch] text-[15px] leading-[22px] text-muted">
           {overall.due > 0
             ? `${overall.due} carte${overall.due > 1 ? "s" : ""} à revoir aujourd’hui, dont ${overall.fresh} jamais vue${overall.fresh > 1 ? "s" : ""}. Choisissez ce que vous voulez travailler.`
-            : "Rien n’est échu aujourd’hui. Vous pouvez tout de même réviser un projet, un coffre ou une note — les intervalles seront recalculés normalement."}
+            : "Rien n’est échu aujourd’hui. Vous pouvez tout de même réviser un projet, un vault ou une note — les intervalles seront recalculés normalement."}
         </p>
       </header>
 
@@ -165,7 +165,7 @@ export default function Review() {
                   Portée de la séance
                 </h2>
                 <p className="mt-0.5 text-[13px] leading-[19px] text-muted">
-                  Un projet, un coffre, une note — ou toutes les cartes dues.
+                  Un projet, un vault, une note — ou toutes les cartes dues.
                 </p>
               </div>
               <div className="w-full sm:w-auto">
@@ -207,7 +207,7 @@ export default function Review() {
                 <ScopeList
                   rows={byVault}
                   icon={Stack}
-                  emptyLabel="Aucun coffre ne contient de fiche à réviser."
+                  emptyLabel="Aucun vault ne contient de fiche à réviser."
                   onStart={start}
                 />
               )}
@@ -230,7 +230,7 @@ export default function Review() {
               </span>
               <span className="flex items-center gap-1.5">
                 <Books size={15} weight="duotone" aria-hidden />
-                {items.filter((item) => item.kind === "fiche").length} fiches de coffre
+                {items.filter((item) => item.kind === "fiche").length} fiches de vault
               </span>
               <span className="flex items-center gap-1.5">
                 <ClockCounterClockwise size={15} weight="duotone" aria-hidden />

@@ -116,7 +116,7 @@ export default function Progress() {
         <div>
           <div className="text-[15px] font-semibold">Cartes Zettelkasten</div>
           <div className="text-[13px] text-muted">
-            réparties dans vos coffres
+            réparties dans vos vaults
           </div>
         </div>
         <div className="font-serif text-[24px] font-semibold">{zettel.length}</div>

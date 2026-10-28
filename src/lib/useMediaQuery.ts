@@ -33,7 +33,7 @@ export function useMediaQuery(query: string) {
  *   C’est le seuil de la *navigation* : une tablette, un aperçu de bureau un peu
  *   étroit, une fenêtre réduite gardent le rail.
  * - **1024 px** : à partir d’ici, les écrans riches passent en deux panneaux
- *   (coffre liste + fiche), avec mini-carte et contrôles de canevas.
+ *   (vault liste + fiche), avec mini-carte et contrôles de canevas.
  */
 export const RAIL_QUERY = "(min-width: 768px)";
 export const DESKTOP_QUERY = "(min-width: 1024px)";

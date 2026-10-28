@@ -43,7 +43,7 @@ describe("étiquettes de relation", () => {
     expect(linkLabel(cards, "#1A", "#9Z").relation).toBe("lie");
   });
 
-  it("compte les relations du coffre de démonstration", () => {
+  it("compte les relations du vault de démonstration", () => {
     const counts = relationCounts(zettelGraph(seedZettel), seedZettel);
     const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
     expect(total).toBe(zettelGraph(seedZettel).links.length);

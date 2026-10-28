@@ -21,13 +21,13 @@ le catalogue « Pro » est payant et ne publie ni code ni capture exploitable.
 |---|---|---|---|---|
 | 1 | Concept map | GitHub | liens **nommés** entre concepts | **adopté** → style `carte-conceptuelle`, étiquettes calculées |
 | 2 | Kanban | GitHub | colonnes d’états + glisser | refusé : un tableau d’états n’est pas un graphe de fiches |
-| 3 | State machine | GitHub | états stables, transitions autorisées | **adopté comme modèle** → coffre « Machine à états » |
+| 3 | State machine | GitHub | états stables, transitions autorisées | **adopté comme modèle** → vault « Machine à états » |
 | 4 | Microservices | GitHub | topologie d’infrastructure | refusé : aucun contenu d’étude |
 | 5 | Git branching | GitHub | graphe orienté acyclique de commits | refusé : le contenu viendrait de git, pas des fiches |
 | 6 | Organisation chart | GitHub | hiérarchie stricte, une mère, n enfants | **adopté comme modèle** → « Décomposition d’un chapitre » |
 | 7 | Minimap | GitHub | vue d’ensemble + cadre de caméra | déjà en place (`MiniMap` sur bureau) |
 | 8 | Radial mind map | GitHub | disposition radiale | déjà en place (styles `Réseau`, `Constellation`) |
-| 9 | Flow pattern | GitHub | motifs de flux réutilisables, palette | **adopté** : idée de catalogue de motifs → 6 modèles de coffre |
+| 9 | Flow pattern | GitHub | motifs de flux réutilisables, palette | **adopté** : idée de catalogue de motifs → 6 modèles de vault |
 | 10 | Edge intersection | GitHub | point d’accroche = intersection réelle | déjà en place (`floating.ts` → `borderPoint`) |
 | 11 | Interactive editable edges | GitHub | libellé de lien éditable | **partiellement adopté** : libellé lu, pas encore éditable |
 | 12 | Animation flow | GitHub | flux animé sur le trait | **adopté** → réglage « Animation du courant » |
@@ -52,7 +52,7 @@ Dépôts partagés derrière les vignettes : `Azim-Ahmed/FlowPattern`
 **Ce que la page ne donne pas** : aucun exemple n’est un modèle de *contenu*.
 Tous montrent comment dessiner un schéma ; aucun ne dit quoi mettre dedans. C’est
 précisément le trou que comble cette application — d’où la traduction en
-**modèles de coffre** (§4).
+**modèles de vault** (§4).
 
 ---
 
@@ -101,7 +101,7 @@ déjà assurée ailleurs (corbeille, confirmations) — nous ne l’avons pas du
 
 ## 4. Traduction en modèles utilisables
 
-Six modèles de coffre (`src/lib/templates/graphs.ts`), chacun dérivé d’un motif
+Six modèles de vault (`src/lib/templates/graphs.ts`), chacun dérivé d’un motif
 du tableau §1, et chacun avec du **contenu d’étude réel** :
 
 | Modèle | Motif VisualFlow d’origine | Style appliqué | Fiches |
@@ -113,8 +113,8 @@ du tableau §1, et chacun avec du **contenu d’étude réel** :
 | Décomposition d’un chapitre | Organisation chart | `colonnes` | 5 |
 | Boucle de révision | Workflow automate | `reseau` | 5 |
 
-**Un geste, pas cinq écrans** : depuis `Coffres → + Coffre`, choisir un modèle
-crée le coffre, ses fiches, **leurs codes d’origine** et leurs références, règle
+**Un geste, pas cinq écrans** : depuis `Vaults → + Vault`, choisir un modèle
+crée le vault, ses fiches, **leurs codes d’origine** et leurs références, règle
 le style de graphe, et ouvre directement `/vault/:id/graph`. La vignette de
 chaque modèle n’est pas une maquette : elle est calculée par
 `zettelGraph` + `layoutZettelGraph`, c’est-à-dire par le moteur qui dessine la
@@ -135,8 +135,8 @@ fonctionnalité.
 | Arête unique, 5 dessins, étiquette sur le chemin | `src/lib/graph/edges.tsx` | rendu vérifié par le smoke test (nombre d’arêtes = liens) |
 | Export SVG clair/sombre + JSON validé | `src/lib/graph/export.ts` | `export.test.ts` (9) |
 | Réglages étiquettes / renvois / animation | `useAppStore` → `setGraphDisplay` | `smoke.test.tsx` |
-| Feuille « Affichage et export » + import en coffre | `src/components/GraphExchange.tsx` | parcours manuel, validation testée côté module |
-| 6 modèles de coffre | `src/lib/templates/graphs.ts` | `graphs.test.ts` (6) : codes uniques, références résolues, styles existants, graphe **connexe** |
+| Feuille « Affichage et export » + import en vault | `src/components/GraphExchange.tsx` | parcours manuel, validation testée côté module |
+| 6 modèles de vault | `src/lib/templates/graphs.ts` | `graphs.test.ts` (6) : codes uniques, références résolues, styles existants, graphe **connexe** |
 | 13ᵉ style « Carte conceptuelle » | `src/lib/graph/styles.ts` | `styles.test.ts` |
 
 ---
@@ -149,6 +149,6 @@ fonctionnalité.
 - **Routage qui évite les nœuds** (#13) : inutile tant que les dispositions
   garantissent l’absence de chevauchement ; à rouvrir le jour où l’on laisse
   glisser les cartes librement.
-- **Modèles de coffre au-delà de six** : le format est bon, le contenu est le
+- **Modèles de vault au-delà de six** : le format est bon, le contenu est le
   travail. Chaque ajout doit venir d’une situation d’étude réelle, pas d’un
   motif joli.

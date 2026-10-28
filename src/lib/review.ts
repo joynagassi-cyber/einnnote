@@ -20,7 +20,7 @@ import { isDue, startOfDay } from "@/lib/scheduler";
  * | Nature | Recto | Verso | Origine |
  * |---|---|---|---|
  * | `question` | la question écrite à froid | le passage surligné dans la note | Cornell / plan / note |
- * | `fiche` | le titre de la fiche | le corps, la source, les renvois | coffre (Zettelkasten) |
+ * | `fiche` | le titre de la fiche | le corps, la source, les renvois | vault (Zettelkasten) |
  *
  * Les deux sont planifiées par FSRS et se révisent dans la même file : c’est
  * le geste de l’utilisateur (« je révise ce projet »), pas une distinction
@@ -151,19 +151,19 @@ export function allReviewItems(data: ReviewData): ReviewItem[] {
   return [...questions, ...fiches];
 }
 
-/** Filtre une liste selon la portée choisie (projet, coffre, note, tout). */
+/** Filtre une liste selon la portée choisie (projet, vault, note, tout). */
 export function itemsInTarget(items: ReviewItem[], target: ReviewTarget): ReviewItem[] {
   switch (target.kind) {
     case "all":
       /* « Tout » reste la file des cartes **dues** : les questions, plus les
-         fiches déjà travaillées. Une fiche neuve entre par son coffre, jamais
+         fiches déjà travaillées. Une fiche neuve entre par son vault, jamais
          par surprise au milieu d’une séance de questions. */
       return items.filter((item) => item.kind === "question" || item.reps > 0);
     case "project":
       return items.filter((item) => item.projectId === target.id);
     case "vault":
-      // Les fiches du coffre **et** les questions des notes qui lui sont
-      // rattachées : un coffre est une réserve, pas une cloison.
+      // Les fiches du vault **et** les questions des notes qui lui sont
+      // rattachées : un vault est une réserve, pas une cloison.
       return items.filter((item) => item.vaultId === target.id);
     case "note":
       return items.filter((item) => item.noteId === target.id);
@@ -264,7 +264,7 @@ export function scopeLabel(target: ReviewTarget, data: ReviewData): string {
     case "project":
       return data.projects.find((p) => p.id === target.id)?.name ?? "Projet";
     case "vault":
-      return data.vaults.find((v) => v.id === target.id)?.name ?? "Coffre";
+      return data.vaults.find((v) => v.id === target.id)?.name ?? "Vault";
     case "note":
       return data.notes.find((n) => n.id === target.id)?.title ?? "Note";
   }

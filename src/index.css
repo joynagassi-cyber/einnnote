@@ -263,59 +263,11 @@
     --elev-card: 0 14px 34px rgba(0, 0, 0, 0.4);
   }
 
-  /* ---------- Personnalisation : teinte du papier ---------- */
-  :root[data-paper="ivory"] {
-    --bg: #fbf8f0;
-    --bg-outside: #f2ecdd;
-    --surface: #ffffff;
-    --surface-2: #f4efe1;
-    --canvas-dot: #d8cfba;
-  }
-  :root[data-paper="grey"] {
-    --bg: #f2f2f0;
-    --bg-outside: #e6e6e2;
-    --surface: #fdfdfc;
-    --surface-2: #ebebe7;
-    --line: #dcdcd6;
-    --line-strong: #bfbfb7;
-    --canvas-dot: #c9c9c2;
-  }
-  :root[data-paper="mist"] {
-    --bg: #eff2f1;
-    --bg-outside: #e2e8e7;
-    --surface: #fbfdfc;
-    --surface-2: #e6edeb;
-    --line: #d7e0de;
-    --line-strong: #b6c4c1;
-    --canvas-dot: #c3d0cd;
-  }
-  :root[data-theme="dark"][data-paper="ivory"] {
-    --bg: #201e19;
-    --surface: #2a2721;
-    --surface-2: #332f28;
-  }
-  :root[data-theme="dark"][data-paper="grey"] {
-    --bg: #1d1d1e;
-    --surface: #262627;
-    --surface-2: #303031;
-    --line: #3b3b3d;
-    --line-strong: #4f4f52;
-  }
-  :root[data-theme="dark"][data-paper="mist"] {
-    --bg: #191f1f;
-    --surface: #212929;
-    --surface-2: #2a3333;
-    --line: #33403f;
-    --line-strong: #475756;
-  }
-
-  /* ---------- Personnalisation : bordures ---------- */
-  :root[data-borders="subtle"] {
-    --line: color-mix(in srgb, var(--line-strong) 45%, var(--surface));
-  }
-  :root[data-borders="strong"] {
-    --line: var(--line-strong);
-  }
+  /* Teinte du papier et contraste des traits : **plus aucune règle ici**.
+     Ces deux réglages déplacent les jetons de la palette, qui sont posés en
+     style en ligne sur <html> — une règle CSS serait donc écrasée, et c’est
+     exactement pourquoi ils ne faisaient rien. Le calcul vit dans
+     `src/lib/presentation.ts` (`tintTokens`, `borderTokens`). */
 
   /* ---------- Accessibilité ---------- */
   :root[data-contrast="high"] {
@@ -2143,4 +2095,140 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ============================================================
+   Bouton de création flottant + menu des pages (vers le haut)
+   ============================================================
+   Le « + » a quitté la barre de navigation : une barre sert à aller quelque
+   part, ce bouton sert à faire quelque chose. Il flotte au-dessus de la barre
+   sur téléphone, en bas à droite du contenu sur bureau, et ne s'affiche que
+   sur les pages où une création a un sens (voir `src/lib/fab.ts`). */
+.fab-host {
+  position: fixed;
+  z-index: 45;
+  inset-inline-end: 16px;
+  bottom: calc(88px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.fab-host > * {
+  pointer-events: auto;
+}
+.fab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
+  min-width: 56px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--on-accent) 18%, transparent) inset,
+    0 14px 28px -12px color-mix(in srgb, var(--accent) 65%, transparent),
+    0 3px 8px -4px rgba(0, 0, 0, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.fab:active {
+  transform: scale(0.96);
+}
+/* Sur téléphone le libellé reste lisible par le lecteur d'écran et par
+   l'infobulle, pas à l'écran : une pastille de 56 px ne tient pas un mot. */
+.fab-label {
+  display: none;
+}
+@media (min-width: 640px) {
+  .fab-label {
+    display: inline;
+  }
+}
+@media (min-width: 768px) {
+  .fab-host {
+    inset-inline-end: 28px;
+    bottom: calc(28px + var(--safe-bottom));
+  }
+}
+/* La barre de navigation mobile occupe le bas : on ne pose jamais le FAB
+   dessus, même quand la barre est haute (sécurité iOS comprise). */
+
+.fab-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  animation: fab-menu-in 140ms ease-out;
+}
+.fab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--r-field);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+}
+.fab-menu-item:hover {
+  background: var(--surface-2);
+}
+@keyframes fab-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Menu « ··· » de la barre basse ---- */
+.nav-more-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 208px;
+  padding: 6px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  animation: fab-menu-in 140ms ease-out;
+}
+.nav-more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--r-field);
+  font-size: 14.5px;
+  color: var(--ink);
+  text-align: left;
+}
+.nav-more-item:hover {
+  background: var(--surface-2);
+}
+.nav-more-item[aria-current="page"] {
+  background: var(--accent-soft);
+  font-weight: 600;
 }

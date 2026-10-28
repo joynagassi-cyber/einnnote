@@ -57,14 +57,14 @@ bouton explicite « Modifier cette fiche ».
 
 | | Téléphone (< 1024 px) | Bureau (≥ 1024 px) |
 |---|---|---|
-| Coffre | pile feuilletée au doigt, une carte à la fois | **liste + carte** en deux panneaux, recherche, panneau droit défilant |
+| Vault | pile feuilletée au doigt, une carte à la fois | **liste + carte** en deux panneaux, recherche, panneau droit défilant |
 | Graphe | vue « **autour** » : la fiche et ses voisines, une seule colonne, échelle ≥ 0,6 (texte lisible) ; bascule « Tout » pour l’arbre entier | arbre complet, mini-carte, contrôles |
 | Détail | pas de mini-carte, pas de contrôles | `MiniMap` discrète (168 × 104), `Controls` |
 
 La vue « autour » n’est pas un zoom : c’est un **autre cadrage**. Un arbre de
 12 fiches fait ~2 000 px de large ; réduit à 390 px, le titre tombe à 7 px et ne
 se lit plus. En colonne à l’échelle 1, il se lit — et toucher une carte en fait
-la nouvelle racine, ce qui permet de parcourir le coffre sans jamais dézoomer.
+la nouvelle racine, ce qui permet de parcourir le vault sans jamais dézoomer.
 
 ### 2.3 Le seuil de navigation : 768 px, pas 1024 px
 
@@ -80,7 +80,7 @@ La version bureau, c’est l’application elle-même, à sa largeur réelle :
 |---|---|---|
 | < 768 px | barre basse (`.bottom-nav`) | une colonne, graphe « autour » |
 | 768–1023 px | **rail compact** de 88 px : icônes seules, cibles 44 px, `aria-label` + `title` | une colonne |
-| ≥ 1024 px | **rail complet** de 264 px : libellés, sections, badges | coffre en deux panneaux, `MiniMap`, `Controls` |
+| ≥ 1024 px | **rail complet** de 264 px : libellés, sections, badges | vault en deux panneaux, `MiniMap`, `Controls` |
 
 Deux media queries, donc deux vérités différentes : `RAIL_QUERY`
 (`min-width: 768px`) décide s’il y a un rail, `DESKTOP_QUERY`
@@ -115,7 +115,7 @@ headless piloté par `puppeteer-core`), pas par jsdom :
 - toucher une carte du graphe mobile → la racine change, la vue se recentre ;
 - export Markdown → archive téléchargée, `zipfile.testzip()` **ok**, un fichier
   par note et par fiche, arborescence `Notes/<projet>/…`,
-  `Coffres/<projet>/<coffre>/…`.
+  `Vaults/<projet>/<vault>/…`.
 
 Limite assumée : la qualité *visuelle* (goût d’un dégradé, élégance d’une
 carte) n’est pas testable ; la géométrie, la lisibilité et les interactions le

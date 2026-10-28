@@ -1,4 +1,4 @@
-# Modèles — 18 charpentes de notes et de fiches + 14 cartes mentales + 6 coffres
+# Modèles — 18 charpentes de notes et de fiches + 14 cartes mentales + 6 vaults
 
 > Ce document explique **d’où vient chaque modèle**, comment il est calculé, ce
 > qui est vérifié par test, et ce qui reste à faire. Il ne recopie pas le code :
@@ -167,7 +167,7 @@ souvent `dagre` ou `elkjs`. Les importer aurait ajouté une dépendance lourde
 pour un gain nul sur des arbres de 16 nœuds. Une disposition maison de 200
 lignes, couverte par des tests de collision, est plus solide ici.
 
-## 5. Coffres — 6 réseaux de fiches
+## 5. Vaults — 6 réseaux de fiches
 
 Dernier venu : un modèle peut remplir non pas *une* fiche mais **plusieurs
 fiches déjà liées**. Six modèles, chacun dérivé d’un motif de diagramme
@@ -187,7 +187,7 @@ Trois propriétés tenues par `src/lib/templates/graphs.test.ts` : codes uniques
 fiche hors arbre. Un modèle qui produirait une fiche isolée serait un modèle
 cassé : le test le refuse.
 
-Application en **un geste**, depuis `Coffres → + Coffre` : le coffre, ses fiches,
+Application en **un geste**, depuis `Vaults → + Vault` : le vault, ses fiches,
 leurs codes, leurs références et le style de graphe sont posés, puis le graphe
 s’ouvre. La vignette est calculée par le moteur du graphe, pas dessinée à part.
 
@@ -219,7 +219,7 @@ Deux formats, deux usages :
 
 | Sortie | Geste | Ce qu’on obtient |
 |---|---|---|
-| **Arborescence** (`.zip`) | bouton « Arborescence » | un fichier **par note** (nommé de son titre) et **par fiche**, rangés `Notes/<projet>/…` et `Coffres/<projet>/<coffre>/…`, plus `_index.md` et une fiche par projet |
+| **Arborescence** (`.zip`) | bouton « Arborescence » | un fichier **par note** (nommé de son titre) et **par fiche**, rangés `Notes/<projet>/…` et `Vaults/<projet>/<vault>/…`, plus `_index.md` et une fiche par projet |
 | **Fichier unique** (`.md`) | bouton « Fichier unique » | tout le périmètre dans un seul document, pour un courriel ou un billet |
 
 Dans l’arborescence, les citations deviennent des liens wiki

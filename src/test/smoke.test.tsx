@@ -59,7 +59,7 @@ beforeEach(() => {
   useDisplayStore.getState().resetAll();
   useSessionStore.getState().resetSession();
   /* Tout le contenu de démonstration est remis en place : un test qui vide le
-     magasin ne doit pas laisser les suivants devant un coffre vide. */
+     magasin ne doit pas laisser les suivants devant un vault vide. */
   useContentStore.setState({
     projects: useContentStore.getInitialState().projects,
     notes: useContentStore.getInitialState().notes,
@@ -82,7 +82,7 @@ describe("Engram — écrans", () => {
     ).toBeTruthy();
     expect(screen.getByText(/cartes? à revoir/)).toBeTruthy();
     expect(screen.getByText("Contrats commerciaux")).toBeTruthy();
-    expect(screen.getByText(/coffre Économie/)).toBeTruthy();
+    expect(screen.getByText(/vault Économie/)).toBeTruthy();
     // Carte-rectangle : méthode employée + aperçu réel du contenu
     expect(screen.getAllByText("Cornell").length).toBeGreaterThan(0);
     expect(screen.getByText(/Conditions de validité/)).toBeTruthy();
@@ -177,15 +177,15 @@ describe("Engram — écrans", () => {
   it("affiche le formulaire de nouvelle carte", () => {
     open("/vault/v-eco/new");
     expect(screen.getByText("Nouvelle carte")).toBeTruthy();
-    expect(screen.getByText(/Coffre Économie/)).toBeTruthy();
+    expect(screen.getByText(/Vault Économie/)).toBeTruthy();
     expect(screen.getByLabelText("Source ou référence")).toBeTruthy();
   });
 
-  it("affiche le graphe du coffre en arbre, avec toutes les fiches (bureau)", () =>
+  it("affiche le graphe du vault en arbre, avec toutes les fiches (bureau)", () =>
     withDesktop(async () => {
       open("/vault/v-eco/graph");
       expect(screen.getByText("Graphe · Économie")).toBeTruthy();
-      // chaque fiche du coffre a une carte sur le canevas (arbre par défaut)
+      // chaque fiche du vault a une carte sur le canevas (arbre par défaut)
       const cards = useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco");
       await waitFor(() =>
         expect(document.querySelectorAll(".react-flow__node").length).toBe(cards.length),
@@ -230,7 +230,7 @@ describe("Engram — écrans", () => {
     });
   });
 
-  it("relit le coffre depuis une autre fiche racine", async () => {
+  it("relit le vault depuis une autre fiche racine", async () => {
     const user = userEvent.setup();
     await withDesktop(async () => {
     open("/vault/v-eco/graph");
@@ -241,7 +241,7 @@ describe("Engram — écrans", () => {
         useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco").length,
       ),
     );
-    const canvas = screen.getByLabelText(/Graphe du coffre Économie/);
+    const canvas = screen.getByLabelText(/Graphe du vault Économie/);
     expect(canvas.getAttribute("aria-label")).toContain("racine #1A1a");
     });
   });
@@ -464,10 +464,9 @@ describe("Engram — écrans", () => {
         name: "Barre latérale",
       });
       expect(within(rail).getByText("Engram")).toBeTruthy();
-      expect(
-        within(rail).getByRole("button", { name: /Nouvelle note/ }),
-      ).toBeTruthy();
       expect(within(rail).getByRole("button", { name: "Apprendre" })).toBeTruthy();
+      // le rail ne crée plus de note : c’est le bouton flottant qui s’en charge
+      expect(within(rail).queryByRole("button", { name: /Nouvelle note/ })).toBeNull();
 
       const user = userEvent.setup();
       await user.click(within(rail).getByRole("button", { name: "Apprendre" }));
@@ -677,21 +676,12 @@ describe("Engram — écrans", () => {
   });
 
   it("affiche les projets avec leurs compteurs réels", async () => {
-    const user = userEvent.setup();
-    open("/projects");
-    expect(screen.getByRole("heading", { name: "Projets" })).toBeTruthy();
+    open("/spaces");
+    expect(screen.getByRole("heading", { name: "Espaces" })).toBeTruthy();
     expect(screen.getByText("Thèse")).toBeTruthy();
-    expect(screen.getByText("Tous les projets")).toBeTruthy();
-    expect(screen.getAllByText(/note[s]?$/).length).toBeGreaterThan(0);
-
-    // le menu d’affichage range réellement les projets par activité
-    await user.click(screen.getByRole("button", { name: /^Affichage/ }));
-    await user.click(screen.getByRole("button", { name: /Grouper par/ }));
-    await user.click(screen.getByRole("button", { name: /^Taille/ }));
-    const headings = screen
-      .getAllByRole("heading")
-      .map((node) => node.textContent ?? "");
-    expect(headings.some((text) => /Petit|Moyen|Grand|Vide/.test(text))).toBe(true);
+    // les compteurs sont calculés, pas décoratifs : un vault au moins
+    expect(screen.getAllByText(/\d+ vault/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/\d+ fiche/).length).toBeGreaterThan(0);
   });
 
   it("garde des préférences d’affichage propres à chaque écran", async () => {
@@ -702,19 +692,12 @@ describe("Engram — écrans", () => {
     expect(useDisplayStore.getState().get("library").view).toBe("list");
 
     cleanup();
-    open("/projects");
-    await user.click(screen.getByRole("button", { name: /^Affichage/ }));
-    await user.click(screen.getByRole("button", { name: /^Grille/ }));
-    expect(useDisplayStore.getState().get("projects").view).toBe("grid");
-    // la bibliothèque n’a pas bougé
-    expect(useDisplayStore.getState().get("library").view).toBe("list");
-
-    cleanup();
     open("/vault/v-eco");
     await user.click(screen.getByRole("button", { name: /^Affichage/ }));
     await user.click(screen.getByRole("button", { name: /^Grille/ }));
     expect(useDisplayStore.getState().get("vault").view).toBe("grid");
-    expect(useDisplayStore.getState().get("projects").view).toBe("grid");
+    // la bibliothèque n’a pas bougé
+    expect(useDisplayStore.getState().get("library").view).toBe("list");
   });
 
   it("trie réellement la corbeille", async () => {
@@ -863,10 +846,10 @@ describe("Engram — écrans", () => {
       await user.keyboard("n");
       expect(window.location.pathname).toBe("/");
 
-      // « g » puis « p » va aux projets
+      // « g » puis « p » va aux espaces (le seul endroit où vivent les projets)
       (document.activeElement as HTMLElement).blur();
       await user.keyboard("gp");
-      await waitFor(() => expect(window.location.pathname).toBe("/projects"));
+      await waitFor(() => expect(window.location.pathname).toBe("/spaces"));
 
       // « ? » ouvre l’aide clavier
       await user.keyboard("?");
@@ -921,24 +904,24 @@ describe("Engram — écrans", () => {
     expect(screen.queryByLabelText("Sauvegarde")).toBeNull();
   });
 
-  it("liste les coffres, en crée un et l’ouvre", async () => {
+  it("liste les vaults d’un projet, en crée un et l’ouvre", async () => {
     const user = userEvent.setup();
-    open("/vaults");
-    expect(screen.getByRole("heading", { name: "Coffres" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Ouvrir le coffre Économie" })).toBeTruthy();
+    open("/spaces/p-these");
+    expect(screen.getByRole("heading", { name: "Thèse" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ouvrir le vault Économie" })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /^Coffre$/ }));
-    await user.type(screen.getByLabelText("Nom du coffre"), "Séminaire");
+    await user.click(screen.getByRole("button", { name: /Nouveau vault/ }));
+    await user.type(screen.getByLabelText("Nom du vault"), "Séminaire");
     await user.click(screen.getByRole("button", { name: "Créer et ouvrir" }));
     await waitFor(() => expect(window.location.pathname).toMatch(/^\/vault\/v-/));
     const vaults = useContentStore.getState().vaults;
     expect(vaults.some((vault) => vault.name === "Séminaire")).toBe(true);
   });
 
-  it("crée un coffre entier depuis un modèle, en un geste", async () => {
+  it("crée un vault entier depuis un modèle, en un geste", async () => {
     const user = userEvent.setup();
-    open("/vaults");
-    await user.click(screen.getByRole("button", { name: /^Coffre$/ }));
+    open("/spaces/p-these");
+    await user.click(screen.getByRole("button", { name: /Nouveau vault/ }));
     await user.click(screen.getByRole("button", { name: /Carte conceptuelle/ }));
 
     const state = useContentStore.getState();
@@ -990,12 +973,12 @@ describe("Engram — écrans", () => {
     expect(screen.getByRole("button", { name: /JSON du graphe/ })).toBeTruthy();
   });
 
-  it("refuse de supprimer un coffre qui contient des fiches", async () => {
+  it("refuse de supprimer un vault qui contient des fiches", async () => {
     const user = userEvent.setup();
     const before = useContentStore.getState().vaults.length;
-    open("/vaults");
+    open("/spaces/p-these");
     await user.click(
-      screen.getByRole("button", { name: "Supprimer le coffre Économie" }),
+      screen.getByRole("button", { name: "Supprimer le vault Économie" }),
     );
     expect(screen.getAllByText(/ne peut pas être supprimé/).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
@@ -1005,17 +988,28 @@ describe("Engram — écrans", () => {
     expect(document.querySelector(".toast")).toBeTruthy();
   });
 
-  it("ouvre un projet sur sa page de détail", async () => {
+  it("ouvre un projet depuis Espaces, avec ses vaults et ses notes", async () => {
     const user = userEvent.setup();
-    open("/projects");
-    await user.click(screen.getByRole("button", { name: /Thèse/ }));
-    await waitFor(() => expect(window.location.pathname).toBe("/projects/p-these"));
+    open("/spaces");
+    await user.click(screen.getByRole("button", { name: "Ouvrir le projet Thèse" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/spaces/p-these"));
     expect(screen.getByRole("heading", { name: "Thèse" })).toBeTruthy();
     // les notes du projet, et seulement elles
     expect(screen.getByText("Plan du chapitre 3")).toBeTruthy();
     expect(screen.queryByText("Contrats commerciaux")).toBeNull();
-    // les coffres rattachés au projet
-    expect(screen.getByRole("button", { name: /Économie/ })).toBeTruthy();
+    // les vaults rattachés au projet
+    expect(screen.getByRole("button", { name: /Ouvrir le vault Économie/ })).toBeTruthy();
+  });
+
+  it("redirige les anciennes adresses vers Espaces", async () => {
+    open("/projects");
+    await waitFor(() => expect(window.location.pathname).toBe("/spaces"));
+    cleanup();
+    open("/vaults");
+    await waitFor(() => expect(window.location.pathname).toBe("/spaces"));
+    cleanup();
+    open("/projects/p-these");
+    await waitFor(() => expect(window.location.pathname).toBe("/spaces/p-these"));
   });
 
   it("applique un fond « verre » et une signature", async () => {

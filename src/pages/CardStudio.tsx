@@ -22,14 +22,14 @@ import { cn } from "@/lib/utils";
  * Studio des cartes — `/settings/cards`.
  *
  * Pourquoi un écran à part : une étagère qui change l’apparence de tout un
- * coffre ne se choisit pas à l’aveugle dans un menu. Ici, le style est appliqué
+ * vault ne se choisit pas à l’aveugle dans un menu. Ici, le style est appliqué
  * à **vos vraies fiches**, et le bouton écrit le réglage. Aucun aperçu
  * factice : les cartes viennent du store, et « Utiliser » a un effet vérifiable
- * la prochaine fois que vous ouvrez un coffre.
+ * la prochaine fois que vous ouvrez un vault.
  *
  * Le bloc « carte image » est le seul explicitement marqué **démonstration** :
  * il montre le style importé (carte à fond plein) tel qu’il existerait si les
- * coffres avaient des couvertures. Ce n’est pas branché sur vos données, et le
+ * vaults avaient des couvertures. Ce n’est pas branché sur vos données, et le
  * dire vaut mieux que de laisser croire que la fonction existe.
  */
 
@@ -46,7 +46,7 @@ export default function CardStudio() {
 
   const [wall, setWall] = useState(0);
 
-  /* On montre le coffre le plus fourni : c’est celui où le choix compte. */
+  /* On montre le vault le plus fourni : c’est celui où le choix compte. */
   const { vault, cards } = useMemo(() => {
     const byVault = vaults
       .map((entry) => ({
@@ -67,7 +67,7 @@ export default function CardStudio() {
 
   const apply = (view: "fan" | "relief", label: string) => {
     setVaultPrefs({ view });
-    showToast(`${label} appliqué : ouvrez un coffre pour le voir.`, "accent");
+    showToast(`${label} appliqué : ouvrez un vault pour le voir.`, "accent");
   };
 
   return (
@@ -75,18 +75,18 @@ export default function CardStudio() {
       <AppBar back onBack={() => navigate("/settings")} title="Studio des cartes" />
 
       <p className="mt-1 max-w-[62ch] text-[13.5px] leading-[20px] text-muted">
-        Les cartes de coffre peuvent se présenter de cinq façons. Voici les deux
+        Les cartes de vault peuvent se présenter de cinq façons. Voici les deux
         nouvelles, appliquées à{" "}
         <strong className="text-ink">
-          vos fiches réelles{vault ? ` du coffre ${vault.name}` : ""}
+          vos fiches réelles{vault ? ` du vault ${vault.name}` : ""}
         </strong>
-        . Rien n’est décoratif : chaque bouton écrit le réglage du coffre.
+        . Rien n’est décoratif : chaque bouton écrit le réglage du vault.
       </p>
 
       {cards.length === 0 && (
         <p className="mt-4 flex items-start gap-2 rounded-card border border-line bg-surface p-3 text-[13px] leading-[19px] text-muted">
           <Info size={16} weight="duotone" className="mt-0.5 shrink-0" />
-          Aucune fiche pour l’instant : créez-en une dans un coffre, le studio
+          Aucune fiche pour l’instant : créez-en une dans un vault, le studio
           utilisera vos propres cartes au lieu d’exemples.
         </p>
       )}
@@ -100,7 +100,7 @@ export default function CardStudio() {
         action={
           <ApplyButton
             done={vaultPrefs.view === "fan"}
-            label="Utiliser l’éventail dans mes coffres"
+            label="Utiliser l’éventail dans mes vaults"
             onClick={() => apply("fan", "Éventail")}
           />
         }
@@ -129,7 +129,7 @@ export default function CardStudio() {
         action={
           <ApplyButton
             done={vaultPrefs.view === "relief"}
-            label="Utiliser le relief dans mes coffres"
+            label="Utiliser le relief dans mes vaults"
             onClick={() => apply("relief", "Relief")}
           />
         }
@@ -159,7 +159,7 @@ export default function CardStudio() {
           <ImageCard3D
             key={wall}
             title={sample[0]?.title ?? "Une idée, une fiche"}
-            subtitle={sample[0]?.code ? `Fiche ${sample[0].code}` : "Coffre de démonstration"}
+            subtitle={sample[0]?.code ? `Fiche ${sample[0].code}` : "Vault de démonstration"}
             imageUrl={WALLS[wall]}
             actionText="Changer de fond"
             onActionClick={() => setWall((current) => (current + 1) % WALLS.length)}

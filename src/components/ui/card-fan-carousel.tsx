@@ -24,13 +24,13 @@ import { cn } from "@/lib/utils";
  * géométrie : sept positions en arc, la carte centrale droite et à l’échelle 1,
  * les voisines tournées, rétrécies et descendues. Trois changements :
  *
- * 1. **Le contenu est du React, pas une image.** Une fiche de coffre n’est pas
+ * 1. **Le contenu est du React, pas une image.** Une fiche de vault n’est pas
  *    une photo : elle a un code, un titre, un corps. Le composant d’origine ne
  *    savait afficher qu’un `imgUrl`.
  * 2. **Le glissement et le clavier sont réels.** Un carrousel qui ne se
  *    feuillette qu’à la flèche, sur un téléphone, ne donne envie de rien.
  * 3. **GSAP est chargé à la demande.** 70 ko de bibliothèque d’animation ne
- *    doivent pas peser sur quelqu’un qui n’ouvre jamais un coffre en éventail.
+ *    doivent pas peser sur quelqu’un qui n’ouvre jamais un vault en éventail.
  *    Le premier rendu est correct sans GSAP (positions en CSS), puis GSAP prend
  *    le relais pour les transitions : aucune attente visible.
  *
@@ -111,7 +111,7 @@ export function CardFan({
   );
 
   /* Ce qui reste monté : les cartes visibles, plus celles qui sortent le temps
-     de l’animation. Sur un coffre de 200 fiches, tout rendre coûterait cher. */
+     de l’animation. Sur un vault de 200 fiches, tout rendre coûterait cher. */
   useEffect(() => {
     setMounted((current) => {
       const next = new Set(current);

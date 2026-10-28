@@ -760,7 +760,9 @@ export interface ThemeTokens {
 }
 
 /** Mélange linéaire en sRGB : suffisant pour des fonds, sans dérive de teinte. */
-function mix(a: string, b: string, weight: number): string {
+const mix = mixHex;
+
+export function mixHex(a: string, b: string, weight: number): string {
   const ca = parseHex(a)!;
   const cb = parseHex(b)!;
   const t = Math.min(1, Math.max(0, weight));

@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import type { ZettelCard } from "@/types";
 
 /**
- * Une fiche de coffre réduite à sa feuille : code, titre, corps, source.
+ * Une fiche de vault réduite à sa feuille : code, titre, corps, source.
  *
  * C’est le même papier que la fiche ouverte (`.zettel-card`), sans la marge
  * d’index — elle n’a de sens que sur la fiche qu’on lit en entier. Le corps est

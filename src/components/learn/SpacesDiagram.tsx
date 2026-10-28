@@ -1,12 +1,12 @@
 /**
- * Le schéma qui explique l’app en un regard : **un projet, plusieurs coffres,
+ * Le schéma qui explique l’app en un regard : **un projet, plusieurs vaults,
  * plusieurs notes**.
  *
  * Il n’est pas décoratif. C’est la seule figure que la page Apprendre doit
  * faire passer, parce que c’est la seule erreur de rangement possible dans
- * l’app : croire qu’un coffre est un dossier d’écriture, ou qu’une note est
+ * l’app : croire qu’un vault est un dossier d’écriture, ou qu’une note est
  * déjà une fiche. Le schéma montre les deux niveaux ensemble — les notes du
- * projet (à plat) et les fiches rangées par coffre — avec leurs nombres réels,
+ * projet (à plat) et les fiches rangées par vault — avec leurs nombres réels,
  * pour que la leçon se lise sur ses propres données et non sur un exemple.
  *
  * Aucune image, aucune icône décorative : des cadres, des nombres, un trait de
@@ -32,7 +32,7 @@ export function SpacesDiagram({
       </div>
 
       <div className="mt-2 border-l border-line-strong pl-2.5">
-        {/* Niveau 1 : les notes du projet, qui n’ont pas besoin de coffre. */}
+        {/* Niveau 1 : les notes du projet, qui n’ont pas besoin de vault. */}
         <div className="flex items-center gap-1.5 rounded-field border border-line bg-surface px-2 py-1.5">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-[12.5px]">Notes du projet</span>
@@ -41,9 +41,9 @@ export function SpacesDiagram({
           </span>
         </div>
 
-        {/* Niveau 2 : les coffres, chacun avec ses fiches. */}
+        {/* Niveau 2 : les vaults, chacun avec ses fiches. */}
         <p className="mt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted">
-          Coffres · {vaults.length}
+          Vaults · {vaults.length}
         </p>
         <ul className="mt-1 flex flex-col gap-1">
           {vaults.slice(0, 3).map((vault) => (
@@ -60,7 +60,7 @@ export function SpacesDiagram({
                   {vault.cardCount} fiche{vault.cardCount > 1 ? "s" : ""}
                 </span>
               </div>
-              {/* Les fiches du coffre, suggérées : une bande, pas une liste. */}
+              {/* Les fiches du vault, suggérées : une bande, pas une liste. */}
               <div className="mt-1 flex gap-1" aria-hidden>
                 {Array.from({ length: Math.min(vault.cardCount, 6) }).map((_, index) => (
                   <span
@@ -69,14 +69,14 @@ export function SpacesDiagram({
                   />
                 ))}
                 {vault.cardCount === 0 && (
-                  <span className="text-[11px] text-muted">coffre vide — prêt pour la première fiche</span>
+                  <span className="text-[11px] text-muted">vault vide — prêt pour la première fiche</span>
                 )}
               </div>
             </li>
           ))}
           {vaults.length === 0 && (
             <li className="rounded-field border border-dashed border-line-strong px-2 py-1.5 text-[11.5px] text-muted">
-              Aucun coffre : vos notes vivent à plat dans le projet. Un coffre
+              Aucun vault : vos notes vivent à plat dans le projet. Un vault
               s’ajoute dès que deux fiches doivent se citer.
             </li>
           )}

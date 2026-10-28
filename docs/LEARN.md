@@ -7,7 +7,7 @@
 
 L'app enseignait six méthodes (outline, Cornell, carte mentale, fiche, révision,
 effort) et ne répondait jamais à la question qui vient **avant** toutes les
-autres : *où va ce que j'écris ?* Un projet, des coffres, des notes — la
+autres : *où va ce que j'écris ?* Un projet, des vaults, des notes — la
 hiérarchie existait dans le code, pas dans le parcours. Résultat : on apprenait
 Cornell, puis on cherchait un endroit pour ranger la note.
 
@@ -15,16 +15,16 @@ Décision : **Espaces est le centre**, et c'est Apprendre qui l'enseigne.
 
 ```
 Projet « Thèse »
-├── Notes du projet ................. ce qui ne demande pas de coffre
-└── Coffres
+├── Notes du projet ................. ce qui ne demande pas de vault
+└── Vaults
     ├── « Économie » ................ 8 fiches, qui se citent entre elles
     └── « Travail »   ................ 5 fiches
 ```
 
-Un projet contient des **notes** et **plusieurs coffres** ; un coffre contient
+Un projet contient des **notes** et **plusieurs vaults** ; un vault contient
 des **fiches** — des notes d'une seule idée, numérotées et reliées. Les deux
 niveaux sont montrés ensemble dans le schéma de la page, parce que l'erreur de
-rangement vient toujours de là : croire qu'un coffre est un dossier
+rangement vient toujours de là : croire qu'un vault est un dossier
 d'écriture, ou qu'une note est déjà une fiche.
 
 ## 2. Trois pistes, dans cet ordre
@@ -34,7 +34,7 @@ numéros de piste — c'est une décision de parcours, tenue par des tests.
 
 | Ordre | Piste | Contenu | Rôle |
 |---|---|---|---|
-| 1 | `track: 3` — Le socle | 5 leçons : la hiérarchie, créer un projet, ouvrir un coffre, écrire la première note, retrouver ce qu'on a écrit | *où* vit ce qu'on écrit |
+| 1 | `track: 3` — Le socle | 5 leçons : la hiérarchie, créer un projet, ouvrir un vault, écrire la première note, retrouver ce qu'on a écrit | *où* vit ce qu'on écrit |
 | 2 | `track: 1` — Tutoriels par outil | 6 leçons (outline, Cornell, carte mentale, fiche, réviser, effort) | *comment* écrire |
 | 3 | `track: 2` — Cours « Lire pour retenir » | 9 leçons de lecture (Adler, article, documentation, cours, sources) | *quoi* lire et retenir |
 
@@ -50,20 +50,21 @@ Une pratique qui n'ouvre rien est un conseil. Chaque étape peut donc porter un
 practice?: { title; text; noteId?; href?; hrefLabel? }
 ```
 
-Les `href` du socle mènent à `/spaces`, `/projects?new=1`, `/vaults?new=1`,
-`/new`, `/review`. Un test vérifie qu'aucun `href` ne pointe vers une page
+Les `href` du socle mènent à `/spaces`, `/spaces?new=1`, `/new`, `/review` —
+jamais à une page supprimée (`/projects*` et `/vaults` ne sont plus que des
+redirections). Un test vérifie qu'aucun `href` ne pointe vers une page
 inexistante et que chaque bouton a un libellé.
 
 Réciproquement, la page **Espaces** renvoie vers la leçon du socle
-(« Apprendre en 3 minutes : un projet, des coffres, des notes » → `/learn/x-1`) :
+(« Apprendre en 3 minutes : un projet, des vaults, des notes » → `/learn/x-1`) :
 le schéma d'Espaces est un aide-mémoire, la leçon est le cours.
 
 ## 4. Premier lancement
 
 Quand aucune leçon n'a été commencée, le bloc du haut passe en « Commencez
 ici » et son bouton mène directement à la leçon 1 du socle. Le schéma, lui,
-est calculé sur **les données réelles** (projet qui porte le plus de coffres,
-nombres de notes et de fiches) : il reste vrai après le deuxième coffre, ce
+est calculé sur **les données réelles** (projet qui porte le plus de vaults,
+nombres de notes et de fiches) : il reste vrai après le deuxième vault, ce
 qu'un exemple figé ne ferait pas.
 
 ## 5. Vérification

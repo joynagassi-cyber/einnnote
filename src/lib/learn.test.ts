@@ -32,12 +32,12 @@ describe("parcours", () => {
     expect(lessonsOf(3)[0].id).toBe(HUB_LESSON);
   });
 
-  it("ouvre sur la hiérarchie projet → coffre → note", () => {
+  it("ouvre sur la hiérarchie projet → vault → note", () => {
     const hub = seedLessons.find((lesson) => lesson.id === HUB_LESSON);
     expect(hub).toBeDefined();
     const text = [hub!.title, hub!.subtitle, ...hub!.steps.map((step) => step.body)].join(" ");
     expect(text).toMatch(/projet/i);
-    expect(text).toMatch(/coffre/i);
+    expect(text).toMatch(/vault/i);
     expect(text).toMatch(/note/i);
     // le premier geste de la leçon mène aux espaces, pas à un texte
     expect(hub!.steps[0].practice?.href).toBe("/spaces");

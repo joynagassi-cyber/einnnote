@@ -33,15 +33,15 @@ Vérification : `src/lib/scheduler.test.ts` (9 tests) — ordre des intervalles,
 croissance, échec, effet de la rétention, déterminisme, conversion des anciennes
 cartes, format des libellés, heure du rappel.
 
-### 2.2 Portées : projet, coffre, note
+### 2.2 Portées : projet, vault, note
 
 La séance se choisit (`/review`), elle ne s’impose plus.
 
 | Portée | Ce qu’elle contient |
 |---|---|
 | **Tout** | questions dues + fiches déjà travaillées |
-| **Projet** | questions de ses notes + fiches de ses coffres |
-| **Coffre** | ses fiches (y compris neuves) + questions des notes rattachées |
+| **Projet** | questions de ses notes + fiches de ses vaults |
+| **Vault** | ses fiches (y compris neuves) + questions des notes rattachées |
 | **Note** | ses questions, une par carte |
 
 Deux natures de cartes se révisent dans la même file :
@@ -50,7 +50,7 @@ Deux natures de cartes se révisent dans la même file :
 - **fiche** : recto = titre numéroté, verso = corps + source + renvois.
 
 Une fiche neuve n’entre jamais par surprise dans « Tout » : elle entre par son
-coffre. C’est ce qui garde le badge du rail (12) égal au compteur de la page.
+vault. C’est ce qui garde le badge du rail (12) égal au compteur de la page.
 
 Vérification : `src/lib/review.test.ts` (8 tests) — filtrage par portée, fiches
 neuves exclues de « Tout », plafonds quotidiens, comptage du jour.

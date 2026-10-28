@@ -117,7 +117,8 @@ describe("availableItems", () => {
   it("liste ce qui n’est pas encore affiché", () => {
     const hidden = availableItems(DEFAULT_NAV.mobile).map((item) => item.id);
     expect(hidden).not.toContain("notes");
-    expect(hidden).toContain("projects");
+    // le catalogue est entièrement dans la barre par défaut : rien de masqué
+    expect(hidden).toEqual([]);
   });
 });
 
@@ -128,13 +129,13 @@ describe("splitMobile", () => {
   });
 
   it("parque le surplus au lieu de le faire déborder", () => {
-    const many: NavId[] = ["notes", "spaces", "review", "learn", "projects", "vaults", "cards"];
+    /* Le catalogue actuel tient exactement dans la barre. La règle de
+       débordement reste testée pour le jour où une page s’ajoute : une entrée
+       de plus et la dernière passe derrière « ··· », jamais hors écran. */
+    const many: NavId[] = [...DEFAULT_NAV.mobile, "learn"];
     const { bar, overflow } = splitMobile(many);
-    // quatre dans la barre (la cinquième place est occupée par « Plus »)
     expect(bar).toHaveLength(MOBILE_SLOTS - 1);
-    expect(overflow).toEqual(["projects", "vaults", "cards"]);
-    // rien ne se perd : la barre + le débordement = la liste complète
-    expect([...bar, ...overflow]).toEqual(many);
+    expect(overflow).toEqual(["settings", "learn"]);
   });
 });
 
@@ -154,9 +155,11 @@ describe("catalogue", () => {
   it("ne renvoie que des adresses réelles", () => {
     const paths = NAV_CATALOG.map((entry) => entry.to);
     expect(paths).toContain("/spaces");
-    expect(paths).toContain("/vaults");
     // une entrée sans adresse ne doit pas apparaître dans une barre
     expect(paths.every((path) => path.startsWith("/"))).toBe(true);
+    // plus de page « Projets » ni « Coffres » : une seule hiérarchie
+    expect(paths).not.toContain("/projects");
+    expect(paths).not.toContain("/vaults");
   });
 });
 
@@ -165,15 +168,13 @@ describe("catalogue", () => {
  * propose d’y masquer des pages que s’il y a un arbitrage à faire.
  */
 describe("choix des pages, surface par surface", () => {
-  it("propose de choisir sur téléphone, pas sur bureau", () => {
-    expect(needsPicker("mobile")).toBe(true);
+  it("ne force aucun choix tant que tout tient", () => {
+    /* 5 pages, 5 places sur téléphone, 12 dans le rail : il n’y a rien à
+       masquer, donc rien à cocher. La règle s’inverse d’elle-même le jour où
+       le catalogue dépasse la place. */
+    expect(needsPicker("mobile")).toBe(false);
     expect(needsPicker("desktop")).toBe(false);
-  });
-
-  it("la règle suit la place, pas les appareils", () => {
-    // 8 pages dans 5 places → choix ; 8 pages dans 12 places → aucun choix
-    expect(NAV_CATALOG.length).toBeGreaterThan(SURFACE_SLOTS.mobile);
-    expect(NAV_CATALOG.length).toBeLessThanOrEqual(SURFACE_SLOTS.desktop);
+    expect(NAV_CATALOG.length).toBeLessThanOrEqual(SURFACE_SLOTS.mobile);
   });
 
   it("complète la liste d’une surface sans choix, sans rien perdre", () => {

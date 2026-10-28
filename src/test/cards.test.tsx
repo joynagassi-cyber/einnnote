@@ -7,7 +7,7 @@ import { useContentStore } from "@/stores/useContentStore";
 import { useDisplayStore } from "@/stores/useDisplayStore";
 
 /**
- * Les nouveaux modes d’affichage du coffre, et le studio.
+ * Les nouveaux modes d’affichage du vault, et le studio.
  *
  * On vérifie ce qui se voit et ce qui se règle : le mode s’affiche, le menu le
  * propose, et « Utiliser » écrit réellement la préférence. Le rendu 3D
@@ -63,7 +63,7 @@ beforeEach(() => {
 const vaultCards = () =>
   useContentStore.getState().zettel.filter((card) => card.vaultId === "v-eco");
 
-describe("Éventail du coffre", () => {
+describe("Éventail du vault", () => {
   it("s’ouvre en mode éventail, avec ses commandes", async () => {
     useDisplayStore.getState().set("vault", { view: "fan" });
     open("/vault/v-eco");
@@ -172,7 +172,7 @@ describe("Studio des cartes", () => {
     expect(screen.getAllByText(cards[0].title).length).toBeGreaterThan(0);
 
     await user.click(
-      screen.getByRole("button", { name: /Utiliser l’éventail dans mes coffres/ }),
+      screen.getByRole("button", { name: /Utiliser l’éventail dans mes vaults/ }),
     );
 
     await waitFor(() =>
@@ -209,7 +209,7 @@ describe("Carte de révision", () => {
  * défilant — et on relit la feuille de style pour que la règle ne se perde pas
  * dans une retouche.
  */
-describe("Fiche de coffre, une seule implémentation", () => {
+describe("Fiche de vault, une seule implémentation", () => {
   it("la pile du téléphone borne le cadre et fait défiler le corps seul", async () => {
     useDisplayStore.getState().set("vault", { view: "stack" });
     open("/vault/v-eco");

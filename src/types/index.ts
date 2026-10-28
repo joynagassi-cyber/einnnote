@@ -55,7 +55,7 @@ export interface Note {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
-  /** identifiants liés (mindmap / coffre) */
+  /** identifiants liés (mindmap / vault) */
   mindmapId?: string;
   vaultId?: string;
 }
@@ -77,7 +77,7 @@ export interface QuestionLink {
 
 /**
  * État de planification partagé par les cartes de question (Cornell) et les
- * fiches de coffre. Les champs `state`, `scheduledDays`, `elapsedDays` et
+ * fiches de vault. Les champs `state`, `scheduledDays`, `elapsedDays` et
  * `learningSteps` viennent de FSRS (`ts-fsrs`) ; ils sont optionnels pour
  * rester compatible avec les sauvegardes antérieures, converties à la volée.
  */
@@ -130,7 +130,7 @@ export interface ZettelCard {
   refs: string[];
   createdAt: string;
   updatedAt: string;
-  /** Une fiche de coffre se révise aussi : titre au recto, corps au verso. */
+  /** Une fiche de vault se révise aussi : titre au recto, corps au verso. */
   schedule?: Schedulable;
 }
 
@@ -178,7 +178,7 @@ export interface LessonStep {
 export interface Lesson {
   id: string;
   /**
-   * 3 = le socle (projet → coffre → note, où vit quoi), 1 = tutoriels par
+   * 3 = le socle (projet → vault → note, où vit quoi), 1 = tutoriels par
    * outil, 2 = cours « Lire pour retenir ». L’ordre d’affichage est celui de
    * `TRACKS` dans `src/lib/learn.ts`, pas celui des nombres.
    */

@@ -85,7 +85,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 | Embeddings `![[…]]` | notes, images, blocs, PDF | ⛔ | — |
 | HTML brut | autorisé, limité | ✋ sandboxé (`sanitizeHtml`) | Choix de sécurité assumé. |
 | Propriétés (frontmatter) | YAML typé, 7 types de champs, vue Properties, Bulk edit | 🟡 champs maison (`collection`, `status`, `projectId`, `tags` sur cartes) | Pas d’éditeur de propriétés libre. |
-| Tags | `#tag`, `#a/b` hiérarchiques | 🟡 tags de coffre seulement | Pas de tag inline dans une note. |
+| Tags | `#tag`, `#a/b` hiérarchiques | 🟡 tags de vault seulement | Pas de tag inline dans une note. |
 
 ## 4. Références, liens, circulation
 
@@ -96,7 +96,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 | Liens retour | panneau Backlinks | ⛔ | Sans lien interne, pas de backlink. |
 | Ancres / titres | `[[Note#Section]]` | 🟡 l’ancrage existe, mais par `blockId` (questions), pas par l’auteur | L’ancrage machine est meilleur que l’ancrage texte ; il reste invisible à l’auteur. |
 | Blocs référencés | `^bloc-id` | ✅ `data-block-id` sur chaque bloc | **Au-dessus d’Obsidian** pour l’usage révision. |
-| Graphe | vue Graph globale | 🟡 graphe du coffre uniquement (`ZettelGraph`) | Pas de graphe du carnet entier. |
+| Graphe | vue Graph globale | 🟡 graphe du vault uniquement (`ZettelGraph`) | Pas de graphe du carnet entier. |
 | Recherche plein texte | recherche + liens | 🟡 recherche bibliothèque (titre + contenu filtré), pas de recherche « dans la note » | — |
 
 ## 5. Édition et gestes
@@ -109,7 +109,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 | Supprimer la ligne | `Ctrl+Shift+K` | ⛔ | — |
 | Déplacement par mot | `Ctrl+←/→` | ✅ natif contenteditable | — |
 | Sélection multiple / curseurs | `Alt+clic`, sélection rectangulaire `Shift+Alt` | ⛔ | Puissant, mais rare chez un étudiant. |
-| Rechercher / remplacer | dans la note + dans tout le coffre | ⛔ dans la note | **Manque gênant** dès qu’une note dépasse 2 écrans. |
+| Rechercher / remplacer | dans la note + dans tout le vault | ⛔ dans la note | **Manque gênant** dès qu’une note dépasse 2 écrans. |
 | Pliage | replier titres et listes, « Fold all » | ⛔ | — |
 | Palette de commandes | tout, avec raccourcis modifiables | ⛔ (le menu « / » couvre 6 insertions) | — |
 | Raccourcis personnalisables | fichiers `hotkeys.json` | 🟡 actions fixes (`Mod-Shift-7/8/9`, `Tab`) | — |
@@ -127,7 +127,7 @@ téléphone un menu **Display** qui regroupe Results / Sort / Group / Properties
 | Élément de Bases | Engram aujourd’hui |
 |---|---|
 | Vue unique par surface | ✅ préférences par surface (`engram.display.v1`) |
-| Mises en page table / cards / list / kanban / map | 🟡 grille, liste, pile (coffre) |
+| Mises en page table / cards / list / kanban / map | 🟡 grille, liste, pile (vault) |
 | Tri | ✅ principal + secondaire |
 | Regroupement | ✅ un niveau, ordre de groupes dérivé |
 | Filtres (et/ou/non, groupes) | 🟡 facettes bibliothèque (méthode, projet, révision) |
@@ -153,7 +153,7 @@ absolu. Effort : S ≤ ½ j, M ≈ 1–2 j, L ≥ 3 j.
 | 3 | **Images / captures** | Coller la photo d’un schéma est le geste n°1 après la frappe | M | À faire (stockage local, quota) |
 | 4 | **Rechercher / remplacer dans la note** | Bloque la correction d’une note longue | S | À faire |
 | 5 | **Callouts (3 types)** | Structure visuelle sans invention graphique : `note`, `warning`, `example` | S | À faire |
-| 6 | **Lien interne entre notes** | Crée le tissu que le Zettelkasten promet ; sans lui, les coffres sont des îlots | L | À discuter : c’est un changement de modèle (graphe de notes), pas un ajout |
+| 6 | **Lien interne entre notes** | Crée le tissu que le Zettelkasten promet ; sans lui, les vaults sont des îlots | L | À discuter : c’est un changement de modèle (graphe de notes), pas un ajout |
 | 7 | **LaTeX en ligne** | Débloque éco/sciences : c’est un choix de marché | M | Dépend du public visé |
 | 8 | **Pliage des titres** | Lisibilité des notes longues, gratuit en perception | S | Plus tard |
 | 9 | **Propriétés visibles/éditables** | Rend l’organisation explicite au lieu de déduite | M | Plus tard |

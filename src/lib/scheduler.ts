@@ -236,7 +236,7 @@ export function reminderDue(
   return now.getTime() >= target.getTime();
 }
 
-/** État FSRS d’une carte neuve, pour les fiches de coffre créées sans planification. */
+/** État FSRS d’une carte neuve, pour les fiches de vault créées sans planification. */
 export function freshSchedule(now = new Date()): Schedulable {
   const card = createEmptyCard(now);
   return {

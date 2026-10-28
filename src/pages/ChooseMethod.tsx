@@ -63,7 +63,7 @@ export default function ChooseMethod() {
             : "Note sans titre",
     });
     setMethod(null);
-    if (target === "zettelkasten") toast("Coffre ouvert : ajoutez une carte", "accent");
+    if (target === "zettelkasten") toast("Vault ouvert : ajoutez une carte", "accent");
     openWith(note);
   };
 

@@ -8,7 +8,7 @@ const project = (id: string, name: string): Project => ({
   createdAt: "2026-01-01T00:00:00.000Z",
 });
 
-describe("coffres", () => {
+describe("vaults", () => {
   beforeEach(() => {
     useContentStore.setState({
       projects: [project("p-a", "Alpha"), project("p-b", "Bêta")],
@@ -21,19 +21,19 @@ describe("coffres", () => {
     });
   });
 
-  it("crée un coffre nommé et le rattache au bon projet", () => {
+  it("crée un vault nommé et le rattache au bon projet", () => {
     const vault = useContentStore.getState().createVault({ name: "  Économie ", projectId: "p-a" });
     expect(vault.name).toBe("Économie");
     expect(vault.projectId).toBe("p-a");
     expect(useContentStore.getState().vaults).toHaveLength(1);
   });
 
-  it("nomme un coffre sans nom au lieu de le laisser vide", () => {
+  it("nomme un vault sans nom au lieu de le laisser vide", () => {
     const vault = useContentStore.getState().createVault({ name: "   ", projectId: "p-a" });
-    expect(vault.name).toBe("Nouveau coffre");
+    expect(vault.name).toBe("Nouveau vault");
   });
 
-  it("renomme un coffre sans écraser son nom par du vide", () => {
+  it("renomme un vault sans écraser son nom par du vide", () => {
     const vault = useContentStore.getState().createVault({ name: "Économie", projectId: "p-a" });
     const store = useContentStore.getState();
     store.renameVault(vault.id, { name: "   " });
@@ -43,7 +43,7 @@ describe("coffres", () => {
     expect(after.note).toBe("Monétarisme");
   });
 
-  it("refuse de supprimer un coffre qui contient des fiches", () => {
+  it("refuse de supprimer un vault qui contient des fiches", () => {
     const vault = useContentStore.getState().createVault({ name: "Économie", projectId: "p-a" });
     useContentStore.setState({
       zettel: [
@@ -66,7 +66,7 @@ describe("coffres", () => {
     expect(useContentStore.getState().vaults).toHaveLength(1);
   });
 
-  it("supprime un coffre vide et ne laisse pas de note orpheline", () => {
+  it("supprime un vault vide et ne laisse pas de note orpheline", () => {
     const vault = useContentStore.getState().createVault({ name: "Vide", projectId: "p-a" });
     const note = useContentStore.getState().createNote("cornell", { projectId: "p-a" });
     useContentStore.setState((state) => ({
@@ -78,7 +78,7 @@ describe("coffres", () => {
     expect(state.notes.find((n) => n.id === note.id)?.vaultId).toBeUndefined();
   });
 
-  it("place une fiche zettelkasten dans un coffre du projet actif", () => {
+  it("place une fiche zettelkasten dans un vault du projet actif", () => {
     const own = useContentStore.getState().createVault({ name: "Autre projet", projectId: "p-b" });
     const note = useContentStore.getState().createNote("zettelkasten", { projectId: "p-a" });
     const state = useContentStore.getState();
@@ -87,21 +87,21 @@ describe("coffres", () => {
     expect(target!.projectId).toBe("p-a");
     expect(note.vaultId).not.toBe(own.id);
 
-    // une deuxième fiche ne crée pas un second coffre pour le même projet
+    // une deuxième fiche ne crée pas un second vault pour le même projet
     const second = useContentStore.getState().createNote("zettelkasten", { projectId: "p-a" });
     expect(second.vaultId).toBe(note.vaultId);
     expect(useContentStore.getState().vaults).toHaveLength(2);
   });
 
-  it("crée un coffre nommé d’après le projet quand il n’en existe aucun", () => {
+  it("crée un vault nommé d’après le projet quand il n’en existe aucun", () => {
     const note = useContentStore.getState().createNote("zettelkasten", { projectId: "p-b" });
     const state = useContentStore.getState();
     expect(state.vaults).toHaveLength(1);
-    expect(state.vaults[0].name).toBe("Coffre Bêta");
+    expect(state.vaults[0].name).toBe("Vault Bêta");
     expect(note.vaultId).toBe(state.vaults[0].id);
   });
 
-  it("garde les fiches zettelkasten hors du projet dans leur propre coffre", () => {
+  it("garde les fiches zettelkasten hors du projet dans leur propre vault", () => {
     const note = useContentStore.getState().createNote("zettelkasten", { projectId: "p-a" });
     const state = useContentStore.getState();
     const vault = state.vaults.find((v) => v.id === note.vaultId)!;

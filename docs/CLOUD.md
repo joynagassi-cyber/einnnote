@@ -86,7 +86,7 @@ API client, cinq fonctions `security definer` dans `public` (`push_entities`,
 - `security definer` + `search_path` figé + `revoke all from public`.
 
 Collections synchronisées : projets, notes, questions, liaisons, cartes,
-journal de révision, coffres, zettelkasten, canevas, progression.
+journal de révision, vaults, zettelkasten, canevas, progression.
 
 **Non synchronisé, volontairement** : apparence, densité, réglages de révision,
 thème. Ce sont des préférences d’appareil — un téléphone et un écran large n’ont

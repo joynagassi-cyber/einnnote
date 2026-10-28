@@ -18,7 +18,7 @@ const note = (id: string, projectId?: string): Note => ({
 const vault = (id: string, projectId?: string): ZettelVault => ({
   id,
   projectId,
-  name: `Coffre ${id}`,
+  name: `Vault ${id}`,
   note: "",
 });
 
@@ -49,7 +49,7 @@ describe("projets", () => {
     expect(created.projectId).toBe("p-a");
   });
 
-  it("rattache un coffre Zettelkasten au projet de la note", () => {
+  it("rattache un vault Zettelkasten au projet de la note", () => {
     const created = useContentStore.getState().createNote("zettelkasten", {
       projectId: "p-a",
     });
@@ -91,7 +91,7 @@ describe("projets", () => {
 });
 
 describe("migration de contenu v1 → v2", () => {
-  it("rattache les notes et les coffres au projet par défaut", () => {
+  it("rattache les notes et les vaults au projet par défaut", () => {
     const migrated = migrateContentData(
       { notes: [note("n1")], vaults: [vault("v1")] },
       1,

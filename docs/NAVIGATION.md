@@ -4,22 +4,18 @@
 
 ---
 
-## 1. Le défaut réparé
+## 1. Les défauts réparés
 
-Trois listes écrites à trois endroits :
+Trois choses cassées, toutes de structure :
 
-| Endroit | Contenu |
-|---|---|
-| `BottomNav` (téléphone) | Notes · Réviser · **+** · Apprendre · Réglages |
-| `DesktopRail` (bureau) | Projets · Espaces · Réviser · Apprendre, puis un bloc Réglages |
-| — | rien pour `Espaces`, `Projets`, `Coffres`, `Studio des cartes` sur téléphone |
+| Défaut | Constat | Correction |
+|---|---|---|
+| **Trois pages pour une hiérarchie** | `Espaces`, `Projets` et `Vaults` décrivaient le même objet à trois endroits ; sur téléphone, aucune des trois n'était dans la barre | une seule page **Espaces** (`/spaces`), supprimée des autres ; `/projects*` et `/vaults` **redirigent** |
+| **Un « + » dans la barre** | il restait affiché sur des pages où il ne créait rien de juste, et créait toujours une note | il devient un **bouton flottant** contextuel, absent là où il n'y a rien à créer |
+| **Le mot « vault »** | vocabulaire du code, pas celui du produit | **« vault »** partout, interface et documentation |
 
-Résultat concret : **la page « Espaces » — celle qui explique qu'un projet range,
-qu'un coffre relie, et où créer l'un puis l'autre — n'existait pas sur
-téléphone.** Le parcours projet → coffre → note était donc praticable sur
-ordinateur et pas dans la poche. Ce n'était pas un oubli d'affichage : deux
-listes qui divergent font disparaître une fonction d'un appareil sans que
-personne ne l'ait décidé.
+Et le mot « Studio des cartes » a quitté la navigation : c'est un **réglage**
+d'affichage, il se règle dans `/settings/cards`, pas dans une page.
 
 ## 2. Le modèle
 
@@ -30,9 +26,9 @@ Un catalogue (`src/lib/navigation.ts`), deux listes de préférences
 NAV_CATALOG            identifiant, adresse, libellé, libellé court, description, icône
       │
       ├── DEFAULT_NAV.mobile   5 entrées  (Notes, Espaces, Réviser, Apprendre, Réglages)
-      └── DEFAULT_NAV.desktop  7 entrées  (+ Projets, Coffres, Studio des cartes)
+      └── DEFAULT_NAV.desktop  4 entrées  (+ Réglages en pied de rail, à place fixe)
                 │
-                ├── BottomNav  → splitMobile() : 5 places, le reste derrière « Plus »
+                ├── BottomNav   → splitMobile() : 5 places, le reste derrière « ··· »
                 └── DesktopRail → ordre libre, réorganisation en place
 ```
 
@@ -43,17 +39,23 @@ plus petit — appauvrir le bureau, ou déborder le téléphone.
 **Ce qui ne bouge jamais** : le bouton « + » (créer), la liste des projets dans
 le rail, le bloc de révision du jour. Ce sont des gestes, pas des pages.
 
-## 3. Téléphone — cinq places, et un parking
+## 3. Téléphone — cinq places, et un menu qui monte
 
-Cinq entrées maximum dans la barre. Au-delà, les suivantes **ne débordent pas
-hors de l'écran** : elles passent derrière un bouton « Plus » qui ouvre une
-feuille nommée (« Toutes les pages »), avec la description de chaque page et un
-raccourci vers les réglages.
+Cinq entrées maximum dans la barre. Au-delà, les suivantes ne débordent pas
+hors de l'écran : elles passent derrière un bouton **« ··· »** qui ouvre un
+**menu vers le haut**, ancré au bouton — une ligne par page, avec son icône,
+la page courante marquée.
 
-Pourquoi ce plafond : à 390 px, cinq entrées plus le bouton central occupent
+| Choix | Pourquoi |
+|---|---|
+| Menu qui monte, pas feuille du bas | la feuille recouvrait la page et demandait un geste de fermeture ; le menu laisse la page visible et se ferme en touchant ailleurs ou avec `Échap` |
+| Icônes, pas seulement des mots | on reconnaît `◷` et `✦` avant de lire « Réviser » / « Apprendre » |
+| Aucun voile | rien à charger, rien à rendre flou : trois à huit lignes |
+
+Pourquoi cinq places : à 390 px, cinq entrées plus le bouton central occupent
 déjà 374 px. Une sixième obligerait soit à rétrécir les libellés jusqu'à
-l'illisible, soit à faire défiler une barre de navigation — deux choses qu'on
-ne fait pas à un pouce.
+l'illisible, soit à faire défiler une barre de navigation — deux choses qu'on ne
+fait pas à un pouce.
 
 ## 4. Bureau — réorganiser d'un clic
 
@@ -87,30 +89,52 @@ d'essai cassait la navigation d'une autre machine. C'est supprimé.
 Le jour où le catalogue dépassera la place du rail, le choix réapparaît de
 lui-même — la règle est dans `src/lib/navigation.ts`, pas dans l'écran.
 
-## 5. Créer, dans l'ordre (page Espaces)
+## 5. La page Espaces — une hiérarchie, trois gestes
 
-La page porte désormais un bloc **« Créer, dans l'ordre »** à trois étapes :
+`/spaces` liste les **projets** ; `/spaces/:id` ouvre ses **vaults** ;
+`/vault/:id` ouvre ses **fiches**. Chaque niveau crée le suivant, et rien
+d'autre :
 
-1. **Nouveau projet** → `/projects?new=1`, la feuille de création s'ouvre déjà ;
-2. **Nouveau coffre** → `/vaults?new=1&project=<id>`, le projet est présélectionné ;
-3. **Nouvelle note** → `/new`, dans le projet actif.
+| Adresse | Ce qu'on voit | Le bouton flottant crée |
+|---|---|---|
+| `/spaces` | les projets | **Nouveau projet** |
+| `/spaces/:id` | les vaults du projet | **Nouveau vault** |
+| `/vault/:id` | les fiches du vault | **Nouvelle fiche** |
+| `/` , `/learn` | la bibliothèque, les leçons | **Nouvelle note** — libre : ni projet ni vault |
+| réglages, graphes, révision | — | rien : le bouton disparaît |
 
-Et sur chaque projet : « Nouveau coffre », « Nouvelle note » — nommés avec le
-nom du projet pour les lecteurs d'écran (« Nouveau coffre dans Droit civil »),
-puisque plusieurs boutons identiques à l'écran ne doivent pas porter le même nom
-accessible.
+La note libre n'est pas une note « en attente » : elle vit très bien seule. On
+peut la **rattacher plus tard** à un projet ou à un vault depuis sa fiche. Le
+parcours inverse (projet → vault → note) reste le chemin d'apprentissage, mais
+il n'est plus un péage.
+
+Deux graphes, deux échelles : **graphe de projet** (`/spaces/:id/graph`, les
+vaults comme nœuds) et **graphe de vault** (`/vault/:id/graph`, les fiches).
+
+**Un seul bouton par page.** Deux boutons pour un même geste — une barre qui
+pointe, un autre bouton dans le contenu — ont été retirés : la page indique
+l'adresse, le bouton flottant fait le geste.
 
 ## 6. Vérification
 
 | Contrôle | Résultat |
 |---|---|
-| Suite complète | **410 tests / 36 fichiers**, verts |
-| Catalogue et manipulations de liste | 26 tests purs (doublons, ids inconnus, plafond de 5, répartition barre/débordement, `placeBefore` sans perte) |
-| Écrans | 16 tests : Espaces dans la barre, page masquée réellement retirée, parking « Plus », parcours de création avec projet présélectionné, réorganisation du rail au clic **et** à la flèche, persistance dans `localStorage`, « retirer la dernière » refusé |
-| `tsc` / `eslint` | propres (0 erreur) |
-| `vite build` | 3,4 s |
-| Routes HTTP | `/spaces`, `/projects`, `/vaults`, `/settings/navigation` → 200 |
+| Suite complète | **440 tests / 39 fichiers**, verts |
+| Catalogue et manipulations de liste | 28 tests purs (doublons, ids inconnus, plafond de 5, répartition barre/débordement, `placeBefore` sans perte, règle de place `needsPicker`, `fillItems`) |
+| Bouton flottant | 6 tests purs : une action par page, **jamais deux cibles identiques sur une page**, rien sur les graphes et la révision |
+| Graphe de projet | 6 tests purs : arêtes vault → vault seulement, renvois internes et liens morts ignorés, vault isolé rejeté sur un anneau plus large |
+| Écrans | barre sans « + », menu « ··· » qui s'ouvre vers le haut, Espaces → projet → vaults, graphe de projet comme de vault, FAB qui change d'action et crée là où il pointe |
+| `tsc` / `eslint` | propres (0 erreur ; 2 avertissements `react-refresh` préexistants) |
+| `vite build` | 3,6 s |
+| Routes HTTP | `/spaces` et `/settings/personalization` → 200 |
 
 **Non vérifié :** aucune capture d'écran (Chromium indisponible ici) — la
-largeur réelle des cinq entrées sur un écran de 390 px, et le confort du bouton
-« Plus » au pouce, demandent un vrai téléphone.
+largeur réelle des cinq entrées sur un écran de 390 px, et le confort du menu
+« ··· » au pouce, demandent un vrai téléphone.
+
+## 7. Voir aussi
+
+- **`docs/PRESENTATION.md`** — l'écran « Présentation » : les réglages viennent
+  d'un registre unique, et les jetons sont calculés en JavaScript (c'est là
+  qu'était le bug des réglages sans effet).
+- **`docs/WIREFRAME-SPACES.md`** — la maquette écrite avant ce code.

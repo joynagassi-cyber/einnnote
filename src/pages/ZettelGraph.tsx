@@ -79,17 +79,17 @@ const BACKGROUNDS: Record<string, BackgroundVariant | null> = {
 };
 
 /**
- * Le graphe d’un coffre Zettelkasten.
+ * Le graphe d’un vault Zettelkasten.
  *
  * Décision de conception : **la vue par défaut est un arbre**, pas une pelote.
- * Un coffre de 13 fiches citées dans tous les sens produit un graphe illisible
+ * Un vault de 13 fiches citées dans tous les sens produit un graphe illisible
  * si on dessine tous les liens à plat ; un arbre (BFS depuis la fiche la plus
  * citée) montre la structure, et les liens hors arbre restent visibles en
  * « renvois » plus fins. C’est la distinction structure / références croisées
  * que pratiquent les vrais outils Zettelkasten.
  *
  * La présentation (disposition + forme des liens) vient de `GRAPH_STYLES` ;
- * le choix est mémorisé dans les réglages, donc chaque coffre s’ouvre avec le
+ * le choix est mémorisé dans les réglages, donc chaque vault s’ouvre avec le
  * style préféré, et le style par défaut de l’application est « Arbre binaire ».
  */
 export default function ZettelGraph() {
@@ -183,8 +183,8 @@ export default function ZettelGraph() {
         <AppBar back title="" />
         <EmptyState
           icon={Graph}
-          title="Coffre introuvable"
-          description="Ce coffre n’existe plus."
+          title="Vault introuvable"
+          description="Ce vault n’existe plus."
         />
       </Screen>
     );
@@ -193,11 +193,11 @@ export default function ZettelGraph() {
   if (!cards.length) {
     return (
       <Screen className="px-5">
-        <AppBar back onBack={() => navigate(`/vault/${id}`)} title={`Coffre · ${vault.name}`} />
+        <AppBar back onBack={() => navigate(`/vault/${id}`)} title={`Vault · ${vault.name}`} />
         <EmptyState
           icon={Graph}
           title="Pas encore de réseau"
-          description="Les fiches d’un coffre apparaissent ici dès la première carte créée."
+          description="Les fiches d’un vault apparaissent ici dès la première carte créée."
           action={
             <button className="btn-primary" onClick={() => navigate(`/vault/${id}/new`)}>
               Créer une fiche
@@ -330,7 +330,7 @@ export default function ZettelGraph() {
           onNodeClick={(_, node) => {
             const code = (node.data as FicheData).code;
             /* En vue « autour », toucher une carte en fait la nouvelle racine :
-               on descend dans le coffre sans jamais dézoomer. */
+               on descend dans le vault sans jamais dézoomer. */
             if (mobileFocus && code !== view.rootCode) {
               setRootCode(code);
               setEpoch((value) => value + 1);
@@ -339,7 +339,7 @@ export default function ZettelGraph() {
             navigate(`/vault/${id}?card=${encodeURIComponent(code)}`);
           }}
           proOptions={{ hideAttribution: true }}
-          aria-label={`Graphe du coffre ${vault.name} — ${cards.length} fiches, racine ${graph.rootCode}, style ${style.label}`}
+          aria-label={`Graphe du vault ${vault.name} — ${cards.length} fiches, racine ${graph.rootCode}, style ${style.label}`}
           className="[&_.react-flow__pane]:cursor-default"
         >
           <FitToView signal={`${signature}-${layout.positions.length}`} />
@@ -442,7 +442,7 @@ export default function ZettelGraph() {
           display={display}
           onDisplay={(patch) => setGraphDisplay(patch)}
           onImport={(document) => {
-            /* Un fichier validé devient un coffre neuf : on crée les fiches,
+            /* Un fichier validé devient un vault neuf : on crée les fiches,
                puis on leur rend leur code d’origine (le magasin en attribue un
                autre à la création). Aucune fiche existante n’est touchée. */
             const created = createVault({
@@ -466,7 +466,7 @@ export default function ZettelGraph() {
         />
       </Sheet>
 
-      {/* Racine : voir le coffre depuis une autre fiche */}
+      {/* Racine : voir le vault depuis une autre fiche */}
       <Sheet
         open={rootPickOpen}
         onClose={() => setRootPickOpen(false)}
@@ -474,7 +474,7 @@ export default function ZettelGraph() {
       >
         <p className="mb-2 text-[13.5px] leading-[20px] text-muted">
           L’arbre part de la fiche la plus citée. Choisissez-en une autre pour
-          relire le coffre depuis cette idée.
+          relire le vault depuis cette idée.
         </p>
         <ul className="flex flex-col gap-1.5">
           {cards.map((card) => (

@@ -2,7 +2,7 @@
 
 > Ce document répond à trois questions, dans l’ordre où elles se posent :
 > **qu’a-t-on pris dans React Flow ?** (et qu’a-t-on refusé, pourquoi),
-> **comment un style est-il construit ?**, et **comment un coffre de fiches
+> **comment un style est-il construit ?**, et **comment un vault de fiches
 > devient-il une carte lisible par défaut ?**
 >
 > Rien ici n’est décoratif : chaque affirmation renvoie à un fichier ou à un
@@ -12,7 +12,7 @@
 
 ## 1. Fil de fer de la page « Graphe »
 
-Écran d’un coffre (`/vault/:id/graph`), seuil bureau 1024 px. Le canevas prend
+Écran d’un vault (`/vault/:id/graph`), seuil bureau 1024 px. Le canevas prend
 toute la hauteur ; aucune colonne latérale, parce qu’un graphe se lit en largeur
 et qu’une colonne le rétrécirait.
 
@@ -22,7 +22,7 @@ et qu’une colonne le rétrécirait.
 │               ├────────────────────────────────────────────────────────────┤
 │ Notes         │  12 fiches · 10 liens d’arbre · 2 renvois   ─ arbre ⇢ renvoi│
 │ Projets       │                                                            │
-│ Coffres   ▪   │        ┌──────────┐            ┌──────────┐                │
+│ Vaults   ▪   │        ┌──────────┐            ┌──────────┐                │
 │ Réviser       │        │ #1A1     │            │ #1A1a    │                │
 │ Apprendre     │        └────┬─────┘            └────┬─────┘                │
 │               │             │  (arêtes flottantes)  │                      │
@@ -50,7 +50,7 @@ Choix de mise en page :
 | Bandeau d’état (fiches / liens / renvois) en haut, une ligne | on doit savoir ce qu’on regarde sans ouvrir de panneau |
 | Styles et Racine en en-tête | ce sont deux réglages *de lecture*, pas des actions de contenu |
 | `Recentrer` à gauche, `Ouvrir la fiche` à droite | l’action destructrice n’existe pas ici ; la plus fréquente est à droite sous le pouce |
-| Pas de barre latérale de fiches | la liste existe déjà dans le coffre ; dupliquer aurait doublé les noms accessibles |
+| Pas de barre latérale de fiches | la liste existe déjà dans le vault ; dupliquer aurait doublé les noms accessibles |
 
 ---
 
@@ -134,7 +134,7 @@ objets.
 
 | Style | Disposition | Liens | Fond | Ce qu’il sert |
 |---|---|---|---|---|
-| **Arbre binaire** (défaut) | racine au centre, moitiés en miroir | flottants | points | relire un coffre comme un plan |
+| **Arbre binaire** (défaut) | racine au centre, moitiés en miroir | flottants | points | relire un vault comme un plan |
 | **Carte conceptuelle** | arbre horizontal | flottants **étiquetés** | points | nommer chaque relation (voir `VISUALFLOW.md`) |
 | Souffle | arbre horizontal | flottants | points | dérouler une thèse |
 | Réseau | radial | flottants | croix | montrer un voisinage |
@@ -152,7 +152,7 @@ objets.
 
 Les quatre images ci-dessous sont **calculées par le code de production** (mêmes
 fonctions `floatingCurve`, `stepPath`, `ribbonPath`, même disposition), rendues
-en SVG puis rastérisées pour la documentation. Jeu de démonstration : le coffre
+en SVG puis rastérisées pour la documentation. Jeu de démonstration : le vault
 « Économie », 12 fiches.
 
 | Arbre binaire (défaut) | Colonnes |
@@ -176,7 +176,7 @@ une silhouette à sept nœuds, à l’échelle réduite.
 
 | Écran | Entrée | Mémorisation |
 |---|---|---|
-| Graphe d’un coffre | bouton `✦ Style` (en-tête) | `settings.graphStyle`, donc **tous** les coffres |
+| Graphe d’un vault | bouton `✦ Style` (en-tête) | `settings.graphStyle`, donc **tous** les vaults |
 | Carte mentale | bouton `✦ Style` (en-tête) ou le bouton de style du dock | `mindmap.styleId`, donc **cette carte** |
 
 Réglage par défaut du produit : `arbre-binaire`. Une application neuve ouvre
@@ -188,7 +188,7 @@ donc chaque graphe Zettelkasten en arbre lisible, sans geste.
 
 ### 4.1 Le problème
 
-Un coffre est un réseau : chaque fiche cite d’autres fiches par code
+Un vault est un réseau : chaque fiche cite d’autres fiches par code
 (`refs: ["#1A", "#1B"]`). Dessiner tous les liens à plat donne une pelote — la
 plupart des outils le font et le résultat est inutilisable à douze fiches.
 L’ancien écran contournait le problème en n’affichant que deux voisins, ce qui
@@ -202,7 +202,7 @@ perdait l’essentiel.
    code le plus petit, c’est-à-dire la première écrite. Une fiche ouverte par
    `?card=`, ou choisie dans `Voir depuis…`, prend la main.
 3. **Arbre** — parcours en largeur, voisins triés par ordre naturel des codes.
-   Résultat **déterministe** : le même coffre donne le même dessin quel que soit
+   Résultat **déterministe** : le même vault donne le même dessin quel que soit
    l’ordre de stockage.
 4. **Composantes déconnectées** — chaque paquet de fiches non atteintes est
    traité comme un arbre séparé, posé sous le premier, et marqué « hors arbre »
@@ -241,7 +241,7 @@ différentes, déplacement purement vertical, et boîtes confondues (aucun `NaN`
 `src/lib/graph/styles.test.ts` : 13 styles, 5 familles de liens, 6 dispositions,
 vignettes finies et contenues dans leur cadre.
 
-`src/test/smoke.test.tsx` : le graphe d’un coffre affiche **autant de nœuds que
+`src/test/smoke.test.tsx` : le graphe d’un vault affiche **autant de nœuds que
 de fiches** (12 dans la démo, pas 2) ; changer de style le mémorise ; changer de
 racine re-root l’arbre ; appliquer un style à une carte mentale ne change aucun
 texte.
@@ -289,7 +289,7 @@ les laissent éteintes, et l’utilisateur tranche ensuite.
 le fichier est le dessin de l’écran, à la police près. `graphToDocument` écrit un
 JSON `{ format: "engram-graphe", version: 1, … }` et `parseGraphDocument` le
 relit en refusant : JSON invalide, mauvais format, fiche sans code ni titre, code
-en double, lien vers une fiche absente. Un fichier accepté peut devenir un coffre
+en double, lien vers une fiche absente. Un fichier accepté peut devenir un vault
 entier (fiches, codes d’origine et références) depuis la même feuille.
 
 Tests : `src/lib/graph/labels.test.ts` (5) et `src/lib/graph/export.test.ts` (9).
@@ -305,8 +305,8 @@ gardé, et ce qui a été refusé.
 | Limite | Pourquoi c’est acceptable ici | Ce qu’il faudrait pour lever |
 |---|---|---|
 | Pas d’édition de liens sur le canevas | les liens viennent des fiches (`refs`), pas d’un éditeur de schéma | reprendre `EasyConnect` + `EdgeToolbar` : poignées visibles, création au glisser |
-| Positions déplacées à la main non enregistrées (graphe de coffre) | le graphe est une **vue** du coffre ; la source de vérité reste les fiches | persister un décalage par fiche, ou une position par (coffre, code) |
-| Une fiche par code dans un coffre | le code est la clé de citation entre fiches | autoriser des codes dupliqués demanderait un identifiant de lien distinct |
+| Positions déplacées à la main non enregistrées (graphe de vault) | le graphe est une **vue** du vault ; la source de vérité reste les fiches | persister un décalage par fiche, ou une position par (vault, code) |
+| Une fiche par code dans un vault | le code est la clé de citation entre fiches | autoriser des codes dupliqués demanderait un identifiant de lien distinct |
 | Pas d’animation de transition entre dispositions | le canevas se replace d’un coup et `fitView` recadre | interpolation des positions (200 ms) entre deux styles |
 | ~~Sur téléphone, un arbre large demande de paner~~ | ✅ corrigé : vue « **autour** » (fiche + voisines en une colonne, échelle ≥ 0,6) avec bascule « Tout » — voir `DESKTOP-MOBILE.md` | — |
 | La racine imposée n’est pas mémorisée | c’est une intention de lecture ponctuelle | la stocker dans les préférences de la surface |

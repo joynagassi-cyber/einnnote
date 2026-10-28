@@ -19,10 +19,10 @@ import { useContentStore } from "@/stores/useContentStore";
  * Apprendre — et rien ne s’apprend avant **où ranger ce qu’on apprend**.
  *
  * La page s’ouvre donc sur les espaces, pas sur la liste des méthodes : un
- * projet contient des notes et plusieurs coffres, un coffre contient des
+ * projet contient des notes et plusieurs vaults, un vault contient des
  * fiches. Le schéma du haut est calculé sur les données réelles — c’est le seul
  * moyen qu’un schéma d’hierarchie reste vrai le jour où l’on crée son deuxième
- * coffre.
+ * vault.
  *
  * Trois pistes, dans cet ordre : le socle, les outils, le cours de lecture.
  * L’ordre est celui de `TRACKS` (`src/lib/learn.ts`) et non l’ordre des
@@ -38,7 +38,7 @@ export default function Learn() {
 
   const doneTotal = TRACKS.reduce((sum, track) => sum + countDone(progress, track.id).done, 0);
 
-  /* Le projet montré : celui qui porte le plus de coffres, sinon le premier.
+  /* Le projet montré : celui qui porte le plus de vaults, sinon le premier.
      C’est celui dont le schéma apprend le plus. */
   const showcase = useMemo(() => {
     if (!projects.length) return null;
@@ -83,10 +83,10 @@ export default function Learn() {
           {firstVisit ? "Commencez ici" : "Le centre de tout"}
         </p>
         <h2 id="socle" className="mt-1 font-serif text-[22px] font-semibold leading-snug">
-          Un projet, des coffres, des notes
+          Un projet, des vaults, des notes
         </h2>
         <p className="mt-1 text-[13.5px] leading-[20px] text-muted">
-          Un projet contient des notes et plusieurs coffres ; un coffre contient des
+          Un projet contient des notes et plusieurs vaults ; un vault contient des
           fiches — vos notes d’une seule idée, qui se citent entre elles.
         </p>
 
