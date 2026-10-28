@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   CaretRight,
+  Brain,
   ChartLineUp,
   DownloadSimple,
   Info,
@@ -36,6 +37,12 @@ export default function Settings() {
       icon: DownloadSimple,
       title: "Données et sauvegarde",
       hint: "Fichier protégé, restauration, export",
+    },
+    {
+      to: "/settings/review",
+      icon: Brain,
+      title: "Révision et rappels",
+      hint: "FSRS-5, rétention, plafonds quotidiens, rappel du soir",
     },
     {
       to: "/settings/progress",

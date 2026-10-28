@@ -75,18 +75,32 @@ export interface QuestionLink {
   cardId: string;
 }
 
-export interface ReviewCard {
-  id: string;
-  linkId: string;
-  questionId: string;
-  noteId: string;
+/**
+ * État de planification partagé par les cartes de question (Cornell) et les
+ * fiches de coffre. Les champs `state`, `scheduledDays`, `elapsedDays` et
+ * `learningSteps` viennent de FSRS (`ts-fsrs`) ; ils sont optionnels pour
+ * rester compatible avec les sauvegardes antérieures, converties à la volée.
+ */
+export interface Schedulable {
   due: string;
-  /** intervalle courant en jours (stabilité) */
+  /** intervalle courant en jours (stabilité FSRS) */
   stability: number;
   difficulty: number;
   reps: number;
   lapses: number;
   lastReview?: string;
+  /** 0 New · 1 Learning · 2 Review · 3 Relearning */
+  state?: number;
+  scheduledDays?: number;
+  elapsedDays?: number;
+  learningSteps?: number;
+}
+
+export interface ReviewCard extends Schedulable {
+  id: string;
+  linkId: string;
+  questionId: string;
+  noteId: string;
 }
 
 export interface ReviewLog {
@@ -116,6 +130,8 @@ export interface ZettelCard {
   refs: string[];
   createdAt: string;
   updatedAt: string;
+  /** Une fiche de coffre se révise aussi : titre au recto, corps au verso. */
+  schedule?: Schedulable;
 }
 
 export interface MindNode {
@@ -231,4 +247,28 @@ export interface AppSettings {
   lastBackupAt?: string;
   /** empreinte du contenu au moment du dernier export */
   backupStamp?: string;
+  /** révision espacée : FSRS et rappels */
+  review?: ReviewSettings;
+}
+
+/** Réglages de la révision espacée (page Réglages › Révision). */
+export interface ReviewSettings {
+  /** rétention visée par FSRS, 0,80 – 0,97 (0,90 par défaut) */
+  retention: number;
+  /** nouvelles cartes introduites par jour */
+  dailyNew: number;
+  /** cartes de révision par jour, plafond de sécurité */
+  dailyReview: number;
+  /** ordre de la séance */
+  order: "due" | "random";
+  /** afficher l'intervalle prévu sous chaque bouton d'évaluation */
+  showIntervals: boolean;
+  /** rappel quotidien dans l'application */
+  reminder: {
+    enabled: boolean;
+    /** « HH:MM », heure locale */
+    time: string;
+    /** notification système si l'autorisation a été accordée */
+    notifications: boolean;
+  };
 }

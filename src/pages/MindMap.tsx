@@ -20,6 +20,7 @@ import {
   Circle,
   Diamond,
   Hexagon,
+  Magnet,
   ListBullets,
   Palette,
   Plus,
@@ -203,6 +204,10 @@ export default function MindMap() {
   const toast = useToast((s) => s.show);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /* Sélection multiple : le canevas doit permettre de ranger un groupe
+     (aligner, répartir, supprimer) sans déplacer les nœuds un par un. */
+  const [selection, setSelection] = useState<string[]>([]);
+  const [snap, setSnap] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -286,7 +291,7 @@ export default function MindMap() {
   const [nodesOpen, setNodesOpen] = useState(false);
 
   if (!map) {
-    return (
+  return (
       <Screen className="px-5">
         <AppBar back title="" />
         <EmptyState
@@ -301,6 +306,35 @@ export default function MindMap() {
       </Screen>
     );
   }
+
+  /* Alignement et répartition : les deux gestes de rangement attendus sur un
+     canevas infini. Ils écrivent des positions entières, donc stables après
+     rechargement. */
+  const alignSelection = (edge: "left" | "top") => {
+    if (!map || selection.length < 2) return;
+    const nodes = map.nodes.filter((node) => selection.includes(node.id));
+    const target =
+      edge === "left"
+        ? Math.min(...nodes.map((node) => node.x))
+        : Math.min(...nodes.map((node) => node.y));
+    nodes.forEach((node) =>
+      updateMindNode(id, node.id, edge === "left" ? { x: target } : { y: target }),
+    );
+  };
+
+  const distributeSelection = () => {
+    if (!map || selection.length < 3) return;
+    const nodes = [...map.nodes]
+      .filter((node) => selection.includes(node.id))
+      .sort((a, b) => a.x - b.x);
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    const step = (last.x - first.x) / (nodes.length - 1);
+    nodes.forEach((node, index) => {
+      if (index === 0 || index === nodes.length - 1) return;
+      updateMindNode(id, node.id, { x: Math.round(first.x + step * index) });
+    });
+  };
 
   const depthOf = (nodeId: string): number => {
     let depth = 0;
@@ -543,7 +577,28 @@ export default function MindMap() {
           maxZoom={1.8}
           panOnScroll
           zoomOnPinch
-          selectionOnDrag={false}
+          /* Miro et tldraw ont la même grammaire : le glissement déplace le
+             canevas, Maj + glissement trace un rectangle de sélection, et
+             Cmd/Ctrl + clic ajoute un nœud à la sélection. */
+          selectionKeyCode="Shift"
+          multiSelectionKeyCode={["Meta", "Control"]}
+          snapToGrid={snap}
+          snapGrid={[16, 16]}
+          onSelectionChange={({ nodes: selectedNodes }) =>
+            setSelection((previous) => {
+              /* React Flow rappelle cette fonction à chaque rendu avec un
+                 tableau neuf : sans comparaison, on déclencherait un rendu
+                 infini (boucle constatée en test). */
+              const next = selectedNodes.map((node) => node.id);
+              if (
+                next.length === previous.length &&
+                next.every((id, index) => id === previous[index])
+              ) {
+                return previous;
+              }
+              return next;
+            })
+          }
           onNodeClick={(_, node) => setSelectedId(node.id)}
           onNodeDoubleClick={(_, node) => openEditor(node.id)}
           onNodeDragStop={(_, node) => {
@@ -589,6 +644,37 @@ export default function MindMap() {
           )}
         </ReactFlow>
         </div>
+
+        {selection.length > 1 && (
+          <div className="absolute inset-x-0 top-3 z-10 mx-auto flex w-fit items-center gap-1 rounded-full border border-line bg-surface px-1.5 py-1 shadow-float">
+            <span className="px-2 text-[12.5px] font-semibold tabnum">
+              {selection.length} nœuds
+            </span>
+            <SelectionAction
+              label="Aligner à gauche"
+              onClick={() => alignSelection("left")}
+            >
+              ⇤
+            </SelectionAction>
+            <SelectionAction label="Aligner en haut" onClick={() => alignSelection("top")}>
+              ⇧
+            </SelectionAction>
+            <SelectionAction label="Répartir horizontalement" onClick={distributeSelection}>
+              ⇹
+            </SelectionAction>
+            <SelectionAction
+              label="Supprimer la sélection"
+              destructive
+              onClick={() => {
+                selection.forEach((nodeId) => removeMindNode(id, nodeId));
+                setSelection([]);
+                setSelectedId(null);
+              }}
+            >
+              ✕
+            </SelectionAction>
+          </div>
+        )}
 
         {map.nodes.length < 3 && (
           <div className="pointer-events-none absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted shadow-float">
@@ -645,6 +731,23 @@ export default function MindMap() {
           </div>
 
           <span className="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
+
+          {/* Aimant : accroche les nœuds à une grille de 16 px. Le geste
+              attendu sur un canevas (Miro, tldraw) — sans lui, deux nœuds
+              alignés « à l’œil » ne le sont jamais au pixel. */}
+          <button
+            type="button"
+            onClick={() => setSnap((value) => !value)}
+            aria-pressed={snap}
+            aria-label={snap ? "Désactiver l’aimant" : "Activer l’aimant"}
+            title={snap ? "Aimant activé (grille 16 px)" : "Aimant désactivé"}
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px]",
+              snap ? "text-accent" : "text-muted",
+            )}
+          >
+            <Magnet size={19} weight={snap ? "fill" : "regular"} aria-hidden />
+          </button>
 
           <button
             type="button"
@@ -937,6 +1040,34 @@ function ShapeButton({
         "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect",
         active ? "bg-accent-soft text-accent" : "text-ink active:bg-surface-2",
       )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SelectionAction({
+  label,
+  onClick,
+  destructive = false,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  destructive?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={
+        destructive
+          ? "flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-bold text-danger hover:bg-surface-2"
+          : "flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-bold text-ink hover:bg-surface-2"
+      }
     >
       {children}
     </button>

@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Books,
   ChartLineUp,
   ClockCounterClockwise,
   FolderSimple,
+  SquaresFour,
   Stack,
   Database,
   GraduationCap,
@@ -143,8 +143,10 @@ export function WallLayer() {
 
 const MAIN = [
   { to: "/", label: "Notes", icon: House },
-  { to: "/projects", label: "Projets", icon: FolderSimple },
-  { to: "/vaults", label: "Coffres", icon: Books },
+  /* Une seule entrée pour les deux conteneurs : c’est la page qui explique
+     lequel range et lequel relie. Les écrans Projets/Coffres restent des
+     pages de gestion, atteignables depuis là. */
+  { to: "/spaces", label: "Espaces", icon: SquaresFour },
   { to: "/review", label: "Réviser", icon: ClockCounterClockwise },
   { to: "/learn", label: "Apprendre", icon: GraduationCap },
 ] as const;

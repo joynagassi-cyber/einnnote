@@ -524,7 +524,7 @@
     @apply flex rounded-[22px] border border-line bg-surface p-[3px];
   }
   .segmented > button {
-    @apply flex-1 rounded-[19px] text-[14px] font-medium text-ink transition-colors;
+    @apply flex-1 whitespace-nowrap rounded-[19px] px-3 text-[14px] font-medium text-ink transition-colors;
     min-height: 40px;
   }
   .segmented > button[data-active="true"] {
@@ -1636,4 +1636,275 @@
 :root[data-layout="mobile"] .dock,
 :root[data-layout="mobile"] .toast {
   left: 0;
+}
+
+/* ============================================================
+   Carte à retournement 3D — « verre holographique »
+   Deux faces réelles, une rotation réelle, un reflet qui suit le
+   pointeur. Aucune image, aucun canvas : uniquement des dégradés
+   calculés sur les jetons du thème, donc valables sur les 24 fonds.
+   ============================================================ */
+.flip {
+  --mx: 50%;
+  --my: 50%;
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --flip-duration: 620ms;
+  --flip-ease: cubic-bezier(0.19, 0.86, 0.24, 1.02);
+  position: relative;
+  perspective: 1600px;
+  perspective-origin: 50% 45%;
+  touch-action: pan-y;
+  cursor: pointer;
+  outline: none;
+}
+.flip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--r-sheet);
+}
+
+.flip-inner {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 220ms ease-out;
+  will-change: transform;
+}
+.flip[data-flipped="true"] .flip-inner {
+  transform: rotateX(calc(var(--tilt-x) * 0.35))
+    rotateY(calc(180deg - var(--tilt-y) * 0.35));
+  transition: transform var(--flip-duration) var(--flip-ease);
+}
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-sheet);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0.01px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--surface) 70%, var(--line)),
+    0 18px 42px -18px rgba(20, 18, 15, 0.35),
+    0 2px 6px rgba(20, 18, 15, 0.06);
+  /* Liseré lumineux : c’est lui qui donne l’épaisseur du « verre ». */
+  outline: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  outline-offset: -1px;
+}
+.flip-back {
+  transform: rotateY(180deg) translateZ(0.01px);
+  background:
+    radial-gradient(
+      120% 90% at 15% 0%,
+      color-mix(in srgb, var(--accent-soft) 65%, transparent),
+      transparent 62%
+    ),
+    var(--surface);
+}
+
+/* Reflet holographique : au-dessus des deux faces, jamais dans le plan
+   tournant (sinon il traverserait la carte). */
+.flip-holo {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: var(--r-sheet);
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    radial-gradient(
+      42% 52% at var(--mx) var(--my),
+      rgba(255, 255, 255, 0.55),
+      rgba(255, 255, 255, 0) 70%
+    ),
+    conic-gradient(
+      from 210deg at var(--mx) var(--my),
+      hsl(190 95% 62% / 0.22),
+      hsl(265 95% 68% / 0.2) 22%,
+      hsl(330 95% 68% / 0.16) 44%,
+      hsl(45 95% 62% / 0.14) 62%,
+      hsl(150 90% 55% / 0.2) 82%,
+      hsl(190 95% 62% / 0.22)
+    );
+  mix-blend-mode: soft-light;
+  transition: opacity 260ms ease, background-position 120ms linear;
+  animation: holo-drift 9s ease-in-out infinite;
+}
+
+/* Tranche holographique : un liseré spectral d’un pixel, comme le bord
+   métallisé d’une carte. Il ne passe pas devant le texte. */
+.flip::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 3;
+  border-radius: calc(var(--r-sheet) + 1px);
+  padding: 1px;
+  pointer-events: none;
+  opacity: 0.45;
+  background: linear-gradient(
+    130deg,
+    hsl(190 95% 62% / 0.55),
+    hsl(265 95% 70% / 0.35) 26%,
+    hsl(330 95% 70% / 0.3) 52%,
+    hsl(45 95% 65% / 0.28) 74%,
+    hsl(150 90% 58% / 0.4)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transition: opacity 320ms ease;
+}
+.flip[data-flipped="true"]::after {
+  opacity: 0.8;
+}
+:root[data-contrast="high"] .flip::after,
+:root[data-transparency="reduced"] .flip::after {
+  display: none;
+}
+.flip[data-flipped="true"] .flip-holo {
+  opacity: 0.8;
+  animation-duration: 4.5s;
+}
+
+@keyframes holo-drift {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) saturate(1);
+  }
+  50% {
+    filter: hue-rotate(18deg) saturate(1.15);
+  }
+}
+
+/* Contraste élevé ou transparence réduite : on garde la carte, on coupe
+   le reflet. Un effet décoratif ne passe jamais avant la lisibilité. */
+:root[data-contrast="high"] .flip-holo,
+:root[data-transparency="reduced"] .flip-holo {
+  display: none;
+}
+:root[data-contrast="high"] .flip-face {
+  border-color: var(--line-strong);
+  box-shadow: 0 1px 0 0 var(--line-strong), 0 10px 24px -16px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================================
+   Fiche de coffre — papier index, pile réelle
+   Pourquoi ce bloc : la version précédente dessinait des lignes de
+   cahier tous les 36 px, sans lien avec l’interligne du texte ; elles
+   coupaient les jambages et donnaient une carte « mal imprimée ». Ici
+   la règle est une marge verticale (comme une fiche bristol), le corps
+   respire, et la pile se lit par l’ombre et l’échelle, pas par des
+   rectangles décalés.
+   ============================================================ */
+.zettel-card {
+  position: relative;
+  border-radius: var(--r-sheet);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 22px 20px 16px 34px;
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--surface) 70%, var(--line)),
+    0 22px 48px -22px rgba(20, 18, 15, 0.4),
+    0 4px 10px -4px rgba(20, 18, 15, 0.12);
+  overflow: hidden;
+}
+/* Marge d’index : une seule règle, verticale, qui ne traverse aucun texte. */
+.zettel-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 22px;
+  width: 1px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  pointer-events: none;
+}
+/* Grain de papier : deux halos très doux, pas une texture aléatoire. */
+.zettel-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--accent-soft) 34%, transparent), transparent 60%),
+    radial-gradient(90% 60% at 0% 100%, color-mix(in srgb, var(--surface-2) 60%, transparent), transparent 65%);
+  opacity: 0.7;
+}
+.zettel-card > * {
+  position: relative;
+  z-index: 1;
+}
+.zettel-card-behind {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border-color: var(--line-strong);
+  box-shadow: 0 8px 18px -12px rgba(20, 18, 15, 0.3);
+  transition: transform 260ms ease, opacity 260ms ease;
+}
+.zettel-card-behind::before,
+.zettel-card-behind::after {
+  display: none;
+}
+.zettel-code {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  padding: 2px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.zettel-source {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-rect);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+  padding: 3px 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+.zettel-ref {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--ink);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.zettel-ref:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+/* Contraste élevé : les halos disparaissent, la règle reste. */
+:root[data-contrast="high"] .zettel-card::after {
+  display: none;
+}
+:root[data-contrast="high"] .zettel-card {
+  box-shadow: 0 1px 0 0 var(--line-strong), 0 12px 26px -18px rgba(0, 0, 0, 0.45);
 }

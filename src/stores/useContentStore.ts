@@ -91,7 +91,9 @@ interface ContentState {
     passage: string;
   }) => Question;
   deleteQuestion: (questionId: string) => void;
-  rateCard: (cardId: string, rating: Rating) => void;
+  rateCard: (cardId: string, rating: Rating, options?: { retention?: number }) => void;
+  /** Une fiche de coffre se planifie comme une carte (verso = corps). */
+  rateZettel: (cardId: string, rating: Rating, options?: { retention?: number }) => void;
   resetReviewSession: () => void;
 
   /* Zettelkasten */
@@ -489,10 +491,12 @@ export const useContentStore = create<ContentState>()(
           };
         }),
 
-      rateCard: (cardId, rating) => {
+      rateCard: (cardId, rating, options) => {
         const card = get().cards.find((c) => c.id === cardId);
         if (!card) return;
-        const next = nextCardState(card, rating);
+        const next = nextCardState(card, rating, {
+          retention: options?.retention,
+        });
         set((s) => ({
           cards: s.cards.map((c) => (c.id === cardId ? { ...c, ...next } : c)),
           logs: [
@@ -519,6 +523,45 @@ export const useContentStore = create<ContentState>()(
           notes: s.notes.map((n) =>
             n.id === card.noteId ? { ...n, status: "done" } : n,
           ),
+        }));
+      },
+
+      rateZettel: (cardId, rating, options) => {
+        const card = get().zettel.find((c) => c.id === cardId);
+        if (!card) return;
+        const current =
+          card.schedule ?? {
+            due: card.createdAt,
+            stability: 0,
+            difficulty: 0,
+            reps: 0,
+            lapses: 0,
+            state: 0,
+          };
+        const next = nextCardState(current, rating, {
+          retention: options?.retention,
+        });
+        const now = Date.now();
+        set((s) => ({
+          zettel: s.zettel.map((c) =>
+            c.id === cardId ? { ...c, schedule: next, updatedAt: new Date(now).toISOString() } : c,
+          ),
+          logs: [
+            {
+              id: uid("log"),
+              cardId,
+              rating,
+              reviewedAt: new Date(now).toISOString(),
+              scheduledDays: Math.round((new Date(next.due).getTime() - now) / 86_400_000),
+              elapsedDays: current.lastReview
+                ? Math.max(
+                    0,
+                    Math.round((now - new Date(current.lastReview).getTime()) / 86_400_000),
+                  )
+                : 0,
+            },
+            ...s.logs,
+          ],
         }));
       },
 

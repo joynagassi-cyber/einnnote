@@ -1,365 +1,341 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Eye, Sparkle, X } from "@phosphor-icons/react";
-import { Screen } from "@/components/Layout";
-import { useContentStore } from "@/stores/useContentStore";
 import {
-  RATINGS,
-  dueCards,
-  formatInterval,
-  previewInterval,
-} from "@/lib/scheduler";
-import { METHODS } from "@/lib/methods";
+  ArrowRight,
+  Books,
+  Cards,
+  ClockCounterClockwise,
+  FolderSimple,
+  Notepad,
+  SlidersHorizontal,
+  Sparkle,
+  Stack,
+} from "@phosphor-icons/react";
+import { Screen, Segmented } from "@/components/Layout";
+import { useContentStore } from "@/stores/useContentStore";
+import { useAppStore } from "@/stores/useAppStore";
+import { reviewSettings } from "@/lib/scheduler";
+import { allReviewItems, itemsInTarget, summarize, type ReviewTarget } from "@/lib/review";
 import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
-import type { Rating } from "@/types";
 
+/**
+ * Entrée de la révision : on **choisit la portée** avant de commencer.
+ *
+ * Pourquoi un écran d’entrée plutôt qu’une séance automatique : une séance qui
+ * démarre sur « tout ce qui est dû » ne laisse aucune prise. Ici on peut
+ * réviser un projet entier, un coffre, ou une seule note Cornell — et voir,
+ * avant de cliquer, combien de cartes cela représente.
+ */
 export default function Review() {
   const navigate = useNavigate();
-  const cards = useContentStore((s) => s.cards);
+  const notes = useContentStore((s) => s.notes);
   const questions = useContentStore((s) => s.questions);
   const links = useContentStore((s) => s.links);
-  const notes = useContentStore((s) => s.notes);
-  const rateCard = useContentStore((s) => s.rateCard);
+  const cards = useContentStore((s) => s.cards);
+  const zettel = useContentStore((s) => s.zettel);
+  const vaults = useContentStore((s) => s.vaults);
+  const projects = useContentStore((s) => s.projects);
+  const settings = reviewSettings(useAppStore((s) => s.settings.review));
   const desktop = useIsDesktop();
 
-  const [session, setSession] = useState<string[]>(() =>
-    dueCards(cards).map((card) => card.id),
-  );
-  const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [stats, setStats] = useState<Record<Rating, number>>({
-    again: 0,
-    hard: 0,
-    good: 0,
-    easy: 0,
-  });
-  const [leaving, setLeaving] = useState(false);
+  const [scope, setScope] = useState<"all" | "project" | "vault" | "note">("all");
 
-  const card = cards.find((c) => c.id === session[index]);
-  const question = questions.find((q) => q.id === card?.questionId);
-  const link = links.find((l) => l.id === card?.linkId);
-  const note = notes.find((n) => n.id === card?.noteId);
-
-  const siblings = useMemo(
-    () => links.filter((l) => l.questionId === card?.questionId),
-    [links, card?.questionId],
-  );
-  const siblingIndex = Math.max(
-    1,
-    siblings.findIndex((l) => l.id === card?.linkId) + 1,
+  const items = useMemo(
+    () =>
+      allReviewItems({
+        notes,
+        questions,
+        links,
+        cards,
+        zettel,
+        vaults,
+        projects,
+      }),
+    [notes, questions, links, cards, zettel, vaults, projects],
   );
 
-  useEffect(() => {
-    setRevealed(false);
-  }, [index]);
+  const now = new Date();
+  /* Le compteur du haut décrit exactement ce que fera le bouton « Tout » :
+     questions dues + fiches déjà travaillées. Les fiches neuves entrent par
+     leur coffre, pas par surprise. */
+  const overall = summarize(itemsInTarget(items, { kind: "all" }), now);
 
-  /* Notation : hoistée au-dessus des sorties anticipées, sinon le raccourci
-     clavier violerait l’ordre des hooks (une carte absente ne doit pas
-     changer le nombre de hooks appelés). */
-  const rate = useCallback(
-    (rating: Rating) => {
-      if (!card) return;
-      rateCard(card.id, rating);
-      setStats((s) => ({ ...s, [rating]: s[rating] + 1 }));
-      setLeaving(true);
-      window.setTimeout(() => {
-        setLeaving(false);
-        setRevealed(false);
-        setIndex((i) => i + 1);
-      }, 180);
-    },
-    [card, rateCard],
+  const byProject = useMemo(
+    () =>
+      projects
+        .map((project) => ({
+          target: { kind: "project", id: project.id } as ReviewTarget,
+          label: project.name,
+          hint: project.description ?? "",
+          summary: summarize(
+            items.filter((item) => item.projectId === project.id),
+            now,
+          ),
+        }))
+        .filter((row) => row.summary.total > 0),
+    // `now` change à chaque rendu ; les compteurs n’en dépendent qu’au jour.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projects, items],
   );
 
-  /* Bureau : Espace révèle la réponse, 1–4 notent sans lâcher le clavier. */
-  useEffect(() => {
-    if (!desktop) return;
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
-        return;
-      }
-      if (event.key === " " || event.key === "Enter") {
-        if (!revealed) {
-          event.preventDefault();
-          setRevealed(true);
-        }
-        return;
-      }
-      const position = ["1", "2", "3", "4"].indexOf(event.key);
-      if (revealed && position >= 0 && RATINGS[position]) {
-        event.preventDefault();
-        rate(RATINGS[position].value);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [desktop, revealed, rate]);
+  const byVault = useMemo(
+    () =>
+      vaults
+        .map((vault) => ({
+          target: { kind: "vault", id: vault.id } as ReviewTarget,
+          label: vault.name,
+          hint: vault.note ?? "",
+          summary: summarize(
+            items.filter((item) => item.vaultId === vault.id),
+            now,
+          ),
+        }))
+        // Un coffre sans fiche n’a rien à réviser : le montrer serait un
+        // faux bouton. Il reste accessible depuis l’écran Coffres.
+        .filter((row) => row.summary.total > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vaults, items],
+  );
 
-  if (session.length === 0) {
-    return <EmptySession onClose={() => navigate("/")} />;
-  }
+  const byNote = useMemo(
+    () =>
+      notes
+        .filter((note) => !note.deletedAt)
+        .map((note) => ({
+          target: { kind: "note", id: note.id } as ReviewTarget,
+          label: note.title,
+          hint: note.collection,
+          method: note.method,
+          summary: summarize(
+            items.filter((item) => item.noteId === note.id),
+            now,
+          ),
+        }))
+        .filter((row) => row.summary.total > 0)
+        .sort((a, b) => b.summary.due - a.summary.due || b.summary.total - a.summary.total),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notes, items],
+  );
 
-  if (!card || index >= session.length) {
-    return (
-      <Summary
-        total={session.length}
-        stats={stats}
-        onClose={() => navigate("/")}
-        onProgress={() => navigate("/settings/progress")}
-      />
-    );
-  }
+  const start = (target: ReviewTarget, mode: "due" | "all" = "due") => {
+    const params = new URLSearchParams({ scope: target.kind });
+    if (target.kind !== "all") params.set("id", target.id);
+    params.set("mode", mode);
+    navigate(`/review/session?${params.toString()}`);
+  };
 
-  const methodLabel = note ? METHODS[note.method].label : "Révision";
+  const scopeOptions = [
+    { value: "all" as const, label: "Tout" },
+    { value: "project" as const, label: "Projet" },
+    { value: "vault" as const, label: "Coffre" },
+    { value: "note" as const, label: "Note" },
+  ];
 
   return (
-    <Screen className="px-5">
-      <header className="flex items-center gap-3 pb-1 pt-3">
-        <button
-          type="button"
-          aria-label="Fermer la séance"
-          onClick={() => navigate("/")}
-          className="icon-btn -ml-2.5"
-        >
-          <X size={24} weight="bold" />
-        </button>
-        <div
-          className="h-1.5 flex-1 overflow-hidden rounded-full bg-line"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={session.length}
-          aria-valuenow={index + 1}
-          aria-label="Progression de la séance"
-        >
-          <div
-            className="h-full rounded-full bg-accent transition-[width] duration-300"
-            style={{ width: `${((index + 1) / session.length) * 100}%` }}
-          />
-        </div>
-        <div className="text-[15px] font-semibold">
-          {index + 1} / {session.length}
-        </div>
+    <Screen withNav className="screen-wide px-5 lg:px-8">
+      <header className="pb-4 pt-7">
+        <p className="text-[12.5px] font-semibold uppercase tracking-[0.14em] text-muted">
+          Révision espacée · FSRS-5
+        </p>
+        <h1 className="mt-1 font-serif text-[32px] font-semibold leading-tight">
+          Réviser
+        </h1>
+        <p className="mt-1.5 max-w-[56ch] text-[15px] leading-[22px] text-muted">
+          {overall.due > 0
+            ? `${overall.due} carte${overall.due > 1 ? "s" : ""} à revoir aujourd’hui, dont ${overall.fresh} jamais vue${overall.fresh > 1 ? "s" : ""}. Choisissez ce que vous voulez travailler.`
+            : "Rien n’est échu aujourd’hui. Vous pouvez tout de même réviser un projet, un coffre ou une note — les intervalles seront recalculés normalement."}
+        </p>
       </header>
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
       <div
         className={cn(
-          "mt-5 flex min-h-[430px] flex-col rounded-big border border-line bg-surface p-[26px] shadow-card transition-all duration-200",
-          leaving && "-translate-y-2 opacity-0",
+          "gap-6",
+          desktop
+            ? "grid grid-cols-[minmax(0,1fr)_minmax(0,320px)] items-start"
+            : "flex flex-col",
         )}
       >
-        <div className="self-start rounded-rect bg-accent-soft px-2.5 py-1 text-[14px] font-semibold text-accent-ink">
-          {methodLabel}
-          {note ? ` · ${note.title}` : ""}
-        </div>
-
-        <h1 className="mt-4 font-serif text-[23px] font-semibold leading-[32px]">
-          {question?.text ?? "Question introuvable"}
-        </h1>
-        <p className="mt-1.5 text-[14px] text-muted">
-          Élément {siblingIndex} sur {siblings.length || 1}
-        </p>
-
-        <hr className="my-5 border-0 border-t border-line" />
-
-        {revealed ? (
-          <div className="animate-fade-in">
-            <p className="mb-2.5 text-[14px] font-semibold text-muted">
-              Ce que vous aviez écrit
-            </p>
-            <p className="passage rounded-[4px] px-2.5 py-1.5 font-serif text-[18px] leading-[30px]">
-              {link?.passage ?? "—"}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (note && question) {
-                  navigate(`/note/${note.id}?q=${question.id}`);
-                }
-              }}
-              className="mt-4 text-[15px] font-medium text-accent"
-            >
-              Voir dans la note ›
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center pb-2 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">
-              <Eye size={24} weight="duotone" />
+        <div className="min-w-0">
+          {/* Portée */}
+          <div className="rounded-big border border-line bg-surface p-4 lg:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-[19px] font-semibold">
+                  Portée de la séance
+                </h2>
+                <p className="mt-0.5 text-[13px] leading-[19px] text-muted">
+                  Un projet, un coffre, une note — ou toutes les cartes dues.
+                </p>
+              </div>
+              <div className="w-full sm:w-auto">
+                <Segmented
+                  value={scope}
+                  onChange={(value) => setScope(value)}
+                  options={scopeOptions}
+                  label="Portée de la révision"
+                />
+              </div>
             </div>
-            <p className="max-w-[30ch] text-[15px] leading-[22px] text-muted">
-              Répondez de mémoire, à voix haute. Puis affichez ce que vous
-              aviez écrit.
-            </p>
-            <button
-              type="button"
-              onClick={() => setRevealed(true)}
-              className="btn-primary mt-5 w-full"
-            >
-              Afficher la réponse
-            </button>
-          </div>
-        )}
-      </div>
 
-      {desktop && (
-        <div className="mt-5 rounded-big border border-line bg-surface p-5">
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted">
-            Contexte
-          </p>
-          <p className="mt-1 font-serif text-[17px] font-semibold leading-snug">
-            {note?.title ?? "Note supprimée"}
-          </p>
-          <p className="mt-1 text-[13px] text-muted">
-            {methodLabel} · élément {siblingIndex} sur {siblings.length || 1}
-          </p>
-          {note && (
-            <button
-              type="button"
-              onClick={() => navigate(`/note/${note.id}`)}
-              className="mt-3 text-[13.5px] font-medium text-accent hover:underline"
-            >
-              Ouvrir la note
-            </button>
-          )}
-          <hr className="my-4 border-0 border-t border-line" />
-          <p className="text-[12px] font-semibold uppercase tracking-wider text-muted">
-            Clavier
-          </p>
-          <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-muted">
-            <li className="flex items-center justify-between gap-3">
-              <span>Révéler la réponse</span>
-              <kbd className="kbd">Espace</kbd>
-            </li>
-            <li className="flex items-center justify-between gap-3">
-              <span>Noter de 1 à 4</span>
-              <span className="flex gap-1">
-                {[1, 2, 3, 4].map((n) => (
-                  <kbd key={n} className="kbd">
-                    {n}
-                  </kbd>
-                ))}
-              </span>
-            </li>
-          </ul>
-        </div>
-      )}
-
-      {revealed && (
-        <div className="animate-sheet-up lg:col-start-1">
-          <p className="mb-2.5 mt-5 text-center text-[15px] font-semibold">
-            Comment était-ce ?
-          </p>
-          <div className="grid grid-cols-4 gap-2">
-            {RATINGS.map((rating) => {
-              const interval = previewInterval(card, rating.value);
-              const recommended = rating.value === "good";
-              return (
+            <div className="mt-4">
+              {scope === "all" && (
                 <button
-                  key={rating.value}
                   type="button"
-                  onClick={() => rate(rating.value)}
-                  className={cn(
-                    "flex h-16 flex-col items-center justify-center rounded-field text-[15px] font-semibold transition-transform active:scale-95",
-                    recommended
-                      ? "border-2 border-accent bg-accent-soft text-accent-ink"
-                      : "border border-line-strong bg-surface text-ink",
-                  )}
+                  onClick={() => start({ kind: "all" }, overall.due > 0 ? "due" : "all")}
+                  className="btn-primary h-14 w-full justify-between rounded-big px-5 text-[16px]"
                 >
-                  {rating.label}
-                  <span
-                    className={cn(
-                      "text-[14px] font-normal",
-                      recommended ? "text-accent-ink" : "text-muted",
-                    )}
-                  >
-                    {formatInterval(interval)}
+                  <span className="flex items-center gap-2">
+                    <Sparkle size={20} weight="duotone" aria-hidden />
+                    {overall.due > 0
+                      ? `Réviser les ${overall.due} cartes dues`
+                      : `Réviser les ${overall.total} cartes`}
                   </span>
+                  <ArrowRight size={18} weight="bold" aria-hidden />
                 </button>
-              );
-            })}
+              )}
+
+              {scope === "project" && (
+                <ScopeList
+                  rows={byProject}
+                  icon={FolderSimple}
+                  emptyLabel="Aucun projet ne contient encore de carte révisable."
+                  onStart={start}
+                />
+              )}
+              {scope === "vault" && (
+                <ScopeList
+                  rows={byVault}
+                  icon={Stack}
+                  emptyLabel="Aucun coffre ne contient de fiche à réviser."
+                  onStart={start}
+                />
+              )}
+              {scope === "note" && (
+                <ScopeList
+                  rows={byNote}
+                  icon={Notepad}
+                  emptyLabel="Aucune note ne contient encore de question."
+                  onStart={start}
+                />
+              )}
+            </div>
           </div>
+
+          {overall.total > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[12.5px] text-muted">
+              <span className="flex items-center gap-1.5">
+                <Cards size={15} weight="duotone" aria-hidden />
+                {items.filter((item) => item.kind === "question").length} questions de notes
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Books size={15} weight="duotone" aria-hidden />
+                {items.filter((item) => item.kind === "fiche").length} fiches de coffre
+              </span>
+              <span className="flex items-center gap-1.5">
+                <ClockCounterClockwise size={15} weight="duotone" aria-hidden />
+                rétention visée {Math.round(settings.retention * 100)} %
+              </span>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Colonne de droite : ce qui va se passer, et le réglage */}
+        <aside className={cn("flex flex-col gap-3", !desktop && "mt-1")}>
+          <section className="rounded-big border border-line bg-surface p-4">
+            <h2 className="font-serif text-[17px] font-semibold">Comment ça marche</h2>
+            <ol className="mt-2 flex flex-col gap-2 text-[13.5px] leading-[20px] text-muted">
+              <li>
+                <strong className="text-ink">Recto.</strong> La question, ou le titre
+                de la fiche. Répondez de mémoire, à voix haute.
+              </li>
+              <li>
+                <strong className="text-ink">Retournement.</strong> Touchez la carte :
+                elle pivote en 3D et découvre le passage que vous aviez écrit.
+              </li>
+              <li>
+                <strong className="text-ink">Note.</strong> Encore, Difficile, Bien,
+                Facile — FSRS recalcule la date de retour à partir de votre réponse.
+              </li>
+            </ol>
+          </section>
+
+          <button
+            type="button"
+            onClick={() => navigate("/settings/review")}
+            className="flex items-center gap-3 rounded-big border border-line bg-surface p-4 text-left transition-colors hover:border-line-strong"
+          >
+            <span className="tile h-10 w-10 shrink-0" aria-hidden>
+              <SlidersHorizontal size={19} weight="duotone" className="text-accent" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14.5px] font-semibold">
+                Réglages de la révision
+              </span>
+              <span className="block text-[12.5px] text-muted">
+                Rétention, plafonds quotidiens, rappel du soir
+              </span>
+            </span>
+            <ArrowRight size={16} weight="bold" className="text-muted" aria-hidden />
+          </button>
+        </aside>
       </div>
+
       <div className="h-8" aria-hidden="true" />
     </Screen>
   );
 }
 
-function EmptySession({ onClose }: { onClose: () => void }) {
-  return (
-    <Screen className="px-5">
-      <div className="flex flex-1 flex-col items-center justify-center pb-16 text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-card bg-accent-soft text-accent">
-          <Sparkle size={28} weight="duotone" />
-        </div>
-        <h1 className="font-serif text-[24px] font-semibold">
-          Rien à revoir aujourd’hui
-        </h1>
-        <p className="mt-2 max-w-[34ch] text-[15px] leading-[22px] text-muted">
-          Vos cartes reviennent au bon moment. Revenez demain, ou ajoutez des
-          questions à une note.
-        </p>
-        <button type="button" onClick={onClose} className="btn-primary mt-6">
-          Retour à la bibliothèque
-        </button>
-      </div>
-    </Screen>
-  );
-}
-
-function Summary({
-  total,
-  stats,
-  onClose,
-  onProgress,
+function ScopeList({
+  rows,
+  icon: Icon,
+  emptyLabel,
+  onStart,
 }: {
-  total: number;
-  stats: Record<Rating, number>;
-  onClose: () => void;
-  onProgress: () => void;
+  rows: {
+    target: ReviewTarget;
+    label: string;
+    hint?: string;
+    summary: { total: number; due: number; fresh: number };
+  }[];
+  icon: typeof Cards;
+  emptyLabel: string;
+  onStart: (target: ReviewTarget, mode?: "due" | "all") => void;
 }) {
+  if (rows.length === 0) {
+    return <p className="py-6 text-center text-[14px] text-muted">{emptyLabel}</p>;
+  }
   return (
-    <Screen className="px-5">
-      <div className="flex flex-1 flex-col items-center justify-center pb-16 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-accent-soft text-accent">
-          <CheckCircle size={32} weight="duotone" />
-        </div>
-        <h1 className="font-serif text-[26px] font-semibold">Séance terminée</h1>
-        <p className="mt-2 text-[15px] leading-[22px] text-muted">
-          {total} carte{total > 1 ? "s" : ""} revue{total > 1 ? "s" : ""}.
-          <br />
-          Les intervalles sont recalculés pour chaque carte.
-        </p>
-
-        <div className="mt-6 grid w-full max-w-[320px] grid-cols-4 gap-2">
-          {RATINGS.map((rating) => (
-            <div
-              key={rating.value}
-              className="rounded-field border border-line bg-surface py-3"
-            >
-              <div className="font-serif text-[20px] font-semibold">
-                {stats[rating.value]}
-              </div>
-              <div className="text-[12px] text-muted">{rating.label}</div>
+    <ul className="flex flex-col gap-2">
+      {rows.map((row) => {
+        const hasDue = row.summary.due > 0;
+        return (
+          <li key={`${row.target.kind}-${row.target.kind === "all" ? "all" : row.target.id}`}>
+            <div className="flex items-center gap-3 rounded-card border border-line bg-bg px-3 py-2.5">
+              <span className="tile h-9 w-9 shrink-0" aria-hidden>
+                <Icon size={17} weight="duotone" className="text-accent" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-serif text-[15px] font-semibold">
+                  {row.label}
+                </span>
+                <span className="block truncate text-[12.5px] text-muted">
+                  {row.summary.total} carte{row.summary.total > 1 ? "s" : ""}
+                  {hasDue ? ` · ${row.summary.due} due${row.summary.due > 1 ? "s" : ""}` : " · aucune due"}
+                  {row.summary.fresh > 0 ? ` · ${row.summary.fresh} nouvelle${row.summary.fresh > 1 ? "s" : ""}` : ""}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onStart(row.target, hasDue ? "due" : "all")}
+                className="shrink-0 rounded-rect bg-accent px-3 py-2 text-[13px] font-semibold text-on-accent active:opacity-90"
+              >
+                {hasDue ? "Réviser" : "Tout revoir"}
+              </button>
             </div>
-          ))}
-        </div>
-
-        <button type="button" onClick={onClose} className="btn-primary mt-7 w-full">
-          Retour à la bibliothèque
-        </button>
-        <button
-          type="button"
-          onClick={onProgress}
-          className="mt-1 h-11 text-[15px] font-medium text-accent"
-        >
-          Voir mes progrès
-        </button>
-      </div>
-    </Screen>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

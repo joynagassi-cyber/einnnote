@@ -171,7 +171,7 @@ describe("Engram — écrans", () => {
     open("/vault/v-eco");
     expect(screen.getByText("Économie")).toBeTruthy();
     expect(screen.getByText("L’inflation et l’épargne")).toBeTruthy();
-    expect(screen.getByText(/Glissez pour feuilleter/)).toBeTruthy();
+    expect(screen.getByText(/Glissez la carte/)).toBeTruthy();
   });
 
   it("affiche le formulaire de nouvelle carte", () => {
@@ -323,14 +323,35 @@ describe("Engram — écrans", () => {
     expect(screen.getByText("Corbeille vide")).toBeTruthy();
   });
 
-  it("démarre une révision et évalue une carte", async () => {
+  it("choisit une portée, démarre une révision et évalue une carte", async () => {
     const user = userEvent.setup();
     open("/review");
+    // On entre par le choix de portée, pas au milieu d’une carte.
+    expect(screen.getByText("Portée de la séance")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Réviser les \d+ cartes/ }));
     expect(screen.getByRole("progressbar")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Afficher la réponse" }));
     const good = screen.getByRole("button", { name: /Bien/ });
     await user.click(good);
-    await waitFor(() => expect(screen.getByText("2 / 12")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^2 \/ \d+$/)).toBeTruthy());
+  });
+
+  it("révise une seule note Cornell, sans les autres", async () => {
+    const user = userEvent.setup();
+    open("/review");
+    await user.click(screen.getByRole("button", { name: "Note" }));
+    const rows = screen.getAllByRole("button", { name: /^Réviser$/ });
+    await user.click(rows[0]);
+    expect(screen.getAllByText(/Contrats commerciaux/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Plan du chapitre 3/)).toBeNull();
+  });
+
+  it("déplie le verso d’une carte et y montre le passage écrit", async () => {
+    const user = userEvent.setup();
+    open("/review/session?scope=note&id=n-contrats&mode=all");
+    await user.click(screen.getByRole("button", { name: "Afficher la réponse" }));
+    expect(screen.getByText("Ce que vous aviez écrit")).toBeTruthy();
+    expect(screen.getByText(/Aperçu de la note/)).toBeTruthy();
   });
 
   it("crée une carte Zettelkasten", async () => {
@@ -856,7 +877,7 @@ describe("Engram — écrans", () => {
   it("révise au clavier en bureau : Espace puis 1–4", async () => {
     await withDesktop(async () => {
       const user = userEvent.setup();
-      open("/review");
+      open("/review/session?scope=all&mode=due");
       const card = screen.getByRole("heading", { level: 1 }).textContent;
       await user.keyboard(" ");
       await waitFor(() =>

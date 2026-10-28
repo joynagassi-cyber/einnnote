@@ -164,9 +164,17 @@ export default function Projects() {
           <h1 className="font-serif text-[30px] font-semibold leading-tight">
             Projets
           </h1>
-          <p className="mt-1 text-[13.5px] leading-[20px] text-muted">
-            Un projet isole ses notes et ses coffres. La vue « Tous » reste
-            disponible pour la révision.
+          <p className="mt-1 max-w-[52ch] text-[13.5px] leading-[20px] text-muted">
+            Le projet <strong className="text-ink">range</strong> : il contient des
+            notes et des coffres. Une note ne peut pas appartenir à deux projets —
+            c’est ce qui évite de la chercher ailleurs.{" "}
+            <button
+              type="button"
+              onClick={() => navigate("/spaces")}
+              className="font-semibold text-accent"
+            >
+              Comprendre la structure
+            </button>
           </p>
         </div>
         <DisplayMenu

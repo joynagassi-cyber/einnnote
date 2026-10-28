@@ -7,9 +7,11 @@ import type {
   CanvasBg,
   NoteFont,
   Personalization,
+  ReviewSettings,
   ThemeMode,
 } from "@/types";
 import { accentVars, deriveAccent, isHex } from "@/lib/accent";
+import { DEFAULT_REVIEW_SETTINGS } from "@/lib/scheduler";
 import { ACCENT_PRESETS } from "@/lib/accents";
 import {
   DEFAULT_PALETTE_KEY,
@@ -37,6 +39,10 @@ interface AppState {
   setWallpaper: (wallpaper: string | null) => void;
   setGraphStyle: (graphStyle: string) => void;
   setLayout: (layout: "auto" | "desktop" | "mobile") => void;
+  /** réglages de la révision espacée (fusion partielle) */
+  setReview: (patch: Partial<ReviewSettings>) => void;
+  setReminder: (patch: Partial<ReviewSettings["reminder"]>) => void;
+  resetReview: () => void;
   setGraphDisplay: (patch: {
     labels?: boolean;
     echoes?: boolean;
@@ -90,6 +96,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: "fr",
   onboarded: false,
   personalization: DEFAULT_PERSONALIZATION,
+  review: DEFAULT_REVIEW_SETTINGS,
 };
 
 /** Complète un réglage venu d’une ancienne sauvegarde. */
@@ -100,6 +107,14 @@ export function withDefaults(settings?: Partial<AppSettings>): AppSettings {
     personalization: {
       ...DEFAULT_PERSONALIZATION,
       ...(settings?.personalization ?? {}),
+    },
+    review: {
+      ...DEFAULT_REVIEW_SETTINGS,
+      ...(settings?.review ?? {}),
+      reminder: {
+        ...DEFAULT_REVIEW_SETTINGS.reminder,
+        ...(settings?.review?.reminder ?? {}),
+      },
     },
   };
 }
@@ -291,6 +306,35 @@ export const useAppStore = create<AppState>()(
          laissent éteintes. L’utilisateur reste maître du réglage ensuite. */
       setLayout: (layout) =>
         set((s) => ({ settings: { ...s.settings, layout } })),
+      setReview: (patch) =>
+        set((s) => ({
+          settings: {
+            ...s.settings,
+            review: {
+              ...(s.settings.review ?? DEFAULT_REVIEW_SETTINGS),
+              ...patch,
+              reminder: {
+                ...(s.settings.review ?? DEFAULT_REVIEW_SETTINGS).reminder,
+                ...(patch.reminder ?? {}),
+              },
+            },
+          },
+        })),
+      setReminder: (patch) =>
+        set((s) => {
+          const review = s.settings.review ?? DEFAULT_REVIEW_SETTINGS;
+          return {
+            settings: {
+              ...s.settings,
+              review: {
+                ...review,
+                reminder: { ...review.reminder, ...patch },
+              },
+            },
+          };
+        }),
+      resetReview: () =>
+        set((s) => ({ settings: { ...s.settings, review: DEFAULT_REVIEW_SETTINGS } })),
       setGraphStyle: (graphStyle) =>
         set((s) => ({
           settings: {

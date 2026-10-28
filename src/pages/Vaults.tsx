@@ -140,9 +140,18 @@ export default function Vaults() {
         <h1 className="font-serif text-[30px] font-semibold leading-tight">
           Coffres
         </h1>
-        <p className="mt-1 text-[13.5px] leading-[20px] text-muted">
+        <p className="mt-1 max-w-[54ch] text-[13.5px] leading-[20px] text-muted">
           {rows.length} coffre{rows.length > 1 ? "s" : ""} · {totalCards} fiche
-          {totalCards > 1 ? "s" : ""}. Chaque coffre appartient à un projet.
+          {totalCards > 1 ? "s" : ""}. Le coffre <strong className="text-ink">relie</strong>{" "}
+          : une idée par fiche, une source par fiche, des renvois entre elles. Il
+          appartient à un projet.{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/spaces")}
+            className="font-semibold text-accent"
+          >
+            Comprendre la structure
+          </button>
         </p>
       </div>
 

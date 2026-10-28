@@ -13,6 +13,8 @@ import Library from "@/pages/Library";
 import ChooseMethod from "@/pages/ChooseMethod";
 import Editor from "@/pages/Editor";
 import Review from "@/pages/Review";
+import ReviewSession from "@/pages/ReviewSession";
+import ReviewSettingsPage from "@/pages/ReviewSettings";
 import MindMap from "@/pages/MindMap";
 import Zettelkasten from "@/pages/Zettelkasten";
 import ZettelForm from "@/pages/ZettelForm";
@@ -24,6 +26,7 @@ import Appearance from "@/pages/Appearance";
 import Personalization from "@/pages/Personalization";
 import Preview from "@/pages/Preview";
 import Projects from "@/pages/Projects";
+import Spaces from "@/pages/Spaces";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Vaults from "@/pages/Vaults";
 import DataBackup from "@/pages/DataBackup";
@@ -42,6 +45,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Library />} />
           <Route path="/review" element={<Review />} />
+          <Route path="/review/session" element={<ReviewSession />} />
+          <Route path="/spaces" element={<Spaces />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/vaults" element={<Vaults />} />
@@ -61,6 +66,7 @@ const App = () => (
           />
           <Route path="/settings/data" element={<DataBackup />} />
           <Route path="/settings/progress" element={<Progress />} />
+          <Route path="/settings/review" element={<ReviewSettingsPage />} />
           <Route path="/settings/trash" element={<Trash />} />
           <Route path="/settings/about" element={<About />} />
           {/* Anciennes adresses : conservées pour ne pas casser un lien */}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CaretRight,
+  Eye,
   Faders,
   MagnifyingGlass,
   NotePencil,
@@ -13,6 +14,8 @@ import { useContentStore, noteText } from "@/stores/useContentStore";
 import { useLibraryFilters } from "@/stores/useLibraryFilters";
 import { useAppStore } from "@/stores/useAppStore";
 import { BackupReminder } from "@/components/StorageGuard";
+import { ReviewReminder } from "@/components/ReviewReminder";
+import { NotePreview } from "@/components/NotePreview";
 import { ProjectsSheet } from "@/components/ProjectSwitcher";
 import { DisplayMenu } from "@/components/DisplayMenu";
 import {
@@ -68,6 +71,8 @@ export default function Library() {
   const setFilters = useLibraryFilters((s) => s.setFilters);
   const resetFilters = useLibraryFilters((s) => s.reset);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /* Aperçu d’une note depuis la grille, sans quitter la bibliothèque. */
+  const [peek, setPeek] = useState<Note | null>(null);
   /* « / » en bureau : le curseur va directement dans la recherche. */
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -460,6 +465,7 @@ export default function Library() {
         )}
 
         <div className="mt-3 empty:hidden">
+          <ReviewReminder />
           <BackupReminder compact refreshKey={notes.length + zettel.length} />
         </div>
 
@@ -505,7 +511,7 @@ export default function Library() {
                   const Icon = METHODS[note.method].icon;
                   const stats = statsById.get(note.id);
                   return (
-                    <li key={note.id} className="h-full">
+                    <li key={note.id} className="group/peek relative h-full">
                       <button
                         type="button"
                         onClick={() => openNote(note)}
@@ -576,7 +582,7 @@ export default function Library() {
                             </span>
 
                             <span className="flex flex-col gap-1 px-3 pb-2.5">
-                              <span className="max-w-full truncate rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
+                              <span className="max-w-full truncate rounded-full bg-surface-2 px-2 py-0.5 pr-16 text-[11px] font-medium text-muted">
                                 {note.collection || "Sans collection"}
                               </span>
                               <span
@@ -593,6 +599,19 @@ export default function Library() {
                           </>
                         )}
                       </button>
+                      {/* Aperçu sans quitter la grille : on voit le contenu
+                          rendu, pas seulement le titre et deux lignes. */}
+                      {display.view === "grid" && (
+                        <button
+                          type="button"
+                          onClick={() => setPeek(note)}
+                          aria-label={`Aperçu de « ${note.title} »`}
+                          className="absolute bottom-2 right-2 z-10 flex h-8 items-center gap-1 rounded-full border border-line bg-surface px-2.5 text-[11.5px] font-semibold text-ink shadow-float transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover/peek:opacity-100"
+                        >
+                          <Eye size={13} weight="duotone" aria-hidden />
+                          Aperçu
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -636,6 +655,53 @@ export default function Library() {
           resultCount={resultCount}
         />
       )}
+    <Sheet
+      open={peek !== null}
+      onClose={() => setPeek(null)}
+      title={peek ? peek.title : undefined}
+      size="wide"
+    >
+      {peek && (
+        <div>
+          <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted">
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 font-semibold text-accent-ink">
+              {METHODS[peek.method].label}
+            </span>
+            <span>{peek.collection || "Sans collection"}</span>
+            <span aria-hidden>·</span>
+            <span>{detail(peek)}</span>
+          </p>
+          <div className="rounded-card border border-line bg-surface px-4 py-3.5">
+            <NotePreview note={peek} />
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className="btn-primary flex-1"
+              onClick={() => {
+                const target = peek;
+                setPeek(null);
+                openNote(target);
+              }}
+            >
+              Ouvrir la note
+            </button>
+            <button
+              type="button"
+              className="btn-secondary flex-1"
+              onClick={() => {
+                const target = peek;
+                setPeek(null);
+                navigate(`/review/session?scope=note&id=${target.id}&mode=all`);
+              }}
+            >
+              Réviser cette note
+            </button>
+          </div>
+        </div>
+      )}
+    </Sheet>
+
     </Screen>
   );
 }
