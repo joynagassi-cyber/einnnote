@@ -64,12 +64,28 @@ Deux chemins, volontairement :
    flèches montent et descendent pour un ajustement fin. « Terminé » rend au
    rail son rôle de navigation.
 2. **Dans les réglages** (`/settings/navigation`) : liste numérotée, flèches,
-   retrait, ajout, rétablissement, et un **aperçu vivant** des deux barres.
+   rétablissement, et un **aperçu vivant** de la barre de l'appareil courant.
 
 Le geste par clics plutôt que par glisser-déposer : il fonctionne au clavier,
 il ne demande pas de viser, et il ne casse pas quand une page est plus haute
 qu'une autre. Le glisser-déposer ajouterait du code pour un geste moins
 accessible.
+
+## 4 bis. Les réglages ne règlent que l'appareil qu'on utilise
+
+L'écran portait un sélecteur **Téléphone / Bureau** : depuis un téléphone, on
+réécrivait la barre du bureau sans pouvoir en voir l'effet, et une manipulation
+d'essai cassait la navigation d'une autre machine. C'est supprimé.
+
+| Décision | Règle |
+|---|---|
+| Quelle surface est réglée ? | Celle de l'écran courant : `useRail()` (rail visible → bureau, sinon barre du bas). Aucun état local, donc aucune désynchronisation. |
+| Peut-on masquer une page ? | Seulement là où **il y a un arbitrage de place** : `NAV_CATALOG.length > SURFACE_SLOTS[surface]`. Téléphone : 8 pages pour 5 places → oui. Bureau : 8 pages pour 12 places → non. |
+| Et si des pages étaient masquées sur une surface sans choix ? | La liste est complétée (`fillItems`) et enregistrée : aucune page ne peut rester invisible sans moyen de la faire revenir. |
+| Le réordonnancement ? | Partout, et c'est la même préférence que le bouton « Ordre » du rail. |
+
+Le jour où le catalogue dépassera la place du rail, le choix réapparaît de
+lui-même — la règle est dans `src/lib/navigation.ts`, pas dans l'écran.
 
 ## 5. Créer, dans l'ordre (page Espaces)
 
@@ -88,9 +104,9 @@ accessible.
 
 | Contrôle | Résultat |
 |---|---|
-| Suite complète | **387 tests / 34 fichiers**, verts |
-| Catalogue et manipulations de liste | 22 tests purs (doublons, ids inconnus, plafond de 5, répartition barre/débordement, `placeBefore` sans perte) |
-| Écrans | 13 tests : Espaces dans la barre, page masquée réellement retirée, parking « Plus », parcours de création avec projet présélectionné, réorganisation du rail au clic **et** à la flèche, persistance dans `localStorage`, « retirer la dernière » refusé |
+| Suite complète | **410 tests / 36 fichiers**, verts |
+| Catalogue et manipulations de liste | 26 tests purs (doublons, ids inconnus, plafond de 5, répartition barre/débordement, `placeBefore` sans perte) |
+| Écrans | 16 tests : Espaces dans la barre, page masquée réellement retirée, parking « Plus », parcours de création avec projet présélectionné, réorganisation du rail au clic **et** à la flèche, persistance dans `localStorage`, « retirer la dernière » refusé |
 | `tsc` / `eslint` | propres (0 erreur) |
 | `vite build` | 3,4 s |
 | Routes HTTP | `/spaces`, `/projects`, `/vaults`, `/settings/navigation` → 200 |

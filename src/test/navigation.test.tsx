@@ -213,11 +213,62 @@ describe("Réglages de navigation", () => {
     });
   });
 
-  it("bascule sur bureau et montre le rail", async () => {
-    const user = userEvent.setup();
+  it("ne propose aucun sélecteur d’appareil : l’écran parle de la surface en cours", async () => {
     open("/settings/navigation");
-    await user.click(await screen.findByRole("button", { name: "Bureau" }));
-    expect(await screen.findByText(/Aperçu — rail latéral/)).toBeTruthy();
+
+    // le défaut retiré : plus de bascule Téléphone / Bureau
+    expect(await screen.findByText(/Aperçu — barre du bas/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Bureau" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Téléphone" })).toBeNull();
+  });
+
+  it("sur téléphone, ne touche pas à la liste du bureau", async () => {
+    const user = userEvent.setup();
+    const desktopBefore = useNavStore.getState().desktop;
+    open("/settings/navigation");
+
+    await user.click(await screen.findByRole("button", { name: "Retirer Apprendre" }));
+
+    await waitFor(() => expect(useNavStore.getState().mobile).not.toContain("learn"));
+    expect(useNavStore.getState().desktop).toEqual(desktopBefore);
+  });
+
+  it("sur bureau, montre le rail et retire le choix des pages", async () => {
+    await withDesktop(async () => {
+      open("/settings/navigation");
+
+      expect(await screen.findByText(/Aperçu — rail latéral/)).toBeTruthy();
+      // Huit pages, douze places : il n’y a rien à masquer, donc rien à cocher.
+      expect(screen.queryByRole("button", { name: /^Retirer / })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Afficher / })).toBeNull();
+      // Le réordonnancement, lui, reste.
+      expect(screen.getByRole("button", { name: "Monter Réviser" })).toBeTruthy();
+    });
+  });
+
+  it("sur bureau, réordonne la liste du rail depuis les réglages", async () => {
+    await withDesktop(async () => {
+      const user = userEvent.setup();
+      open("/settings/navigation");
+
+      await user.click(await screen.findByRole("button", { name: "Monter Studio des cartes" }));
+      await waitFor(() =>
+        expect(useNavStore.getState().desktop.indexOf("cards")).toBeLessThan(
+          useNavStore.getState().desktop.indexOf("vaults"),
+        ),
+      );
+      // « Réglages » n’est jamais dans la liste du bureau : il est en pied de rail
+      expect(useNavStore.getState().desktop).not.toContain("settings");
+
+      // et ne touche jamais la barre du téléphone
+      expect(useNavStore.getState().mobile).toEqual([
+        "notes",
+        "spaces",
+        "review",
+        "learn",
+        "settings",
+      ]);
+    });
   });
 
   it("rétablit l’ordre par défaut", async () => {

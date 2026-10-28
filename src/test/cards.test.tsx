@@ -198,3 +198,69 @@ describe("Carte de révision", () => {
     expect(await screen.findByText("Ce que vous aviez écrit")).toBeTruthy();
   });
 });
+
+/**
+ * La fiche ouverte : **une implémentation, deux surfaces**.
+ *
+ * Le défaut visible était un débordement : la fiche poussait son pied de carte
+ * hors du cadre et les cartes de derrière apparaissaient sous la pagination.
+ * jsdom ne calcule pas les hauteurs, donc on vérifie ici la structure qui rend
+ * le débordement impossible — cadre borné, fiche qui le remplit, corps seul
+ * défilant — et on relit la feuille de style pour que la règle ne se perde pas
+ * dans une retouche.
+ */
+describe("Fiche de coffre, une seule implémentation", () => {
+  it("la pile du téléphone borne le cadre et fait défiler le corps seul", async () => {
+    useDisplayStore.getState().set("vault", { view: "stack" });
+    open("/vault/v-eco");
+
+    const sheets = await waitFor(() => {
+      const found = document.querySelectorAll<HTMLElement>('[data-sheet="zettel"]');
+      expect(found.length).toBe(1);
+      return found;
+    });
+    const sheet = sheets[0];
+
+    // la fiche occupe le cadre, elle ne le dépasse pas
+    const frame = sheet.closest(".zettel-stack-card");
+    expect(frame).toBeTruthy();
+    expect(frame!.className).toContain("flex-col");
+
+    // en-tête, renvois et pied restent fixes ; seul le corps défile
+    const body = sheet.querySelector<HTMLElement>('[data-part="body"]')!;
+    expect(body.className).toContain("min-h-0");
+    expect(body.className).toContain("flex-1");
+    expect(body.className).toContain("overflow-y-auto");
+
+    // le pied nomme le geste et garde le bouton de modification
+    expect(screen.getByText(/Glissez pour feuilleter/)).toBeTruthy();
+  });
+
+  it("le lecteur du bureau rend la même fiche, avec ses actions", async () => {
+    await withDesktop(async () => {
+      useDisplayStore.getState().set("vault", { view: "stack" });
+      open("/vault/v-eco");
+
+      const sheet = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>('[data-sheet="zettel"]');
+        expect(found).toBeTruthy();
+        return found!;
+      });
+      expect(sheet.querySelector('[data-part="body"]')).toBeTruthy();
+      // les actions du bureau vivent dans l’en-tête, pas dans le corps
+      const header = sheet.querySelector("header")!;
+      expect(header.textContent).toContain("Modifier");
+      expect(header.textContent).toContain("Situer");
+    });
+  });
+
+  it("aucune fiche n’impose sa propre hauteur en dur", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const css = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8");
+    // la hauteur du cadre vient d’une variable calculée, jamais d’un h-[500px]
+    expect(css).toMatch(/\.zettel-stack\s*\{[^}]*height:\s*calc\(var\(--stack-h\)/);
+    expect(css).toMatch(/\.zettel-stack-card[^{]*\{[^}]*height:\s*var\(--stack-h\)/);
+    expect(css).not.toMatch(/\.zettel-stack-card[^{]*\{[^}]*max-height:\s*\d+px/);
+  });
+});

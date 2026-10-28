@@ -6,6 +6,7 @@ import {
   ClockCounterClockwise,
   FolderPlus,
   FolderSimple,
+  GraduationCap,
   NotePencil,
   Plus,
   Stack,
@@ -83,6 +84,16 @@ export default function Spaces() {
           <strong className="text-ink">relie</strong>. Une note travaille. C’est tout, et
           c’est ce qui évite de chercher une note au mauvais endroit.
         </p>
+        {/* La page qui explique le rangement renvoie à la leçon qui l’enseigne :
+            le schéma d’ici est un aide-mémoire, pas un cours. */}
+        <button
+          type="button"
+          onClick={() => navigate("/learn/x-1")}
+          className="mt-2.5 flex items-center gap-1.5 text-[13px] font-medium text-accent"
+        >
+          <GraduationCap size={16} weight="duotone" aria-hidden />
+          Apprendre en 3 minutes : un projet, des coffres, des notes
+        </button>
       </header>
 
       {/* Les trois rôles, côte à côte, sans jargon */}

@@ -574,6 +574,169 @@ export const seedMindMaps: MindMap[] = [
 /* ------------------------------------------------------------------ */
 
 export const seedLessons: Lesson[] = [
+  /* ---------- Couche 0 : le socle, « où vivent les notes » ----------
+     Placée en tête parce que c’est la question qui précède toutes les autres :
+     avant de choisir entre outline et Cornell, il faut savoir dans quoi la note
+     va tomber. Un projet contient des coffres, un coffre contient des notes. */
+  {
+    id: "x-1",
+    track: 3,
+    index: 1,
+    title: "Un projet, des coffres, des notes",
+    subtitle: "La seule hiérarchie de l’app, en trois minutes",
+    minutes: 3,
+    steps: [
+      {
+        title: "Un projet est un chantier, pas un dossier",
+        body:
+          "« Thèse », « Droit des affaires », « Maison » : un projet délimite un travail qui a un début, une fin et des sources. Il ne range pas des fichiers, il décide de ce qui va ensemble. Au départ vous en avez deux, « Mes notes » et « Thèse » — et un projet peut en contenir beaucoup d’autres.",
+        illustration: "map",
+        practice: {
+          title: "À vous",
+          text: "Ouvrez Espaces : vos deux projets y sont, avec le nombre de coffres de chacun.",
+          href: "/spaces",
+          hrefLabel: "Ouvrir Espaces",
+        },
+      },
+      {
+        title: "Un coffre est un sujet à l’intérieur du projet",
+        body:
+          "Dans « Thèse », le coffre « Économie » rassemble les fiches sur la monnaie, les prix et le travail. Un projet porte plusieurs coffres : un par question, jamais un par source. Deux lectures du même sujet partagent un coffre ; deux sujets voisins n’en partagent pas.",
+        illustration: "cards",
+      },
+      {
+        title: "Une note raconte, une fiche relie",
+        body:
+          "Une note — outline, Cornell, carte mentale — garde la trace d’un moment de lecture, avec son contexte. Une fiche de coffre isole une seule idée et la cite par son code : #1A appelle #1A1. Les deux vivent dans le même projet ; seules les fiches se rangent en coffres, et c’est ce qui rend le graphe lisible.",
+        illustration: "book",
+      },
+    ],
+  },
+  {
+    id: "x-2",
+    track: 3,
+    index: 2,
+    title: "Créer un projet",
+    subtitle: "Nommer, c’est déjà décider",
+    minutes: 2,
+    steps: [
+      {
+        title: "Un nom précis vaut un rangement",
+        body:
+          "« Mémoire M2 » range ; « Divers » n’existe pas, parce que tout y entre. Si deux noms conviennent au même contenu, c’est que le contenu relève de deux projets — et il vaut mieux le séparer maintenant qu’après cinquante notes.",
+        illustration: "book",
+      },
+      {
+        title: "Un projet en deux gestes",
+        body:
+          "Espaces, étape 1 : « Nouveau projet », un nom, c’est tout. Le projet apparaît aussitôt dans la liste des projets et dans les filtres de la bibliothèque. Aucun dossier à créer à côté, aucun fichier à déplacer.",
+        illustration: "map",
+        practice: {
+          title: "À vous",
+          text: "Créez un projet pour le travail en cours, puis revenez sur Espaces.",
+          href: "/projects?new=1",
+          hrefLabel: "Créer un projet",
+        },
+      },
+    ],
+  },
+  {
+    id: "x-3",
+    track: 3,
+    index: 3,
+    title: "Ouvrir un coffre dans ce projet",
+    subtitle: "Un coffre relie, un dossier range",
+    minutes: 2,
+    steps: [
+      {
+        title: "Le coffre est le seul endroit qui relie",
+        body:
+          "Les fiches d’un coffre se citent entre elles et le graphe montre ce qui revient d’une source à l’autre. C’est pour cela qu’il ne se crée pas « à part » : il appartient à un projet, et il emprunte son nom à une question, pas à un auteur.",
+        illustration: "map",
+      },
+      {
+        title: "Deux fiches qui ne se parlent pas",
+        body:
+          "Si deux fiches ne se citeront jamais, elles n’ont rien à faire dans le même coffre. Si trois sources disent la même chose autrement, elles en ont besoin : ce sont ces recoupements que vous relirez dans six mois.",
+        illustration: "cards",
+      },
+      {
+        title: "Le coffre se crée depuis le projet",
+        body:
+          "Espaces, étape 2 : choisissez le projet, nommez le coffre. La page des coffres garde le projet d’origine, si bien que vous n’avez jamais à le re-sélectionner. Un projet sans coffre reste possible : toutes ses notes y vivent à plat.",
+        illustration: "book",
+        practice: {
+          title: "À vous",
+          text: "Ajoutez un coffre au projet créé à l’étape précédente.",
+          href: "/vaults?new=1",
+          hrefLabel: "Ouvrir un coffre",
+        },
+      },
+    ],
+  },
+  {
+    id: "x-4",
+    track: 3,
+    index: 4,
+    title: "Écrire la première note",
+    subtitle: "La bonne méthode dépend du moment, pas du goût",
+    minutes: 3,
+    steps: [
+      {
+        title: "Trois moments, trois méthodes",
+        body:
+          "Devant un plan à construire, l’outline. Devant un texte à retenir, Cornell : note, puis questions en marge. Devant un sujet qui part dans tous les sens, la carte mentale. Choisir la méthode est un choix sur l’état de vos idées, pas sur votre style.",
+        illustration: "book",
+      },
+      {
+        title: "La note appartient au projet",
+        body:
+          "Une note se crée avec le bouton « + » de la barre, et se range dans un projet au moment de l’écrire. Ce n’est qu’après qu’on décide si elle donne une fiche : toutes les notes ne méritent pas un coffre, et c’est très bien ainsi.",
+        illustration: "cards",
+        practice: {
+          title: "À vous",
+          text: "Écrivez une note Cornell de trois lignes dans votre nouveau projet.",
+          href: "/new",
+          hrefLabel: "Écrire une note",
+        },
+      },
+    ],
+  },
+  {
+    id: "x-5",
+    track: 3,
+    index: 5,
+    title: "Retrouver ce qu’on a écrit",
+    subtitle: "Quatre portes, un seul contenu",
+    minutes: 3,
+    steps: [
+      {
+        title: "Quatre portes, et aucune n’est un doublon",
+        body:
+          "Notes : la bibliothèque, toutes les notes de tous les projets. Espaces : la carte — quel projet, quels coffres, quelles fiches. Réviser : ce qui est dû aujourd’hui, par projet, par coffre ou par note. Studio des cartes : l’apparence des fiches, jamais leur contenu.",
+        illustration: "review",
+        practice: {
+          title: "À vous",
+          text: "Ouvrez Réviser : la séance du jour, filtrée sur votre projet.",
+          href: "/review",
+          hrefLabel: "Ouvrir Réviser",
+        },
+      },
+      {
+        title: "La révision ne se déclenche pas toute seule",
+        body:
+          "Une fiche ne devient pas une carte de révision par magie : c’est la question posée sur un passage qui la crée. Sans question, une note reste une note — utile, mais pas encore mémorisée.",
+        illustration: "question",
+      },
+      {
+        title: "Le test des dix secondes",
+        body:
+          "Prenez une idée que vous avez notée la semaine dernière. Si vous ne la retrouvez pas en dix secondes, ce n’est pas votre mémoire qui est en cause mais le rangement : le projet est trop large, ou le coffre n’existe pas encore.",
+        illustration: "timer",
+      },
+    ],
+  },
+
   /* ---------- Couche A : tutoriels par outil ---------- */
   {
     id: "t-outline",

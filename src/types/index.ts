@@ -168,13 +168,21 @@ export interface LessonStep {
   title: string;
   body: string;
   illustration: "book" | "question" | "map" | "cards" | "review" | "timer";
-  practice?: { title: string; text: string; noteId?: string };
+  /**
+   * Le geste à faire tout de suite. `href` mène à la page où le faire — sans
+   * lui, une pratique est un conseil ; avec lui, c’est un bouton.
+   */
+  practice?: { title: string; text: string; noteId?: string; href?: string; hrefLabel?: string };
 }
 
 export interface Lesson {
   id: string;
-  /** 1 = tutoriels par outil, 2 = cours « Lire pour retenir » */
-  track: 1 | 2;
+  /**
+   * 3 = le socle (projet → coffre → note, où vit quoi), 1 = tutoriels par
+   * outil, 2 = cours « Lire pour retenir ». L’ordre d’affichage est celui de
+   * `TRACKS` dans `src/lib/learn.ts`, pas celui des nombres.
+   */
+  track: 1 | 2 | 3;
   index: number;
   title: string;
   subtitle: string;

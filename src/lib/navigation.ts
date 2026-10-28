@@ -135,6 +135,64 @@ export function isNavId(value: unknown): value is NavId {
 export const MOBILE_SLOTS = 5;
 
 /**
+ * Pages qui ont une **place fixe** sur une surface : elles n’entrent pas dans
+ * la liste réglable. Sur bureau, « Réglages » est déjà en pied de rail — la
+ * mettre aussi dans la liste la ferait apparaître deux fois.
+ */
+export const FIXED_ON: Record<NavSurface, NavId[]> = {
+  mobile: [],
+  desktop: ["settings"],
+};
+
+/** Les pages qu’une surface peut réellement choisir. */
+export function catalogFor(surface: NavSurface): NavDestination[] {
+  return NAV_CATALOG.filter((destination) => !FIXED_ON[surface].includes(destination.id));
+}
+
+/**
+ * Combien d’entrées une surface porte **sans arbitrage**.
+ *
+ * Ce n’est pas une limite technique, c’est une limite de sens : la barre basse
+ * n’a pas de défilement, au-delà de cinq entrées il faut choisir lesquelles y
+ * vivent. Le rail, lui, défile et tient largement le catalogue actuel — tant
+ * qu’il y a de la place, demander à l’utilisateur de masquer des pages serait
+ * une question sans enjeu.
+ */
+export const SURFACE_SLOTS: Record<NavSurface, number> = {
+  mobile: MOBILE_SLOTS,
+  desktop: 12,
+};
+
+/**
+ * Faut-il proposer d’**afficher ou masquer** des pages sur cette surface ?
+ *
+ * Règle unique, et c’est le point : on ne règle que la surface où l’on est, et
+ * on n’y règle le masquage **que lorsqu’il y a plus de pages que de place**.
+ * Aujourd’hui : vrai sur téléphone (8 pages pour 5 places), faux sur bureau
+ * (8 pages pour 12 places). Le jour où le catalogue dépassera la place du
+ * rail, le choix réapparaîtra de lui-même, sans retoucher l’écran.
+ */
+export function needsPicker(surface: NavSurface): boolean {
+  return catalogFor(surface).length > SURFACE_SLOTS[surface];
+}
+
+/**
+ * Toutes les pages du catalogue, dans l’ordre choisi, les manquantes à la fin.
+ *
+ * Sert à la surface qui n’a pas de sélection à faire : plutôt que d’afficher
+ * une liste partielle qu’on ne pourrait plus compléter (le masquage étant
+ * retiré), on complète. Rien ne peut ainsi devenir invisible sans recours.
+ */
+export function fillItems(surface: NavSurface, items: NavId[]): NavId[] {
+  const allowed = new Set(catalogFor(surface).map((destination) => destination.id));
+  const filled = normalizeItems(items).filter((id) => allowed.has(id));
+  for (const destination of catalogFor(surface)) {
+    if (!filled.includes(destination.id)) filled.push(destination.id);
+  }
+  return filled;
+}
+
+/**
  * Par défaut, le téléphone montre **cinq** entrées — dont « Espaces », qui y
  * manquait. Le bureau en montre sept : la hauteur du rail ne coûte rien.
  */
@@ -165,7 +223,10 @@ export function normalizeItems(value: unknown): NavId[] {
  * la liste par défaut de la surface.
  */
 export function sanitizeItems(surface: NavSurface, value: unknown): NavId[] {
-  const items = normalizeItems(value);
+  /* Une page à place fixe ne peut pas entrer dans la liste réglable : elle y
+     apparaîtrait deux fois (Réglages dans le rail *et* en pied de rail). */
+  const fixed = FIXED_ON[surface];
+  const items = normalizeItems(value).filter((id) => !fixed.includes(id));
   return items.length > 0 ? items : [...DEFAULT_NAV[surface]];
 }
 

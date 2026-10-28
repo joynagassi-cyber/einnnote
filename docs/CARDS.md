@@ -164,6 +164,39 @@ téléphone                          bureau
 
 ---
 
+## 4 bis. La fiche ouverte : une implémentation, deux surfaces
+
+La fiche de coffre existait **deux fois** — une dans la pile du téléphone, une
+dans le panneau du bureau — avec des marges, des tailles et des règles de
+défilement différentes. C'est ainsi qu'une carte « mal codée » apparaît : sur
+un appareil le contenu pousse le pied de carte hors du cadre et les cartes de
+derrière dépassent sous la pagination ; sur l'autre, la même fiche est courte
+et laisse deux rectangles vides.
+
+Désormais, un seul composant : `src/components/zettel/ZettelSheet.tsx`.
+
+| Règle | Où elle vit |
+|---|---|
+| La fiche remplit **exactement** le cadre qu'on lui donne | `.zettel-stack-card { height: var(--stack-h) }`, `ZettelSheet` en `flex min-h-0 flex-col` + `flex-1` |
+| L'en-tête, les renvois et le pied ne bougent pas | `shrink-0` sur le pied, `header` hors de la zone qui défile |
+| Seul le corps défile | `data-part="body"` : `min-h-0 flex-1 overflow-y-auto` |
+| Le titre est borné à trois lignes, texte complet en `title` | `line-clamp-3` + `title={card.title}` |
+| Les renvois passent à la ligne au lieu de déborder | `flex flex-wrap`, `truncate` par renvoi |
+| La cadre a une hauteur **calculée**, jamais un `h-[500px]` | `--stack-h: clamp(320px, calc(100dvh - 320px), 540px)` puis deux paliers (`min-height: 780px`, `min-width: 720px`) |
+| La tranche des cartes de derrière est réservée | `--stack-peek: 22px`, ajouté à la hauteur du cadre |
+
+Ce que chaque surface ajoute, et qui reste local :
+
+- **téléphone** : `counter` (« 3 / 12 ») dans l'en-tête et un `footer`
+  (« Glissez pour feuilleter » + Modifier) ;
+- **bureau** : `actions` dans l'en-tête (Modifier, Situer), la liste des fiches
+  à gauche et le panneau de lecture à droite.
+
+Tests : `src/test/cards.test.tsx`, bloc « Fiche de coffre, une seule
+implémentation » — une seule fiche dans le DOM, cadre borné, corps seul
+défilant, actions du bureau dans l'en-tête, et une relecture de `index.css`
+qui échoue si la hauteur du cadre redevient un nombre de pixels en dur.
+
 ## 5. Vérification
 
 | Contrôle | Résultat |

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowClockwise,
@@ -11,110 +11,121 @@ import {
   Plus,
   X,
 } from "@phosphor-icons/react";
-import { AppBar, Screen, Segmented } from "@/components/Layout";
+import { AppBar, Screen } from "@/components/Layout";
+import { useRail } from "@/lib/useMediaQuery";
 import { useNavStore } from "@/stores/useNavStore";
 import { useToast } from "@/stores/useToast";
 import {
   MOBILE_SLOTS,
+  SURFACE_SLOTS,
   availableItems,
+  fillItems,
+  needsPicker,
   resolveItems,
   splitMobile,
   type NavSurface,
 } from "@/lib/navigation";
-import { cn } from "@/lib/utils";
 
 /**
- * Navigation — **quelles pages, et dans quel ordre**, appareil par appareil.
+ * Navigation — **l’appareil que vous utilisez**, et lui seul.
  *
- * Le principe qui a guidé l’écran : une préférence n’est utile que si l’on voit
- * son effet *avant* de quitter la page. D’où l’aperçu vivant en haut, qui
- * reprend exactement le rendu de la barre basse et du rail — mêmes icônes,
- * mêmes libellés, même place pour le bouton « + ».
+ * Ce qui a été retiré, et pourquoi. L’écran portait un sélecteur
+ * « Téléphone / Bureau » : depuis un téléphone on pouvait réécrire la barre du
+ * bureau, et inversement. C’est une erreur de conception, pas un détail : on
+ * réglait un appareil qu’on ne voyait pas, sans pouvoir vérifier l’effet, et
+ * une manipulation faite « pour essayer » cassait la navigation d’une autre
+ * machine. La surface est donc **déduite de la place réelle** (rail visible ou
+ * barre basse), jamais choisie à la main.
  *
- * Ce que l’écran ne fait pas : promettre de la place qui n’existe pas. Au-delà
- * de cinq entrées sur téléphone, la barre basse n’a plus de largeur : les
- * suivantes passent derrière « Plus », et c’est écrit en toutes lettres.
+ * Deuxième règle : on ne propose d’afficher ou masquer des pages que là où il y
+ * a un arbitrage à faire. Huit pages dans cinq places, oui (téléphone) ; huit
+ * pages dans un rail qui en tient douze, non (bureau). Là où le masquage est
+ * retiré, la liste est complétée automatiquement : aucune page ne peut rester
+ * invisible sans moyen de la faire revenir. Le réordonnancement, lui, reste
+ * partout — c’est un goût, pas un arbitrage de place.
  */
 export default function NavSettingsPage() {
   const navigate = useNavigate();
   const showToast = useToast((s) => s.show);
-  const [surface, setSurface] = useState<NavSurface>("mobile");
 
-  const mobile = useNavStore((s) => s.mobile);
-  const desktop = useNavStore((s) => s.desktop);
+  /* La surface est celle de l’écran en cours : `useRail` répond exactement à
+     « y a-t-il une navigation latérale ? ». Aucun état local, donc rien à
+     synchroniser. */
+  const surface: NavSurface = useRail() ? "desktop" : "mobile";
+  const picker = needsPicker(surface);
+
+  const stored = useNavStore((s) => s[surface]);
+  const setItems = useNavStore((s) => s.setItems);
   const toggle = useNavStore((s) => s.toggle);
   const move = useNavStore((s) => s.move);
   const reset = useNavStore((s) => s.reset);
 
-  const items = surface === "mobile" ? mobile : desktop;
+  const items = picker ? stored : fillItems(surface, stored);
   const shown = resolveItems(items);
-  const available = availableItems(items);
-  const { overflow } = splitMobile(mobile);
+  const available = picker ? availableItems(items) : [];
+  const overflow = surface === "mobile" ? splitMobile(items).overflow : [];
 
-  const add = (id: Parameters<typeof toggle>[1]) => {
-    toggle(surface, id);
-  };
+  /* La liste complétée devient l’état : ce que l’écran montre doit être ce qui
+     est enregistré. Sans effet si la liste est déjà complète (cas courant). */
+  useEffect(() => {
+    if (!picker && stored.length < items.length) setItems(surface, items);
+  }, [picker, stored.length, items, setItems, surface]);
 
   return (
     <Screen className="screen-narrow px-5">
       <AppBar back onBack={() => navigate("/settings")} title="Navigation" />
 
-      <p className="mt-1 text-[13.5px] leading-[20px] text-muted">
-        Choisissez les pages qui apparaissent dans la barre du bas (téléphone)
-        et dans le rail (bureau). Chaque appareil garde sa propre liste : cinq
-        entrées tiennent sous le pouce, quinze tiennent dans un rail.
-      </p>
-
-      <div className="mt-4">
-        <Segmented
-          value={surface}
-          onChange={(value) => setSurface(value as NavSurface)}
-          label="Appareil"
-          options={[
-            { value: "mobile", label: "Téléphone" },
-            { value: "desktop", label: "Bureau" },
-          ]}
-        />
+      <div className="mt-1 flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-field border border-line bg-surface text-accent">
+          {surface === "mobile" ? (
+            <DeviceMobile size={18} weight="duotone" aria-hidden />
+          ) : (
+            <Monitor size={18} weight="duotone" aria-hidden />
+          )}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13.5px] leading-[20px]">
+            Réglages de{" "}
+            <strong className="font-semibold">
+              {surface === "mobile" ? "la barre du bas" : "du rail latéral"}
+            </strong>
+            {" "}— l’appareil que vous utilisez en ce moment.
+          </p>
+          <p className="mt-1 text-[12.5px] leading-[18px] text-muted">
+            {surface === "mobile"
+              ? "La barre du bas ne défile pas : ce qui ne tient pas passe derrière « Plus »."
+              : "Le rail défile : toutes les pages y ont place. L’autre appareil garde ses propres réglages."}
+          </p>
+        </div>
       </div>
 
       {/* ------------------------------------------------ aperçu vivant */}
       <section className="mt-4 rounded-big border border-line bg-surface p-4">
-        <div className="flex items-center gap-2">
-          {surface === "mobile" ? (
-            <DeviceMobile size={17} weight="duotone" className="text-accent" aria-hidden />
-          ) : (
-            <Monitor size={17} weight="duotone" className="text-accent" aria-hidden />
-          )}
-          <h2 className="font-serif text-[17px] font-semibold">
-            Aperçu — {surface === "mobile" ? "barre du bas" : "rail latéral"}
-          </h2>
-        </div>
+        <h2 className="font-serif text-[17px] font-semibold">
+          Aperçu — {surface === "mobile" ? "barre du bas" : "rail latéral"}
+        </h2>
 
-        {surface === "mobile" ? (
-          <MobilePreview items={mobile} />
-        ) : (
-          <DesktopPreview items={desktop} />
-        )}
+        {surface === "mobile" ? <MobilePreview items={items} /> : <DesktopPreview items={items} />}
 
         <p className="mt-2 flex items-start gap-1.5 text-[11.5px] leading-[17px] text-muted">
           <Info size={13} weight="duotone" className="mt-0.5 shrink-0" aria-hidden />
           {surface === "mobile" ? (
             overflow.length > 0 ? (
               <>
-                {overflow.length} page{overflow.length > 1 ? "s" : ""} en trop pour la
-                barre : elle{overflow.length > 1 ? "s" : ""} passent derrière « Plus »,
-                jamais hors de portée.
+                {overflow.length} page{overflow.length > 1 ? "s" : ""} en trop pour la barre :
+                elle{overflow.length > 1 ? "s" : ""} passe
+                {overflow.length > 1 ? "nt" : ""} derrière « Plus », jamais hors de portée.
               </>
             ) : (
               <>
-                {MOBILE_SLOTS} entrées maximum dans la barre. Le bouton « + » reste
-                au centre et ne se déplace pas.
+                {MOBILE_SLOTS} entrées maximum dans la barre. Le bouton « + » reste au centre
+                et ne se déplace pas.
               </>
             )
           ) : (
             <>
-              Le bouton « + » et la liste des projets restent fixes. Seules les
-              pages ci-dessous se réordonnent — ici, ou directement dans le rail.
+              Le bouton « + » et la liste des projets restent fixes. Seules les pages
+              ci-dessous se réordonnent — ici, ou directement dans le rail.
             </>
           )}
         </p>
@@ -125,9 +136,7 @@ export default function NavSettingsPage() {
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="font-serif text-[18px] font-semibold">
             Pages affichées
-            <span className="ml-1.5 text-[13px] font-normal text-muted">
-              {shown.length}
-            </span>
+            <span className="ml-1.5 text-[13px] font-normal text-muted">{shown.length}</span>
           </h2>
           <button
             type="button"
@@ -156,9 +165,7 @@ export default function NavSettingsPage() {
                 </span>
                 <Icon size={18} weight="duotone" className="shrink-0 text-accent" aria-hidden />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium">
-                    {item.label}
-                  </span>
+                  <span className="block truncate text-[14px] font-medium">{item.label}</span>
                   <span className="block truncate text-[11.5px] leading-[16px] text-muted">
                     {item.hint}
                   </span>
@@ -182,25 +189,35 @@ export default function NavSettingsPage() {
                   >
                     <ArrowDown size={13} weight="bold" />
                   </button>
-                  <button
-                    type="button"
-                    aria-label={`Retirer ${item.label}`}
-                    disabled={locked}
-                    onClick={() => toggle(surface, item.id)}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-surface text-muted disabled:opacity-30"
-                  >
-                    <X size={13} weight="bold" />
-                  </button>
+                  {picker && (
+                    <button
+                      type="button"
+                      aria-label={`Retirer ${item.label}`}
+                      disabled={locked}
+                      onClick={() => toggle(surface, item.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-line bg-surface text-muted disabled:opacity-30"
+                    >
+                      <X size={13} weight="bold" />
+                    </button>
+                  )}
                 </span>
               </li>
             );
           })}
         </ol>
 
-        {shown.length === 1 && (
+        {picker ? (
+          shown.length === 1 && (
+            <p className="mt-2 text-[12px] leading-[17px] text-muted">
+              Une seule page reste affichée : une barre vide ne serait pas une préférence, ce
+              serait une impasse. Retirer la dernière est refusé.
+            </p>
+          )
+        ) : (
           <p className="mt-2 text-[12px] leading-[17px] text-muted">
-            Une seule page reste affichée : une barre vide ne serait pas une
-            préférence, ce serait une impasse. Retirer la dernière est refusé.
+            {SURFACE_SLOTS.desktop} places dans le rail pour {shown.length} pages : tant qu’il
+            reste de la place, il n’y a rien à masquer. Le choix d’afficher ou non apparaîtra
+            de lui-même quand le catalogue dépassera la place disponible.
           </p>
         )}
       </section>
@@ -210,8 +227,8 @@ export default function NavSettingsPage() {
         <section className="mt-3 rounded-big border border-line bg-surface p-4">
           <h2 className="font-serif text-[18px] font-semibold">Pages masquées</h2>
           <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">
-            Toujours accessibles par leur adresse et depuis les réglages — elles
-            n’occupent simplement pas la barre.
+            Toujours accessibles par leur adresse et depuis les réglages — elles n’occupent
+            simplement pas la barre.
           </p>
           <ul className="mt-2 flex flex-col gap-1">
             {available.map((item) => {
@@ -223,16 +240,14 @@ export default function NavSettingsPage() {
                 >
                   <Icon size={18} weight="duotone" className="shrink-0 text-muted" aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] text-muted">
-                      {item.label}
-                    </span>
+                    <span className="block truncate text-[14px] text-muted">{item.label}</span>
                     <span className="block truncate text-[11.5px] leading-[16px] text-muted">
                       {item.hint}
                     </span>
                   </span>
                   <button
                     type="button"
-                    onClick={() => add(item.id)}
+                    onClick={() => toggle(surface, item.id)}
                     aria-label={`Afficher ${item.label}`}
                     className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-line bg-bg px-2 text-[12.5px] font-medium"
                   >
@@ -248,9 +263,9 @@ export default function NavSettingsPage() {
 
       <p className="mt-4 flex items-start gap-2 rounded-card bg-surface-2 px-3 py-2.5 text-[12px] leading-[18px] text-muted">
         <Check size={14} weight="bold" className="mt-0.5 shrink-0 text-accent" aria-hidden />
-        L’ordre se règle aussi depuis la barre elle-même : sur bureau, bouton
-        « Ordre » dans le rail, puis touchez la page à déplacer et celle devant
-        laquelle la poser.
+        L’ordre se règle ici, et sur bureau aussi depuis le rail : bouton « Ordre », puis
+        touchez la page à déplacer et celle devant laquelle la poser. Les deux gestes
+        écrivent la même préférence.
       </p>
 
       <div className="h-16" />

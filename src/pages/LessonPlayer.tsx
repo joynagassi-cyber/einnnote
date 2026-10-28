@@ -4,6 +4,7 @@ import { CaretLeft, X } from "@phosphor-icons/react";
 import { Screen } from "@/components/Layout";
 import { Illustration } from "@/components/Illustration";
 import { seedLessons } from "@/data/seed";
+import { trackOf } from "@/lib/learn";
 import { useContentStore } from "@/stores/useContentStore";
 import { useToast } from "@/stores/useToast";
 import { cn } from "@/lib/utils";
@@ -43,7 +44,7 @@ export default function LessonPlayer() {
 
   const current = lesson.steps[Math.min(step, lesson.steps.length - 1)];
   const last = step >= lesson.steps.length - 1;
-  const trackLabel = lesson.track === 1 ? "Tutoriel" : "Cours · Lire pour retenir";
+  const trackLabel = trackOf(lesson).label;
   const position = siblings.findIndex((l) => l.id === lesson.id) + 1;
 
   const next = () => {
@@ -128,6 +129,15 @@ export default function LessonPlayer() {
                 className="mt-2 h-11 text-[15px] font-medium text-accent"
               >
                 Ouvrir la note exemple ›
+              </button>
+            )}
+            {current.practice.href && (
+              <button
+                type="button"
+                onClick={() => navigate(current.practice!.href!)}
+                className="btn-primary mt-3 h-11 w-full rounded-big text-[15px]"
+              >
+                {current.practice.hrefLabel ?? "Faire le geste"}
               </button>
             )}
           </div>

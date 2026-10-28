@@ -3,7 +3,10 @@ import {
   DEFAULT_NAV,
   MOBILE_SLOTS,
   NAV_CATALOG,
+  SURFACE_SLOTS,
   availableItems,
+  fillItems,
+  needsPicker,
   moveItem,
   normalizeItems,
   placeBefore,
@@ -154,5 +157,54 @@ describe("catalogue", () => {
     expect(paths).toContain("/vaults");
     // une entrée sans adresse ne doit pas apparaître dans une barre
     expect(paths.every((path) => path.startsWith("/"))).toBe(true);
+  });
+});
+
+/**
+ * La règle des réglages : on ne règle que la surface où l’on est, et on ne
+ * propose d’y masquer des pages que s’il y a un arbitrage à faire.
+ */
+describe("choix des pages, surface par surface", () => {
+  it("propose de choisir sur téléphone, pas sur bureau", () => {
+    expect(needsPicker("mobile")).toBe(true);
+    expect(needsPicker("desktop")).toBe(false);
+  });
+
+  it("la règle suit la place, pas les appareils", () => {
+    // 8 pages dans 5 places → choix ; 8 pages dans 12 places → aucun choix
+    expect(NAV_CATALOG.length).toBeGreaterThan(SURFACE_SLOTS.mobile);
+    expect(NAV_CATALOG.length).toBeLessThanOrEqual(SURFACE_SLOTS.desktop);
+  });
+
+  it("complète la liste d’une surface sans choix, sans rien perdre", () => {
+    const partial: NavId[] = ["learn", "notes"];
+    const filled = fillItems("desktop", partial);
+    expect(filled.slice(0, 2)).toEqual(["learn", "notes"]);
+    expect(filled).toHaveLength(NAV_CATALOG.length - 1);
+    // aucune page choisissable ne peut rester sans moyen de revenir
+    const choosable = NAV_CATALOG.map((entry) => entry.id).filter((id) => id !== "settings");
+    expect(new Set(filled)).toEqual(new Set(choosable));
+  });
+
+  it("laisse une liste déjà complète intacte", () => {
+    const full = NAV_CATALOG.map((entry) => entry.id).filter((id) => id !== "settings");
+    expect(fillItems("desktop", full)).toEqual(full);
+  });
+
+  it("ne remet jamais « Réglages » dans la liste du bureau : il est en pied de rail", () => {
+    const filled = fillItems("desktop", ["notes", "spaces"]);
+    expect(filled).not.toContain("settings");
+    // et la règle de place se juge sur les pages réellement choisissables
+    expect(filled).toHaveLength(NAV_CATALOG.length - 1);
+  });
+});
+
+describe("pages à place fixe", () => {
+  it("Réglages ne peut pas entrer dans la liste du bureau", () => {
+    expect(sanitizeItems("desktop", ["notes", "settings"])).toEqual(["notes"]);
+  });
+
+  it("mais reste une page du catalogue téléphone", () => {
+    expect(sanitizeItems("mobile", ["notes", "settings"])).toEqual(["notes", "settings"]);
   });
 });

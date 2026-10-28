@@ -5,6 +5,7 @@ import { AppBar, EmptyState, Screen } from "@/components/Layout";
 import { CardFan } from "@/components/ui/card-fan-carousel";
 import { TiltCard } from "@/components/ui/3d-card";
 import { ZettelLeaf } from "@/components/zettel/ZettelLeaf";
+import { ZettelSheet } from "@/components/zettel/ZettelSheet";
 import { useContentStore } from "@/stores/useContentStore";
 import { cn } from "@/lib/utils";
 import { DisplayMenu } from "@/components/DisplayMenu";
@@ -423,59 +424,33 @@ export default function Zettelkasten() {
 
           {current && (
             <article className="flex min-h-0 flex-col overflow-hidden rounded-sheet border border-line bg-surface shadow-lift">
-              <header className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
-                <div className="min-w-0">
-                  <span className="text-[12.5px] font-bold tracking-wide text-accent">{current.code}</span>
-                  <h1 className="mt-1 font-serif text-[25px] font-semibold leading-tight">{current.title}</h1>
-                </div>
-                <div className="flex shrink-0 gap-1.5">
-                  <button
-                    type="button"
-                    className="pill h-9 px-3 text-[13px]"
-                    onClick={() => navigate(`/vault/${id}/new?edit=${current.id}`)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    type="button"
-                    className="pill h-9 px-3 text-[13px]"
-                    onClick={() => navigate(`/vault/${id}/graph?card=${encodeURIComponent(current.code)}`)}
-                  >
-                    Situer
-                  </button>
-                </div>
-              </header>
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                <p className="whitespace-pre-wrap font-serif text-[17px] leading-[30px]">{current.body}</p>
-                {current.source && (
-                  <p className="mt-4 inline-block rounded-rect bg-accent-soft px-2.5 py-1 text-[13.5px] font-medium text-accent-ink">
-                    Source : {current.source}
-                  </p>
-                )}
-                {current.refs.length > 0 && (
-                  <div className="mt-5 border-t border-line pt-3">
-                    <h2 className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">
-                      Renvois
-                    </h2>
-                    <ul className="flex flex-wrap gap-1.5">
-                      {current.refs.map((ref) => {
-                        const target = cards.find((entry) => entry.code === ref);
-                        return (
-                          <li key={ref}>
-                            <button
-                              type="button"
-                              onClick={() => openCard(ref)}
-                              className="pill h-8 px-2.5 text-[12.5px]"
-                            >
-                              {ref}
-                              {target ? ` · ${target.title}` : " · absente"}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
+              <div className="flex min-h-0 flex-1 flex-col px-6 py-4">
+                <ZettelSheet
+                  card={current}
+                  cards={cards}
+                  onOpenRef={openCard}
+                  className="min-h-0 flex-1"
+                  actions={
+                    <div className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        className="pill h-9 px-3 text-[13px]"
+                        onClick={() => navigate(`/vault/${id}/new?edit=${current.id}`)}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        className="pill h-9 px-3 text-[13px]"
+                        onClick={() =>
+                          navigate(`/vault/${id}/graph?card=${encodeURIComponent(current.code)}`)
+                        }
+                      >
+                        Situer
+                      </button>
+                    </div>
+                  }
+                />
               </div>
             </article>
           )}
@@ -542,11 +517,10 @@ export default function Zettelkasten() {
         renderCollection()
       ) : (
       <>
-      <div className="relative mx-auto mt-5 h-[500px] w-full max-w-[520px] select-none">
-        {/* Les cartes derrière ne sont pas des rectangles posés au hasard :
-            elles sont mises à l’échelle et décalées vers le bas, comme une
-            pile vue de dessus. Elles s’effacent quand on fait glisser la
-            carte du dessus — c’est ce qui donne la profondeur. */}
+      {/* La pile. La hauteur vient du CSS (`--stack-h`), pas du contenu : une
+          fiche longue ne doit pas agrandir le cadre et laisser les cartes de
+          derrière dépasser en dessous — c’était le défaut visible. */}
+      <div className="zettel-stack relative mx-auto mt-4 w-full max-w-[520px] select-none">
         {behind
           .map((cardBehind, position) => ({ cardBehind, position }))
           .reverse()
@@ -561,10 +535,10 @@ export default function Zettelkasten() {
                 className="zettel-card zettel-card-behind"
                 style={{
                   zIndex: 1 + position,
-                  transform: `translateY(${14 + depth * 10 - pull * 6}px) scale(${
-                    0.965 - depth * 0.022 + pull * 0.004
-                  }) rotate(${(position === 1 ? -1.4 : 1.1) + pull * 0.6}deg)`,
-                  opacity: 1 - depth * 0.18,
+                  transform: `translateY(${10 + depth * 8 - pull * 5}px) scale(${
+                    0.968 - depth * 0.02 + pull * 0.004
+                  }) rotate(${(position === 1 ? -1.1 : 0.9) + pull * 0.5}deg)`,
+                  opacity: 1 - depth * 0.16,
                 }}
               />
             );
@@ -612,69 +586,35 @@ export default function Zettelkasten() {
               dragging || flying ? "none" : "transform .42s cubic-bezier(.18,.9,.22,1.02)",
             touchAction: "pan-y",
           }}
-          className="zettel-card absolute inset-x-0 top-0 z-10 flex max-h-full cursor-grab flex-col active:cursor-grabbing"
+          className="zettel-card zettel-stack-card z-10 flex cursor-grab flex-col active:cursor-grabbing"
           aria-label={`Carte ${card.code}, ${card.title}`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <span className="zettel-code">{card.code}</span>
-              <h2 className="mt-2 font-serif text-[26px] font-semibold leading-[32px]">
-                {card.title}
-              </h2>
-            </div>
-            <span className="tabnum shrink-0 pt-1 text-[12.5px] font-medium text-muted">
-              {index + 1} / {cards.length}
-            </span>
-          </div>
-
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
-            <p className="whitespace-pre-wrap font-serif text-[16.5px] leading-[27px]">
-              {card.body}
-            </p>
-
-            {card.source && (
-              <p className="zettel-source mt-3.5">Source · {card.source}</p>
-            )}
-
-            {card.refs.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                  Renvois
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {card.refs.map((ref) => {
-                    const target = cards.find((c) => c.code === ref);
-                    return (
-                      <button
-                        key={ref}
-                        type="button"
-                        onClick={() => openCard(ref)}
-                        className="zettel-ref"
-                      >
-                        <span className="font-semibold text-accent">{ref}</span>
-                        {target && <span className="truncate">{target.title}</span>}
-                        <CaretRight size={12} weight="bold" aria-hidden />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <footer className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
-            <span className="text-[11.5px] text-muted">
-              Glissez pour feuilleter
-            </span>
-            <button
-              type="button"
-              onClick={() => navigate(`/vault/${id}/new?edit=${card.id}`)}
-              className="pill h-9 gap-1.5 px-3 text-[13px]"
-            >
-              <PencilSimple size={15} aria-hidden />
-              Modifier
-            </button>
-          </footer>
+          <ZettelSheet
+            card={card}
+            cards={cards}
+            onOpenRef={openCard}
+            className="min-h-0 flex-1"
+            counter={
+              <span className="tabnum shrink-0 pt-1 text-[12.5px] font-medium text-muted">
+                {index + 1} / {cards.length}
+              </span>
+            }
+            footer={
+              <>
+                <span className="min-w-0 truncate text-[11.5px] text-muted">
+                  Glissez pour feuilleter
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/vault/${id}/new?edit=${card.id}`)}
+                  className="pill h-9 shrink-0 gap-1.5 px-3 text-[13px]"
+                >
+                  <PencilSimple size={15} aria-hidden />
+                  Modifier
+                </button>
+              </>
+            }
+          />
         </article>
       </div>
 

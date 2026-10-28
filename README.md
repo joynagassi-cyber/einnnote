@@ -36,9 +36,9 @@ npm run lint
 | `/vault/:id` | Zettelkasten : pile de cartes, glissement, références manuelles |
 | `/vault/:id/new` | Nouvelle carte : formulaire en forme de carte, source, image, lien, référence |
 | `/vault/:id/graph` | Graphe du coffre : carte ouverte et voisines, extensible à 2 niveaux |
-| `/learn` · `/learn/:id` | Apprendre : 6 tutoriels + 9 leçons du cours « Lire pour retenir » |
+| `/learn` · `/learn/:id` | Apprendre : le socle Espaces (5 leçons : projet → coffre → note), 6 tutoriels par outil, 9 leçons du cours « Lire pour retenir » |
 | `/settings` | Réglages, dont **Cloud**, **Apparence**, **Personnalisation**, **Données**, **Progrès**, **Corbeille**, **À propos** |
-| `/settings/navigation` | Navigation : quelles pages dans la barre du bas et dans le rail, dans quel ordre |
+| `/settings/navigation` | Navigation : les pages de **l’appareil que vous utilisez** — ordre toujours, affichage/masquage seulement quand la place manque |
 | `/settings/cards` | Studio des cartes : éventail 3D, relief, carte image — appliqués à vos fiches |
 | `/settings/cloud` | Cloud : connexion par code, abonnement, synchro manuelle ou automatique, appareils, effacement distant |
 | `/settings/personalization` | Personnalisation avancée : densité, rayons, bordures, relief, papier, interligne, largeur, canevas |

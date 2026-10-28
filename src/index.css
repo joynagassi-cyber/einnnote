@@ -2097,3 +2097,50 @@
 :root[data-contrast="high"] .zettel-leaf::after {
   display: none;
 }
+
+/* ---------- Pile Zettelkasten : la hauteur vient du cadre ----------
+   Le défaut d’origine : la fiche du dessus avait une hauteur libre, donc une
+   fiche longue poussait son pied de carte hors du cadre et par-dessus les
+   cartes de derrière ; une fiche courte laissait, dessous, deux rectangles
+   vides. Ici tout est borné, et la même règle sert au téléphone et au bureau :
+
+   1. le cadre impose sa hauteur (`--stack-h`, fonction de la fenêtre) ;
+   2. la fiche du dessus la remplit exactement ;
+   3. seul le corps de la fiche défile — en-tête, renvois et pied restent fixes.
+
+   Les 22 px ajoutés à la hauteur du cadre sont la « tranche » des cartes de
+   derrière : elles dépassent de quelques pixels, c’est ce qui donne l’épaisseur
+   de la pile, et ces pixels sont réservés pour qu’elles ne touchent jamais la
+   pagination posée dessous. */
+.zettel-stack {
+  --stack-h: clamp(320px, calc(100dvh - 320px), 540px);
+  --stack-peek: 22px;
+  height: calc(var(--stack-h) + var(--stack-peek));
+  /* Le geste est horizontal : le défilement vertical de la page reste possible. */
+  touch-action: pan-y;
+}
+.zettel-stack-card,
+.zettel-stack .zettel-card-behind {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  inset-inline: 0;
+  height: var(--stack-h);
+}
+@media (min-height: 780px) {
+  .zettel-stack {
+    --stack-h: clamp(380px, calc(100dvh - 360px), 600px);
+  }
+}
+@media (min-width: 720px) {
+  .zettel-stack {
+    --stack-h: clamp(420px, 62dvh, 640px);
+  }
+}
+.zettel-stack-card .zettel-code {
+  /* Un code de fiche très long (« #12A3b ») ne doit pas élargir la carte. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
