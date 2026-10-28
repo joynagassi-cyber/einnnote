@@ -26,7 +26,9 @@ import {
   tokensFor,
 } from "@/lib/themes";
 import type { AccentKey, CanvasBg, ThemeMode } from "@/types";
-import { SIGNATURES, WALLS, wallUrl } from "@/lib/walls";
+import { SIGNATURES, WALLS, wallById, wallUrl } from "@/lib/walls";
+import { veilFromTone, veilTint } from "@/lib/palette";
+import { useWallColors } from "@/stores/useWallColors";
 import {
   WALL_BLUR_MAX,
   WALL_BLUR_MIN,
@@ -408,6 +410,11 @@ export default function Appearance() {
       )}
 
       <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
+        Accent du fond
+      </h2>
+      <WallAccentPanel />
+
+      <h2 className="mb-2 mt-6 text-[14px] font-semibold text-muted">
         Couleur d’action
       </h2>
       <div className="flex flex-wrap items-center gap-2">
@@ -767,5 +774,131 @@ function CustomAccent({
         {resetLabel}
       </button>
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Accent tiré du fond                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ce que l’image donne, en clair.
+ *
+ * Un réglage automatique qui ne s’explique pas est un réglage suspect : ici on
+ * montre les **trois** couleurs lues, le texte choisi pour les boutons, et les
+ * deux rapports de contraste mesurés. Si l’accent paraît « étrange », on voit
+ * immédiatement d’où il vient.
+ */
+function WallAccentPanel() {
+  const settings = useAppStore((s) => s.settings);
+  const setDynamicAccent = useAppStore((s) => s.setDynamicAccent);
+  const colors = useWallColors((s) => s.colors);
+  const error = useWallColors((s) => s.error);
+  const wall = settings.wallpaper ? wallById(settings.wallpaper) : undefined;
+  const tokens = tokensFor(settings.paletteKey);
+  const mode = effectiveMode(settings);
+
+  if (!wall) {
+    return (
+      <p className="rounded-card border border-line bg-surface px-3.5 py-3 text-[12.5px] leading-[18px] text-muted">
+        Choisissez un fond : l’interface en tirera son accent, sa seconde
+        couleur et la teinte de son voile.
+      </p>
+    );
+  }
+
+  const swatches = colors
+    ? [
+        { label: "Accent", value: colors.accent },
+        { label: "Second ton", value: colors.secondary },
+        { label: "Voile", value: veilTint(colors, mode) },
+      ]
+    : [
+        { label: "Accent", value: tokens.accent },
+        { label: "Second ton", value: tokens.accent },
+        { label: "Voile", value: veilFromTone(wall.tone, mode) },
+      ];
+
+  return (
+    <div className="rounded-card border border-line bg-surface p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13.5px] font-medium">Suivre l’image</p>
+          <p className="mt-0.5 text-[12px] leading-[17px] text-muted">
+            Trois couleurs lues dans le fond (canvas 48 × 48), corrigées pour
+            rester lisibles.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={settings.dynamicAccent}
+          aria-label="Accent tiré du fond"
+          onClick={() => setDynamicAccent(!settings.dynamicAccent)}
+          className={cn(
+            "relative h-7 w-12 shrink-0 rounded-full border transition-colors",
+            settings.dynamicAccent
+              ? "border-accent bg-accent"
+              : "border-line bg-surface-2",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-sm transition-all",
+              settings.dynamicAccent ? "left-[26px]" : "left-0.5",
+            )}
+          />
+        </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {swatches.map((swatch) => (
+          <div key={swatch.label} className="min-w-0">
+            <span
+              className="block h-11 w-full rounded-field border border-line"
+              style={{ background: swatch.value }}
+              aria-hidden
+            />
+            <span className="mt-1 block truncate text-[11px] font-medium text-muted">
+              {swatch.label}
+            </span>
+            <span className="block font-mono text-[10.5px] text-muted">
+              {swatch.value.toUpperCase()}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {colors ? (
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[11.5px] text-muted">
+          <dt>Accent sur le verre</dt>
+          <dd className="text-right font-mono text-ink">
+            {colors.contrast.toFixed(2)}:1 {colors.contrast >= 4.5 ? "✓" : "✗"}
+          </dd>
+          <dt>Texte des boutons</dt>
+          <dd className="text-right font-mono text-ink">
+            {colors.onAccent === "#FFFFFF" ? "blanc" : "noir"} ·{" "}
+            {colors.onAccentContrast.toFixed(2)}:1
+          </dd>
+          <dt>Image couverte</dt>
+          <dd className="text-right font-mono text-ink">
+            {Math.round(colors.confidence * 100)} %
+          </dd>
+        </dl>
+      ) : (
+        <p className="mt-3 text-[11.5px] leading-[17px] text-muted">
+          {error
+            ? `Image illisible (${error}) : l’accent du thème reste en place.`
+            : "Lecture de l’image en cours…"}
+        </p>
+      )}
+
+      {!settings.dynamicAccent && (
+        <p className="mt-2 text-[11.5px] leading-[17px] text-muted">
+          L’accent du thème (ou celui que vous choisissez plus bas) reprend la
+          main. Le voile garde la teinte du fond.
+        </p>
+      )}
+    </div>
   );
 }

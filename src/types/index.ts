@@ -233,6 +233,12 @@ export interface AppSettings {
   wallBlur: number;
   /** voile qui protège la lisibilité du texte, en pourcentage */
   wallDim: number;
+  /**
+   * Accent tiré de l’image de fond (voir `src/lib/palette.ts`).
+   * Vrai par défaut : une image derrière l’interface et un accent choisi à
+   * l’aveugle, c’est une dissonance visible sur chaque bouton.
+   */
+  dynamicAccent: boolean;
   /** style de graphe par défaut (voir `src/lib/graph/styles.ts`) */
   graphStyle: string;
   /** étiquettes de relation sur les liens */

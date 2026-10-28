@@ -2,6 +2,19 @@ import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
 import typography from "@tailwindcss/typography";
 
+/**
+ * Une couleur shadcn **avec** son opacité facultative.
+ *
+ * Tailwind ne sait injecter un alpha que dans une couleur qu’il fabrique
+ * lui-même (`rgb(… / <alpha-value>)`). Nos jetons étant des couleurs réelles —
+ * nécessaires à `@property` et à `color-mix` — on lui donne la fonction qui
+ * fait le travail : `bg-card/40` → `color-mix(in srgb, var(--card) 40%,
+ * transparent)`. Sans cela, `bg-card/40` **disparaissait silencieusement** du
+ * CSS produit (vérifié : aucune règle générée).
+ */
+const alpha = (token: string) =>
+  `color-mix(in srgb, ${token} calc(<alpha-value> * 100%), transparent)`;
+
 const config: Config = {
   darkMode: ["class", '[data-theme="dark"]'],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -29,31 +42,35 @@ const config: Config = {
         "danger-soft": "var(--danger-soft)",
         highlight: "var(--highlight)",
         "canvas-dot": "var(--canvas-dot)",
-        /* compat shadcn/ui */
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        /* compat shadcn/ui — les jetons sont de vraies **couleurs**
+           (`#0F766E`), plus des triplets HSL : c’est ce qui permet de les
+           animer (`@property … <color>`) et de les mélanger (`color-mix`).
+           L’opacité, elle, est fabriquée ici : `bg-card/40` devient
+           `color-mix(in srgb, var(--card) calc(0.4 * 100%), transparent)`. */
+        border: alpha("var(--border)"),
+        input: alpha("var(--input)"),
+        ring: alpha("var(--ring)"),
+        background: alpha("var(--background)"),
+        foreground: alpha("var(--foreground)"),
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: alpha("var(--primary)"),
+          foreground: alpha("var(--primary-foreground)"),
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: alpha("var(--secondary)"),
+          foreground: alpha("var(--secondary-foreground)"),
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: alpha("var(--destructive)"),
+          foreground: alpha("var(--destructive-foreground)"),
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: alpha("var(--card)"),
+          foreground: alpha("var(--card-foreground)"),
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: alpha("var(--popover)"),
+          foreground: alpha("var(--popover-foreground)"),
         },
       },
       borderRadius: {

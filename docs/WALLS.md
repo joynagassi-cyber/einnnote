@@ -1,8 +1,9 @@
 # Fonds « verre » — galerie, moteur, et règles
 
-**Vingt-quatre** fonds posés derrière l’interface, en deux familles : des
-**halos** (image douce, profondeur) et des **dégradés** (cinq arrêts, couleur
-franche). Le même fond s’applique au téléphone **et** au bureau.
+**Trente-quatre** fonds posés derrière l’interface, en trois familles : des
+**halos** (image douce, profondeur), des **dégradés** (cinq arrêts, couleur
+franche) et dix **photographies** (PNG, voir `docs/WALLPAPERS.md`). Le même fond
+s’applique au téléphone **et** au bureau.
 
 Règle revue : *le fond se voit, le verre floute juste ce qu’il faut*. L’écran
 est opaque à **40 %** seulement ; ce sont les **surfaces** (cartes à 88 %,
@@ -18,13 +19,19 @@ corrigé.
 | Clair · halos (10) | Glacier · Brume · Quartz rose · Lilas · Pêche · Sauge · Menthe · Argile · Sable · Ciel |
 | Clair · dégradés (3) | Aube · Lagune · Miel |
 | Sombre · dégradés (3) | Crépuscule · Braise de nuit · Velours |
+| Sombre · photos (8) | Aube glacée · Forêt de brume · Dunes d’ambre · Canyon d’argile · Falaises d’océan · Aurore boréale · Ville la nuit · Volcan noir |
+| Clair · photos (2) | Jardin en fleurs · Sel pastel |
 
 Les dégradés ont cinq arrêts explicites (0 / 25 / 50 / 75 / 100 %), interpolés
 entre des teintes choisies à la main : pas de rampe à deux couleurs qui vire au
 gris au milieu. Ils n’ont **pas** de vignette — elle fausserait la couleur
 moyenne dont dépend le calcul de lisibilité.
 
-Chaque fond a trois mots d’ambiance (`mood`) et une palette recommandée.
+Chaque fond a trois mots d’ambiance (`mood`) et une palette recommandée — pour
+les photographies, c’est **la** palette qui garde AA sur leur verre, pas un
+choix de goût : `src/lib/glass.test.ts` le vérifie sur les pixels réels. Le
+`tone` (couleur moyenne) est mesuré par `scripts/normalize-walls.mjs`, jamais
+estimé à l’œil.
 Cliquer une vignette applique **le fond et sa palette** : sans cela, poser un
 fond sombre sur un thème clair obligeait un voile si épais que l’image
 disparaissait (mesuré : voile 89 %). Avec la palette du même mode, le voile
@@ -171,3 +178,15 @@ illisible ou l’image invisible.
    `glass.test.ts`, qui donne la valeur attendue au canal près).
 5. `vitest run src/lib/walls.test.ts src/lib/glass.test.ts` — les contrôles
    ci-dessus passent ou indiquent précisément ce qui manque.
+
+## 8. L’accent vient du fond
+
+Depuis les photographies, l’interface ne se contente plus de poser l’image :
+elle la **lit** (canvas 48 × 48) et en tire un accent, une seconde couleur et
+la teinte du voile, puis écrit les jetons shadcn (`--primary`, `--ring`,
+`--accent`, `--on-accent`, `--tint`) avec un fondu de 0,8 s. Les cartes portent
+alors `bg-card/40` + `backdrop-blur-2xl` + un voile teinté à 22 %.
+
+Moteur : `src/lib/palette.ts`. Lecture : `src/lib/useWallPalette.ts`.
+Réglage et explication à l’écran : `/settings/appearance` ▸ « Accent du fond ».
+Détail complet : `docs/PRESENTATION.md`.

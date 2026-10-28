@@ -31,6 +31,7 @@ import {
 import { ProjectsSheet } from "@/components/ProjectSwitcher";
 import { useProjects } from "@/lib/useProjects";
 import { wallById, wallUrl } from "@/lib/walls";
+import { useWallPalette } from "@/lib/useWallPalette";
 import {
   FOCUS_SEARCH_EVENT,
   SHORTCUTS,
@@ -132,6 +133,10 @@ export function AppShell({ children }: { children: ReactNode }) {
  */
 export function WallLayer() {
   const wallpaper = useAppStore((s) => s.settings.wallpaper);
+  /* Les couleurs sont lues ici : la couche est montée partout (téléphone et
+     bureau) et elle est déjà responsable du fond. Aucun autre composant ne
+     peut donc oublier de le faire. */
+  useWallPalette();
   /* Un identifiant inconnu (fond retiré d’une version à l’autre) ne doit pas
      laisser une image cassée derrière l’interface : on ne monte rien. */
   if (!wallpaper || !wallById(wallpaper)) return null;

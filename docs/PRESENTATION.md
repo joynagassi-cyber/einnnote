@@ -114,3 +114,87 @@ jetons.
 **Non vérifié :** le rendu visuel réel des quatre teintes sur l'écran d'un
 téléphone — Chromium n'est pas disponible ici, donc la pastille est vérifiée en
 hexadécimal, pas à l'œil.
+
+## 7. Accent tiré de l’image de fond
+
+Quand un fond est posé, le thème ne peut plus être choisi à l’aveugle : un accent
+bleu sur une forêt brune se voit à chaque bouton. L’interface **lit donc
+l’image** et en tire trois couleurs.
+
+| Étape | Ce qui se passe | Pourquoi |
+|---|---|---|
+| Lecture | `<img>` → canvas **48 × 48** → 2 304 pixels RVB | 1 ms, et chaque région (ciel, eau, forêt) pèse à sa surface réelle ; 16 × 16 perdait les teintes minoritaires |
+| Vote | histogramme de **24 cases de teinte** (15°), pondéré par la saturation et la centralité de luminosité | une photo contient beaucoup de gris (ciel, pierre, neige) : sans pondération, l’accent est toujours terne |
+| Accent | case gagnante → couleur moyenne → `deriveAccent` corrige jusqu’à AA | l’accent est mesuré contre le **verre réel**, pas contre du blanc théorique |
+| Second ton | case la plus éloignée d’au moins 60° ; à défaut, rotation de 42° | deux teintes à moins de 60° se lisent comme une seule |
+| Voile | moyenne pondérée des 35 % de pixels les plus sombres, ramenée sous 4,5 % de luminance | un voile plus clair laisse flotter le texte, un voile noir tue l’image |
+| Texte des boutons | noir ou blanc, au meilleur ratio ; **4,5:1 garanti** | pour toute couleur, l’un des deux atteint au moins 4,58:1 — le pire cas est le gris de luminance 0,18 |
+
+### Ce que ça écrit dans le document
+
+```css
+--primary: #2F6F5E;      /* accent */
+--ring:    #2F6F5E;
+--accent:  #2F6F5E;
+--on-accent: #FFFFFF;    /* texte des boutons, choisi au ratio */
+--accent-2: #C98A3A;     /* second ton */
+--tint:    #12211C;      /* voile : sombre sur thème sombre, moyenne sur thème clair */
+```
+
+### Deux changements de format, assumés
+
+1. **Les jetons shadcn sont des couleurs, plus des triplets HSL.** Un triplet
+   (`174 82% 27%`) ne peut ni s’animer (`@property … <color>`), ni se mélanger
+   (`color-mix`). L’opacité est désormais fabriquée par Tailwind :
+   `bg-card/40` → `color-mix(in srgb, var(--card) calc(.4 * 100%), transparent)`.
+   Sans ce `<alpha-value>`, `bg-card/40` **disparaissait silencieusement** du
+   CSS produit — vérifié à la compilation.
+2. **Le voile dépend du mode.** `--tint` vaut la teinte sombre de l’image sur un
+   thème sombre, et sa couleur moyenne sur un thème clair : un voile sombre sur
+   du papier clair fait tomber le texte secondaire à 3,2:1.
+
+### Le fondu de 0,8 s
+
+```css
+@property --primary { syntax: "<color>"; inherits: true; initial-value: #0f766e; }
+:root { transition: --primary 800ms …, --accent 800ms …, --tint 800ms …; }
+:root[data-motion="reduced"] { transition: none; }
+```
+
+Une variable CSS ordinaire ne s’anime pas : le navigateur la traite comme du
+texte. Déclarée `<color>`, elle s’interpole — changer de fond, de thème ou
+d’accent devient un fondu. On n’anime **que** ces sept variable : animer `--bg`
+ferait clignoter la page à chaque frappe dans les réglages.
+
+### Les cartes
+
+```css
+:root[data-wall]:not([data-wall="none"]) .bg-surface {
+  @apply bg-card/40 backdrop-blur-2xl;
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--tint) 22%, transparent),
+    color-mix(in srgb, var(--tint) 22%, transparent)
+  );
+}
+```
+
+Le voile est en `background-image` pour ne pas écraser `background-color` : la
+carte porte la transparence, la teinte porte la couleur. Vérifié par calcul sur
+les trente-quatre fonds : encre et texte secondaire restent ≥ 4,5:1, à tous les
+voiles (`glass.test.ts`, « cartes en verre »).
+
+### Réglage, et preuve
+
+`/settings/appearance` ▸ **Accent du fond** : un interrupteur, les trois
+couleurs lues, le texte choisi, et les ratios mesurés. Un réglage automatique
+qui ne s’explique pas est un réglage suspect.
+
+| Contrôle | Résultat |
+|---|---|
+| `src/lib/palette.test.ts` | 14 tests : teinte dominante, second ton réellement distinct, image grise ou corrompue, déterminisme, AA de l’accent sur 4 fonds × 6 couleurs, texte de bouton AA sur 52 gris, voile toujours sombre |
+| `src/test/wall-accent.test.tsx` | 9 tests : jetons réellement écrits, voile selon le mode, repli avant lecture, retour au thème si l’interrupteur est coupé, écran Apparence, contrat CSS (`@property`, 800 ms, recette de carte, plus de triplet HSL) |
+| `src/lib/glass.test.ts` | 8 tests, dont la recette de carte au calcul |
+
+**Non vérifié :** le rendu visuel réel du fondu et du flou à 40 px — Chromium
+n’est pas disponible ici. Le contrat est vérifié (CSS produit, valeurs écrites),
+pas le pixel.

@@ -46,8 +46,11 @@ const declared = new Map(
   [...walls.matchAll(/id: "([a-z-]+)",[\s\S]*?tone: "(#[0-9a-fA-F]{6})"/g)].map((m) => [m[1], m[2]]),
 );
 
+/* Les photographies se mesurent sur leurs pixels : c’est le travail de
+   `scripts/normalize-walls.mjs` (décodeur PNG inclus). Ici, on ne regarde que
+   les fonds dessinés, dont la moyenne se déduit de la géométrie du SVG. */
 let drift = 0;
-for (const file of readdirSync("public/walls").sort()) {
+for (const file of readdirSync("public/walls").filter((name) => name.endsWith(".svg")).sort()) {
   const id = file.replace(".svg", "");
   const actual = averageColor(`public/walls/${file}`);
   const hex = toHex(actual);
@@ -62,6 +65,9 @@ for (const file of readdirSync("public/walls").sort()) {
 }
 console.log(
   drift === 0
-    ? "\nToutes les valeurs `tone` sont à jour."
+    ? "\nToutes les valeurs `tone` des fonds dessinés sont à jour."
     : `\n${drift} fond(s) à recopier dans WALLS (colonne du milieu).`,
+);
+console.log(
+  "Photographies : `node scripts/normalize-walls.mjs --check` (pixels réels).",
 );

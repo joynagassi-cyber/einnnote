@@ -7,6 +7,69 @@
    Tous les composants lisent ces variables : aucune couleur en dur.
    ============================================================ */
 
+/* ============================================================
+   Couleurs animables — `@property` + fondu de 0,8 s
+   ============================================================
+   Une variable CSS ordinaire ne s’anime pas : le navigateur la traite comme
+   du texte, et `transition: --primary` ne fait rien. Déclarée avec
+   `syntax: "<color>"`, elle devient une **couleur typée** : elle s’interpole,
+   donc changer de fond, de thème ou d’accent devient un fondu au lieu d’un
+   saut. C’est la différence entre « les couleurs ont changé » et « l’interface
+   s’est réaccordée ».
+   ============================================================ */
+@property --primary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f766e;
+}
+@property --primary-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --ring {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f766e;
+}
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f766e;
+}
+@property --accent-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0f766e;
+}
+@property --on-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --tint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #22201c;
+}
+
+/* Le fondu. On n’anime **que** ces sept variables : animer `--bg` ou `--ink`
+   ferait clignoter toute la page à chaque frappe dans les réglages. */
+:root {
+  transition:
+    --primary 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    --primary-foreground 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    --ring 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    --accent 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    --accent-2 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    --on-accent 800ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    --tint 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+/* Mouvement réduit : le fondu est un confort, pas une information. */
+:root[data-motion="reduced"] {
+  transition: none;
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -59,25 +122,33 @@
     --screen-max: 440px;
     --rail: 0px;
 
-    /* compat shadcn/ui */
+    /* compat shadcn/ui — des **couleurs**, jamais des triplets HSL.
+       Un triplet ne peut ni s’animer (`@property … <color>`), ni se mélanger
+       (`color-mix`), ni changer de mode sans réécrire la ligne. Ces jetons
+       pointent donc sur les nôtres : une seule source, et l’accent tiré du
+       fond les déplace tous d’un coup (`src/lib/palette.ts`). */
     --radius: 0.75rem;
-    --background: 43 24% 93%;
-    --foreground: 27 13% 17%;
-    --card: 43 30% 98%;
-    --card-foreground: 27 13% 17%;
-    --popover: 43 30% 98%;
-    --popover-foreground: 27 13% 17%;
-    --primary: 174 82% 27%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 43 20% 90%;
-    --secondary-foreground: 27 13% 17%;
-    --muted-foreground: 30 5% 42%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 5 76% 41%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 36 20% 87%;
-    --input: 36 20% 87%;
-    --ring: 174 82% 27%;
+    --background: var(--bg);
+    --foreground: var(--ink);
+    --card: var(--surface);
+    --card-foreground: var(--ink);
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+    --primary: var(--accent);
+    --primary-foreground: var(--on-accent);
+    --secondary: var(--surface-2);
+    --secondary-foreground: var(--ink);
+    --muted-foreground: var(--muted);
+    --accent-foreground: var(--on-accent);
+    --destructive: var(--danger);
+    --destructive-foreground: #ffffff;
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent);
+    /* Teinte du fond : sombre sur verre sombre, couleur de l’image sur papier
+       clair (voir `veilTint` dans `src/lib/palette.ts`). */
+    --tint: #22201c;
+    --accent-2: var(--accent);
   }
 
   :root[data-theme="dark"] {
@@ -107,23 +178,25 @@
     --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.34);
     --shadow-lift: 0 14px 34px rgba(0, 0, 0, 0.4);
 
-    --background: 24 12% 11%;
-    --foreground: 36 20% 91%;
-    --card: 24 12% 13%;
-    --card-foreground: 36 20% 91%;
-    --popover: 24 12% 13%;
-    --popover-foreground: 36 20% 91%;
-    --primary: 174 55% 66%;
-    --primary-foreground: 24 12% 11%;
-    --secondary: 24 10% 18%;
-    --secondary-foreground: 36 20% 91%;
-    --muted-foreground: 24 8% 68%;
-    --accent-foreground: 24 12% 11%;
-    --destructive: 0 63% 74%;
-    --destructive-foreground: 24 12% 11%;
-    --border: 24 10% 20%;
-    --input: 24 10% 20%;
-    --ring: 174 55% 66%;
+    --background: var(--bg);
+    --foreground: var(--ink);
+    --card: var(--surface);
+    --card-foreground: var(--ink);
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+    --primary: var(--accent);
+    --primary-foreground: var(--on-accent);
+    --secondary: var(--surface-2);
+    --secondary-foreground: var(--ink);
+    --muted-foreground: var(--muted);
+    --accent-foreground: var(--on-accent);
+    --destructive: var(--danger);
+    --destructive-foreground: #ffffff;
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent);
+    --tint: #171512;
+    --accent-2: var(--accent);
   }
 
   /* ---------- Accents (7) : variante claire + variante sombre ---------- */
@@ -1538,8 +1611,21 @@
   backdrop-filter: blur(8px) saturate(1.06);
   -webkit-backdrop-filter: blur(8px) saturate(1.06);
 }
+/* **Cartes en verre** — la recette demandée : `bg-card/40`, `backdrop-blur-2xl`,
+   et un voile teinté par la couleur de l’image à 22 %.
+   Le voile est posé en `background-image` pour ne pas écraser la couleur :
+   `background-color` porte la carte, `background-image` porte la teinte.
+   Vérifié : encre et texte secondaire restent au-dessus de 4,5:1 sur les
+   trente-quatre fonds (voir « cartes en verre » dans `glass.test.ts`). */
 :root[data-wall]:not([data-wall="none"]) .bg-surface {
-  background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+  /* Les deux utilitaires demandés, écrits une seule fois : `bg-card/40` donne
+     la carte translucide (Tailwind compose l’opacité avec `color-mix`, voir
+     `tailwind.config.ts`), `backdrop-blur-2xl` donne les 40 px de flou. */
+  @apply bg-card/40 backdrop-blur-2xl;
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--tint) 22%, transparent),
+    color-mix(in srgb, var(--tint) 22%, transparent)
+  );
 }
 :root[data-wall]:not([data-wall="none"]) .bg-surface-2 {
   background-color: color-mix(in srgb, var(--surface-2) 86%, transparent);
@@ -1558,6 +1644,10 @@
 :root[data-wall]:not([data-wall="none"]) .sheet,
 :root[data-wall]:not([data-wall="none"]) .field {
   background-color: color-mix(in srgb, var(--surface) 92%, transparent);
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--tint) 12%, transparent),
+    color-mix(in srgb, var(--tint) 12%, transparent)
+  );
 }
 /* Accessibilité : transparence réduite = on remet du solide, jamais du verre. */
 :root[data-transparency="reduced"][data-wall]:not([data-wall="none"]) .screen,

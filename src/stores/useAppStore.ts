@@ -27,6 +27,8 @@ import {
   presentationVars,
 } from "@/lib/presentation";
 import { DEFAULT_GRAPH_STYLE, graphStyleById as styleById } from "@/lib/graph/styles";
+import { applyWallColors, veilFromTone, FALLBACK_DEEP } from "@/lib/palette";
+import { useWallColors } from "@/stores/useWallColors";
 
 interface AppState {
   settings: AppSettings;
@@ -42,6 +44,8 @@ interface AppState {
   setCustomAccent: (hex: string) => void;
   setCanvas: (canvas: CanvasBg) => void;
   setWallpaper: (wallpaper: string | null) => void;
+  /** accent tiré du fond, ou accent du thème */
+  setDynamicAccent: (on: boolean) => void;
   setGraphStyle: (graphStyle: string) => void;
   setLayout: (layout: "auto" | "desktop" | "mobile") => void;
   /** réglages de la révision espacée (fusion partielle) */
@@ -88,6 +92,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wallpaper: null,
   wallBlur: 8,
   wallDim: 28,
+  dynamicAccent: true,
   graphStyle: DEFAULT_GRAPH_STYLE,
   layout: "auto",
   graphLabels: false,
@@ -177,18 +182,36 @@ export function applySettingsToDom(settings: AppSettings) {
         .join("")}`
     : tokens.bg;
 
-  /* 2. L’accent : celui du thème, un preset, ou une couleur libre. Dans les
-     deux derniers cas la palette est dérivée *sur le papier du thème* —
-     sinon un accent choisi pour du sable serait illisible sur du bleu nuit. */
+  /* 2. L’accent. Trois sources, dans cet ordre de priorité :
+     a) **l’image de fond** (`dynamicAccent`) — lue par un canvas 48×48, puis
+        corrigée jusqu’à AA sur le verre réel ; elle écrit aussi `--primary`,
+        `--ring`, `--accent`, `--on-accent` et `--tint` (les jetons shadcn) ;
+     b) une couleur libre, ou un preset ;
+     c) sinon celui du thème.
+     La source (a) attend que l’image soit décodée : `useWallPalette` la pose
+     dans `useWallColors` puis rappelle cette fonction. D’ici là, `--tint`
+     garde la couleur mesurée du fond — donc jamais de carte incolore. */
+  const wallColors =
+    settings.dynamicAccent && wall ? useWallColors.getState().colors : null;
+
+  if (wallColors) {
+    applyWallColors(root, wallColors, resolved);
+  } else if (wall) {
+    /* Repli : la couleur moyenne mesurée du fond, assombrie pour un voile. */
+    root.style.setProperty("--tint", veilFromTone(wall.tone, resolved));
+  } else {
+    root.style.setProperty("--tint", FALLBACK_DEEP);
+  }
+
   const mode = settings.accentMode ?? "theme";
-  if (mode === "custom" && settings.customAccent && isHex(settings.customAccent)) {
+  if (!wallColors && mode === "custom" && settings.customAccent && isHex(settings.customAccent)) {
     const vars = accentVars(
       deriveAccent(settings.customAccent, resolved, reference),
     );
     for (const [name, value] of Object.entries(vars)) {
       root.style.setProperty(name, value);
     }
-  } else if (mode === "preset") {
+  } else if (!wallColors && mode === "preset") {
     const preset = ACCENT_PRESETS.find((item) => item.key === settings.accent);
     if (preset) {
       const vars = accentVars(
@@ -308,6 +331,8 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ settings: { ...s.settings, canvas } })),
       setWallpaper: (wallpaper) =>
         set((s) => ({ settings: { ...s.settings, wallpaper } })),
+      setDynamicAccent: (dynamicAccent) =>
+        set((s) => ({ settings: { ...s.settings, dynamicAccent } })),
       /* Choisir un style règle aussi la valeur initiale des étiquettes : les
          styles qui reposent sur des liens nommés les allument, les autres les
          laissent éteintes. L’utilisateur reste maître du réglage ensuite. */

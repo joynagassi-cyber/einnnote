@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SIGNATURES, WALLS, wallById, wallUrl } from "@/lib/walls";
+import { SIGNATURES, WALLS, wallById, wallFile, wallUrl } from "@/lib/walls";
 import { PALETTES, paletteByKey } from "@/lib/themes";
 
 const WALL_DIR = join(process.cwd(), "public", "walls");
@@ -23,11 +23,25 @@ describe("fonds « verre »", () => {
 
   it("a un fichier réel pour chaque fond, et aucun orphelin", () => {
     for (const wall of WALLS) {
-      const file = join(WALL_DIR, `${wall.id}.svg`);
+      const file = join(WALL_DIR, wallFile(wall.id, wall.kind));
       expect(existsSync(file), wall.id).toBe(true);
+
+      /* Trois façons de faire un fond : des halos flous, une rampe, une photo. */
+      if (wall.kind === "photo") {
+        const png = readFileSync(file);
+        // signature PNG : le fichier est bien une image, pas un SVG renommé
+        expect([...png.subarray(0, 4)], wall.id).toEqual([0x89, 0x50, 0x4e, 0x47]);
+        const width = png.readUInt32BE(16);
+        const height = png.readUInt32BE(20);
+        expect(width, `${wall.id} · largeur HD`).toBeGreaterThanOrEqual(1280);
+        expect(height / width, `${wall.id} · cadrage paysage`).toBeGreaterThan(0.5);
+        // une photographie de fond reste légère : elle est floutée de toute façon
+        expect(png.length, `${wall.id} · poids`).toBeLessThan(900_000);
+        continue;
+      }
+
       const svg = readFileSync(file, "utf8");
       expect(svg.startsWith("<svg"), wall.id).toBe(true);
-      /* Deux façons de faire un fond : des halos flous, ou une rampe. */
       if (wall.kind === "ramp") {
         expect(svg, wall.id).toContain("linearGradient");
         expect(svg.match(/<stop /g)?.length, wall.id).toBeGreaterThanOrEqual(5);
@@ -38,7 +52,17 @@ describe("fonds « verre »", () => {
     }
     // aucun fichier sans entrée : la galerie ne doit pas mentir
     for (const wall of WALLS) {
-      expect(wallUrl(wall.id)).toContain(`/walls/${wall.id}.svg`);
+      expect(wallUrl(wall.id)).toContain(`/walls/${wallFile(wall.id, wall.kind)}`);
+    }
+  });
+
+  it("livre des photographies en plus des fonds dessinés", () => {
+    const photos = WALLS.filter((wall) => wall.kind === "photo");
+    expect(photos.length).toBeGreaterThanOrEqual(10);
+    for (const wall of photos) {
+      expect(wallUrl(wall.id), wall.id).toMatch(/\.png$/);
+      expect(wall.label.length, wall.id).toBeGreaterThan(3);
+      expect(wall.tone, wall.id).toMatch(/^#[0-9a-f]{6}$/i);
     }
   });
 

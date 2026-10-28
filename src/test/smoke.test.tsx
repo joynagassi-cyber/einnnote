@@ -1016,7 +1016,7 @@ describe("Engram — écrans", () => {
     const user = userEvent.setup();
     open("/settings/appearance");
 
-    await user.click(screen.getByRole("button", { name: /Fond Aurore/ }));
+    await user.click(screen.getByRole("button", { name: /^Fond Aurore \(/ }));
     expect(document.documentElement.dataset.wall).toBe("aurore");
     expect(document.querySelector("[data-wall-layer]")).toBeTruthy();
 

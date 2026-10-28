@@ -144,6 +144,7 @@ et trois variables continues. Aucun contrôle n’est décoratif.
 | Flou du fond | `--wall-blur` | 18–48 px (voir `docs/WALLS.md`) |
 | Voile | `--wall-dim` | 0–1, ramené dans la bande lisible du couple (thème, fond) |
 | Accent | `--accent` recalculé | dérivé **sur la couleur réelle du verre**, pas sur le papier |
+| Accent du fond | `--primary`, `--ring`, `--accent`, `--accent-2`, `--on-accent`, `--tint` | lus dans l’image (canvas 48 × 48), corrigés jusqu’à AA, **animés 0,8 s** (`@property <color>`) — voir `docs/PRESENTATION.md` §7 |
 
 **Le papier et les traits ne sont plus écrits en CSS.** Ils l’étaient
 (`:root[data-paper="ivory"] { --bg: … }`) alors que la palette pose les mêmes

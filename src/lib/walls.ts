@@ -22,9 +22,11 @@ import type { PaletteMode } from "@/lib/themes";
  * - `aura` — des halos flous sur une couleur de base : une ambiance, une
  *   profondeur, une photo qu’on devine ;
  * - `ramp` — un dégradé à cinq arrêts : une couleur franche et identifiable,
- *   pour qui veut une signature chromatique plutôt qu’une texture.
+ *   pour qui veut une signature chromatique plutôt qu’une texture ;
+ * - `photo` — une photographie réelle (PNG), livrée avec la palette qu’elle
+ *   porte : l’interface en tire son accent en la lisant (`src/lib/palette.ts`).
  */
-export type WallKind = "aura" | "ramp";
+export type WallKind = "aura" | "ramp" | "photo";
 
 export interface Wall {
   id: string;
@@ -69,6 +71,22 @@ export const WALLS: Wall[] = [
   { id: "crepuscule", label: "Crépuscule", mood: "nuit · indigo", mode: "dark", palette: "lilas-nuit", tone: "#3d3965", kind: "ramp" },
   { id: "braise-nuit", label: "Braise de nuit", mood: "rouge · cendre", mode: "dark", palette: "gruvbox", tone: "#7a2d1d", kind: "ramp" },
   { id: "velours", label: "Velours", mood: "prune · améthyste", mode: "dark", palette: "rose-nuit", tone: "#4c2562", kind: "ramp" },
+  /* Photographies — PNG, 1280 px, générées pour ce projet (voir
+     `wallpapers/README.md`). `tone` est la couleur **moyenne réelle** du
+     fichier, mesurée par `scripts/normalize-walls.mjs` et vérifiée sur les
+     pixels par `src/lib/glass.test.ts` : elle ne s’écrit jamais à l’œil. La
+     palette recommandée n’est pas un goût non plus : c’est la seule (ou l’une
+     des seules) qui garde AA sur le verre de cette image — même test. */
+  { id: "aube-glacee", label: "Aube glacée", mood: "lac · givre", mode: "dark", palette: "radix-nuit", tone: "#606973", kind: "photo" },
+  { id: "foret-brume", label: "Forêt de brume", mood: "sapin · brouillard", mode: "dark", palette: "papier-nuit", tone: "#404e4a", kind: "photo" },
+  { id: "dunes-ambre", label: "Dunes d’ambre", mood: "sable · or", mode: "dark", palette: "material-sombre", tone: "#8e684b", kind: "photo" },
+  { id: "canyon-argile", label: "Canyon d’argile", mood: "roche · rouille", mode: "dark", palette: "rose-nuit", tone: "#81604c", kind: "photo" },
+  { id: "falaises-ocean", label: "Falaises d’océan", mood: "écume · large", mode: "dark", palette: "material-sombre", tone: "#5f7376", kind: "photo" },
+  { id: "aurore-boreale", label: "Aurore boréale", mood: "aurore · étoiles", mode: "dark", palette: "lilas-nuit", tone: "#2c5165", kind: "photo" },
+  { id: "ville-nuit", label: "Ville la nuit", mood: "néon · bitume", mode: "dark", palette: "tokyo-night", tone: "#23253a", kind: "photo" },
+  { id: "volcan-noir", label: "Volcan noir", mood: "basalte · cendre", mode: "dark", palette: "noir-absolu", tone: "#3d4850", kind: "photo" },
+  { id: "jardin-fleurs", label: "Jardin en fleurs", mood: "pétales · printemps", mode: "light", palette: "material", tone: "#afa58a", kind: "photo" },
+  { id: "sel-pastel", label: "Sel pastel", mood: "miroir · pastel", mode: "light", palette: "lilas", tone: "#c8c5c3", kind: "photo" },
 ];
 
 export function wallById(id: string | null | undefined): Wall | undefined {
@@ -76,8 +94,18 @@ export function wallById(id: string | null | undefined): Wall | undefined {
   return WALLS.find((wall) => wall.id === id);
 }
 
+/**
+ * L’extension suit la famille : les fonds dessinés sont vectoriels, les
+ * photographies sont raster. Une seule fonction, donc aucune adresse écrite
+ * deux fois (et un test qui vérifie que le fichier existe vraiment).
+ */
+export function wallFile(id: string, kind?: WallKind): string {
+  return `${id}.${kind === "photo" ? "png" : "svg"}`;
+}
+
 export function wallUrl(id: string): string {
-  return `${import.meta.env.BASE_URL}walls/${id}.svg`;
+  const wall = wallById(id);
+  return `${import.meta.env.BASE_URL}walls/${wallFile(id, wall?.kind)}`;
 }
 
 /**

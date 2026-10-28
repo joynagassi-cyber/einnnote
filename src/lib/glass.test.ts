@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { decodePng, meanColor } from "../../scripts/png-stats.mjs";
 import { describe, expect, it } from "vitest";
 import { WALLS } from "@/lib/walls";
 import { tokensFor } from "@/lib/themes";
@@ -14,6 +15,26 @@ import {
   toRgb,
   veilBand,
 } from "@/lib/glass";
+import { veilTint, type WallColors } from "@/lib/palette";
+
+/**
+ * Un `WallColors` minimal : ce test ne vérifie que le voile, donc seuls
+ * `deep` et `tone` comptent. On les remplit avec la teinte mesurée du fond —
+ * c’est exactement ce que le repli utilise quand l’extraction n’a pas encore
+ * répondu.
+ */
+const FAKE_COLORS = (tone: string): WallColors => ({
+  accent: tone,
+  accentSoft: tone,
+  accentInk: tone,
+  secondary: tone,
+  deep: tone,
+  tone,
+  onAccent: "#FFFFFF",
+  contrast: 0,
+  onAccentContrast: 0,
+  confidence: 0,
+});
 
 /**
  * Le verre n’a pas le droit d’être un pari.
@@ -26,9 +47,19 @@ import {
 
 type RGB = [number, number, number];
 
-/** Couleur moyenne de l’image : fond plein + halos au prorata de leur surface. */
-function averageColor(id: string): RGB {
-  const svg = readFileSync(join(process.cwd(), "public", "walls", `${id}.svg`), "utf8");
+/**
+ * Couleur moyenne de l’image : fond plein + halos au prorata de leur surface.
+ *
+ * Une photographie se mesure autrement — on la décode vraiment (PNG, sans
+ * dépendance : `scripts/png-stats.mjs`), et on fait la moyenne de ses pixels.
+ * C’est la même grandeur que pour les SVG : ce que « voit » le voile.
+ */
+function averageColor(wall: { id: string; kind?: string }): RGB {
+  if (wall.kind === "photo") {
+    const file = readFileSync(join(process.cwd(), "public", "walls", `${wall.id}.png`));
+    return meanColor(decodePng(file)) as RGB;
+  }
+  const svg = readFileSync(join(process.cwd(), "public", "walls", `${wall.id}.svg`), "utf8");
   /* Rampe : les arrêts sont espacés régulièrement, donc la couleur moyenne est
      leur moyenne. Aura : fond plein + halos au prorata de leur surface. */
   const ramp = /<linearGradient[\s\S]*?<\/linearGradient>/.exec(svg)?.[0] ?? "";
@@ -67,7 +98,7 @@ const veils = [0, 5, 15, 30, 45, 55, 70, 90];
 describe("lisibilité du verre", () => {
   it("déclare une couleur moyenne fidèle à l’image", () => {
     for (const wall of WALLS) {
-      const actual = averageColor(wall.id);
+      const actual = averageColor(wall);
       const declared = toRgb(wall.tone);
       actual.forEach((value, index) => {
         expect(
@@ -98,6 +129,35 @@ describe("lisibilité du verre", () => {
       const card = mix(toRgb(tokens.surface), glass, 0.76);
       expect(contrastRatio(toRgb(tokens.ink), card), `${wall.id} · carte`).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(toRgb(tokens.muted), card), `${wall.id} · carte secondaire`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  /**
+   * La recette exacte des cartes : `bg-card/40` + `backdrop-blur-2xl` + un
+   * voile teinté de 22 % (`color-mix(in srgb, var(--tint) 22%, transparent)`).
+   * Le flou ne change pas la luminance moyenne, il l’étale : c’est donc
+   * l’empilement des alphas qui décide de la lisibilité, et il se calcule.
+   */
+  it("garde les cartes en verre lisibles (carte 40 %, voile 22 %)", () => {
+    for (const wall of WALLS) {
+      const tokens = tokensFor(wall.palette);
+      for (const veil of [veils[0], 30, 55, 90]) {
+        const glass = glassColor(toRgb(tokens.bg), toRgb(wall.tone), veil / 100);
+        // carte à 40 % sur le verre
+        const card = mix(toRgb(tokens.surface), glass, 0.4);
+        // puis la teinte, 22 % : sombre en thème sombre, couleur de l’image en
+        // thème clair — un voile sombre sur du papier clair tuerait le texte
+        const tint = toRgb(veilTint(FAKE_COLORS(wall.tone), tokens.mode));
+        const veiled = mix(tint, card, 0.22);
+        expect(
+          contrastRatio(toRgb(tokens.ink), veiled),
+          `${wall.id} · ${veil} % · encre sur carte en verre`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(toRgb(tokens.muted), veiled),
+          `${wall.id} · ${veil} % · secondaire sur carte en verre`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
