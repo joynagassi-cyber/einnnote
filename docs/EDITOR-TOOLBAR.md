@@ -42,8 +42,8 @@ Convention de confiance, utilisée dans tout le document :
    vingt-deux boutons : effacer les marques, effacer les nœuds, paragraphe,
    gras, italique, barré, code, H1–H6, puces, numéros, tâches, bloc de code,
    citation, filet, saut de ligne, annuler, rétablir.
-7. **Pour Einnote**, la barre compte désormais 35 actions (16 visibles,
-   19 dans les menus), un menu `/` groupé et filtrable, et la recherche dans
+7. **Pour Einnote**, la barre compte désormais 45 gestes (17 directs,
+   28 dans les menus), un menu `/` groupé et filtrable, et la recherche dans
    la note. Le manque n’est plus le nombre de boutons : c’est le **document
    long** — tableaux, images, sommaire — qui demande une migration.
 8. **La contrainte propre à Einnote** : le stockage est une liste de blocs
@@ -453,8 +453,9 @@ C’est le tableau à garder sous la main quand on construit une barre.
 ### 5.1 Inventaire exact de la barre (source : `src/components/editor/EditorToolbar.tsx`)
 
 **[Établi]** La barre vit dans son propre composant ; `NoteEditor` ne fait que
-la brancher. Seize gestes sont visibles sans ouvrir de menu, et **trois menus**
-portent le reste — soit **trente-cinq actions** au total.
+la brancher. **Vingt contrôles** sont visibles sans ouvrir de menu, et **trois
+menus** portent **vingt-huit entrées** — soit **quarante-cinq gestes** au
+total.
 
 | Groupe | Contrôles visibles |
 |---|---|
