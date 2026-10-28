@@ -75,7 +75,9 @@ describe("Créer un vault = créer une carte, rien de plus", () => {
     open("/spaces/p-quantum");
     await user.click(screen.getByRole("button", { name: /Nouveau vault/ }));
 
-    expect(screen.getAllByText(/Un vault est une/).length).toBeGreaterThan(0);
+    /* Le formulaire dit ce qu’est un vault en une ligne, sans exemple chiffré. */
+    expect(screen.getAllByText(/catégorie/).length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText("Nom de la catégorie")).toBeTruthy();
     expect(screen.queryByText(/Partir d’un modèle/)).toBeNull();
     expect(screen.queryByText(/Carte conceptuelle/)).toBeNull();
   });

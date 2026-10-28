@@ -47,8 +47,7 @@ export default function Trash() {
       <AppBar back onBack={() => navigate("/settings")} title="Corbeille" center={false} />
 
       <p className="mt-1 text-[14px] leading-[21px] text-muted">
-        Une note supprimée reste ici jusqu’à ce que vous la restauriez ou
-        l’effaciez définitivement.
+        Les notes supprimées attendent ici leur restauration ou leur effacement.
       </p>
 
       {deleted.length > 1 && (

@@ -70,10 +70,8 @@ export function VaultSheet({
   return (
     <Sheet open={open} onClose={close} title={vault ? "Modifier le vault" : "Nouveau vault"}>
       <p className="text-[13px] leading-[19px] text-muted">
-        Un vault est une <strong className="text-ink">catégorie</strong> du projet
-        {project ? ` « ${project.name} »` : ""} : « Superposition quantique »,
-        « Intrication quantique »… Vous y rangerez les notes de cette partie du
-        sujet.
+        Une <strong className="text-ink">catégorie</strong> du projet
+        {project ? ` « ${project.name} »` : ""}.
       </p>
 
       <label htmlFor="vault-name" className="mb-1.5 mt-4 block text-[14px] font-semibold text-muted">
@@ -83,7 +81,7 @@ export function VaultSheet({
         id="vault-name"
         value={name}
         onChange={(event) => setName(event.target.value)}
-        placeholder="Ex. Superposition quantique"
+        placeholder="Nom de la catégorie"
         className="field h-12"
         autoFocus
       />

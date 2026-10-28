@@ -11,6 +11,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
+import { Hint } from "@/components/Hint";
 import { ProjectSheet } from "@/components/spaces/ProjectSheet";
 import { VaultSheet } from "@/components/spaces/VaultSheet";
 import { useContentStore } from "@/stores/useContentStore";
@@ -174,11 +175,14 @@ export default function ProjectSpace() {
             <span className="text-[13px] font-normal text-muted">{rows.length}</span>
           </h2>
         </div>
-        <p className="mt-0.5 text-[12.5px] leading-[18px] text-muted">
-          Un vault est une <strong className="text-ink">catégorie</strong> du projet :
-          « Superposition quantique », « Intrication quantique ». Chacune range les
-          notes écrites sur cette partie du sujet.
-        </p>
+        <Hint
+          hintId="projet-vault-categorie"
+          href="/learn/x-1"
+          hrefLabel="La leçon"
+          className="mt-2"
+        >
+          Un vault est une catégorie du projet : une partie de son sujet.
+        </Hint>
 
         {rows.length === 0 ? (
           <div className="mt-3">
@@ -319,8 +323,8 @@ export default function ProjectSpace() {
         {looseNotes.length === 0 ? (
           <p className="mt-2 text-[12.5px] leading-[18px] text-muted">
             {ownNotes.length > 0
-              ? `Les ${ownNotes.length} notes du projet sont rangées dans un vault. Créez-en une hors catégorie si elle sert à tout le projet.`
-              : "Aucune note hors catégorie. Le plus simple : ouvrez un vault et écrivez-y vos notes."}
+              ? `Les ${ownNotes.length} notes du projet sont rangées dans un vault.`
+              : "Aucune note hors catégorie."}
           </p>
         ) : (
           <>
@@ -365,8 +369,7 @@ export default function ProjectSpace() {
       {/* ------------------------------------------------ zone sensible */}
       <section className="mt-6 flex items-center justify-between gap-3 rounded-card border border-line bg-surface px-4 py-3">
         <p className="text-[12px] leading-[17px] text-muted">
-          Supprimer le projet n’efface rien qui puisse être recréé : ses notes et ses vaults
-          bloquent la suppression.
+          Un projet qui contient des notes ou des vaults ne peut pas être supprimé.
         </p>
         <button
           type="button"

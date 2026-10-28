@@ -12,6 +12,7 @@ import {
   Stack,
 } from "@phosphor-icons/react";
 import { Screen, Segmented } from "@/components/Layout";
+import { Hint } from "@/components/Hint";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { reviewSettings } from "@/lib/scheduler";
@@ -242,23 +243,14 @@ export default function Review() {
 
         {/* Colonne de droite : ce qui va se passer, et le réglage */}
         <aside className={cn("flex flex-col gap-3", !desktop && "mt-1")}>
-          <section className="rounded-big border border-line bg-surface p-4">
-            <h2 className="font-serif text-[17px] font-semibold">Comment ça marche</h2>
-            <ol className="mt-2 flex flex-col gap-2 text-[13.5px] leading-[20px] text-muted">
-              <li>
-                <strong className="text-ink">Recto.</strong> La question, ou le titre
-                de la fiche. Répondez de mémoire, à voix haute.
-              </li>
-              <li>
-                <strong className="text-ink">Retournement.</strong> Touchez la carte :
-                elle pivote en 3D et découvre le passage que vous aviez écrit.
-              </li>
-              <li>
-                <strong className="text-ink">Note.</strong> Encore, Difficile, Bien,
-                Facile — FSRS recalcule la date de retour à partir de votre réponse.
-              </li>
-            </ol>
-          </section>
+          <Hint
+            hintId="reviser-deroule"
+            href="/learn/t-reviser"
+            hrefLabel="La leçon"
+          >
+            Répondez de mémoire, retournez la carte, notez votre réponse : FSRS
+            recalcule la date de retour.
+          </Hint>
 
           <button
             type="button"
