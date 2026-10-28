@@ -12,6 +12,7 @@ import {
   X,
   type Icon,
 } from "@phosphor-icons/react";
+import { Overlay } from "@/components/Overlay";
 import { cn } from "@/lib/utils";
 import { useContentStore } from "@/stores/useContentStore";
 import { useRail } from "@/lib/useMediaQuery";
@@ -219,64 +220,45 @@ function NavButton({
 /* ------------------------------------------------------------------ */
 
 /**
- * Panneau modal.
+ * Panneau modal — **délégué à la couche flottante** (`Overlay`).
  *
- * Sur téléphone : feuille basse (le pouce atteint tout).
- * Sur bureau : boîte centrée, ombre portée, contenu qui défile.
- * `size="wide"` ouvre les galeries (modèles) à 900 px.
+ * L’API n’a pas bougé : les écrans qui ouvrent une feuille continuent de passer
+ * par `Sheet`. Ce qui change est le fond du problème : le rendu passe par un
+ * portail unique sur `body`, donc plus aucun ancêtre ne peut l’écraser — et sur
+ * bureau c’est une **fenêtre flottante** déplaçable, pas une feuille de
+ * téléphone centrée.
  */
 export function Sheet({
   open,
   onClose,
   title,
+  subtitle,
   children,
   labelledBy,
   size = "default",
+  footer,
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
+  subtitle?: string;
   children: ReactNode;
   labelledBy?: string;
   size?: "default" | "wide";
+  footer?: ReactNode;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} aria-labelledby={labelledBy}>
-      <button
-        type="button"
-        aria-label="Fermer"
-        className="scrim"
-        onClick={onClose}
-        tabIndex={-1}
-      />
-      <div className="sheet" data-size={size}>
-        <div className="sheet-handle" aria-hidden="true" />
-        {title && (
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-serif text-[19px] font-semibold">{title}</h2>
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="Fermer">
-              <X size={20} weight="bold" />
-            </button>
-          </div>
-        )}
-        <div className="max-h-[72dvh] overflow-y-auto">{children}</div>
-      </div>
-    </div>
+    <Overlay
+      open={open}
+      onClose={onClose}
+      title={title}
+      subtitle={subtitle}
+      labelledBy={labelledBy}
+      size={size}
+      footer={footer}
+    >
+      {children}
+    </Overlay>
   );
 }
 

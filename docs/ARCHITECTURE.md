@@ -211,11 +211,22 @@ plans :  rail 30 · sticky d’en-tête 40 · panneau contexte 50
 | `aria-modal`, `role="dialog"`, titre obligatoire | Accessibilité, et le test peut l’exiger |
 | Sur mobile, une feuille peut être tirée vers le bas ; sur bureau, non | Deux gestes, pas un compromis |
 
-**Fichiers concernés :** `src/components/Layout.tsx` (le `Sheet` actuel),
-`src/index.css:608-640` et `:1229-1255`, puis les six appelants :
-`ProjectSheet`, `VaultSheet`, `ZettelSheet`, `TemplateGallery`,
-`GraphStyleGallery`, `NavSettings`. Aucun changement d’API côté pages si
-`Sheet` garde sa signature.
+**Fichiers concernés :** `src/components/Overlay.tsx` (nouveau), la délégation
+dans `src/components/Layout.tsx`, et les styles `overlay-*` en fin de
+`src/index.css`. Les appelants (`ProjectSheet`, `VaultSheet`, `ZettelSheet`,
+`TemplateGallery`, `GraphStyleGallery`, `NavSettings`, l’aide clavier) n’ont
+**pas** changé : `Sheet` a gardé sa signature et délègue désormais à `Overlay`.
+
+**Fait le 28 octobre 2026 (soir).** Le seuil est celui de la barre latérale
+(**768 px**), pas celui des deux panneaux (1024) : dès qu’il y a un rail, on est
+dans la version web, et une fenêtre de 680 px y tient. En dessous, feuille.
+La forme bureau est une **fenêtre flottante** : barre de titre qui sert de poignée, déplacement à la souris, au
+tactile et au clavier (flèches, `Maj` pour aller plus vite), double-clic pour
+recentrer. Le voile reste cliquable, Échap ferme, le focus est piégé et rendu à
+l’ouvreur à la fermeture, et le verrou de défilement compense la barre de
+défilement pour que la page ne saute pas. Un test ouvre l’application entière
+sur `/spaces?new=1` en 1024 px et vérifie que le dialogue est bien **enfant de
+`body`**, pas de la page : c’est exactement le défaut signalé.
 
 ---
 
@@ -518,7 +529,7 @@ document d’architecture qui ne dit pas où en est le code finit par mentir.
 
 | Point | Pourquoi ce n’est pas fait |
 |---|---|
-| **P1 · Overlays portalés** | Le diagnostic est posé (§5) mais le correctif n’est pas appliqué : `Sheet` rend toujours dans la page. C’est la prochaine étape, et elle est indépendante du reste. |
+| ~~**P1 · Overlays portalés**~~ | **Fait** (§5) : `Overlay` + `#overlay-root`, fenêtre flottante ≥ 1024 px, feuille en dessous, 18 tests dédiés. |
 | **P2 · Coquille à trois zones** | Le contenu reste plafonné à 720 px au-delà de 1024 px. Les deux nouvelles pages utilisent déjà la largeur (`screen-wide`), mais le panneau de contexte n’existe pas. |
 | **P3 · Vault = coffre** | La route `/spaces/:projet/:vault` et la carte de coffre (nom, description, date, **nombre de notes**, **méthodes**) restent à faire. Les deux modèles (`ZettelCard` / `Note`) coexistent toujours — la fusion est M2 de §6. |
 | **P6 · Modèle unifié** | Non commencé, comme prévu : après P4/P5. |
