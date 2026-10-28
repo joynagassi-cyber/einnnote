@@ -40,6 +40,9 @@ import {
   type EditorSnapshot,
 } from "@/components/editor/EditorToolbar";
 import { FindReplace } from "@/components/editor/FindReplace";
+import { Palette } from "@/components/commands/Palette";
+import { Pupitre } from "@/components/commands/Pupitre";
+import type { Command, CommandContext } from "@/lib/commands/registry";
 import type { Block } from "@/types";
 
 /* Les cinq surligneurs vivent dans `lib/editor/highlights` : la feuille « / »
@@ -108,18 +111,43 @@ export function NoteEditor({
   markers,
   onBadgeClick,
   onAsk,
+  onFiche,
+  onToggleReading,
+  reading = false,
+  ranging: rangingProp,
+  onRangingChange: onRangingChangeProp,
 }: {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
   markers: Map<string, number[]>;
   onBadgeClick: (blockId: string) => void;
   onAsk: (payload: { blockId: string; text: string }) => void;
+  /** ouvre la fiche de la note (feuille sur téléphone, panneau sur bureau) */
+  onFiche?: () => void;
+  /** bascule le mode lecture, piloté par l’écran qui possède le compositeur */
+  onToggleReading?: () => void;
+  /** lecture seule : le compositeur disparaît, le texte respire */
+  reading?: boolean;
+  /** état du rangement du pupitre, quand l’écran le pilote aussi (fiche) */
+  ranging?: boolean;
+  onRangingChange?: (open: boolean) => void;
 }) {
   const toast = useToast((s) => s.show);
   const [slashAt, setSlashAt] = useState<number | null>(null);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
   const [findOpen, setFindOpen] = useState(false);
+  const [findMode, setFindMode] = useState<"find" | "replace">("find");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteMode, setPaletteMode] = useState<"run" | "add">("run");
+  /* L’état du rangement est partagé : l’écran peut l’ouvrir depuis la fiche,
+     au clavier, sans passer par un appui long de 500 ms. */
+  const [rangingLocal, setRangingLocal] = useState(false);
+  const ranging = rangingProp ?? rangingLocal;
+  const setRanging = (open: boolean) => {
+    setRangingLocal(open);
+    onRangingChangeProp?.(open);
+  };
 
   const saveTimer = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -135,6 +163,8 @@ export function NoteEditor({
      document, ProseMirror aurait déjà coupé le paragraphe sur `Entrée`. */
   const slashUi = useRef({ open: false, items: [] as SlashItem[], index: 0 });
   const applySlashRef = useRef<(id: SlashId) => void>(() => {});
+
+  const editable = !reading;
 
   const persist = useCallback((doc: PmNode) => {
     onChangeRef.current(docToBlocks(doc));
@@ -176,6 +206,9 @@ export function NoteEditor({
     ],
     content: blocksToHtml(blocks),
     autofocus: false,
+    editable,
+    /* En lecture, le curseur ne doit pas apparaître : un texte qu’on peut
+       sélectionner mais pas modifier, comme une page imprimée. */
     editorProps: {
       attributes: {
         class: "note-prose",
@@ -324,6 +357,10 @@ export function NoteEditor({
     return () => document.removeEventListener("keydown", onKey);
   }, [findOpen]);
 
+  useEffect(() => {
+    editor?.setEditable(!reading);
+  }, [editor, reading]);
+
   const state = useEditorState({
     editor,
     selector: ({ editor: instance }) => {
@@ -440,6 +477,53 @@ export function NoteEditor({
     words,
   };
 
+  /* Le runner lit toujours l’instantané le plus récent : une commande exécutée
+     depuis la palette ne doit pas décider d’après un état vieux d’un rendu. */
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
+
+  /* --------------------------- COMMANDES -------------------------------- */
+
+  /* Une seule porte d’exécution : la palette et le pupitre passent par ici,
+     donc l’enregistrement est fait une seule fois, au même endroit. */
+  const runCommand = useCallback(
+    (command: Command) => {
+      if (!editor) return;
+      const context: CommandContext = {
+        editor,
+        snapshot: snapshotRef.current,
+        toast,
+        find: (mode = "find") => {
+          setFindMode(mode);
+          setFindOpen(true);
+        },
+        fiche: () => onFiche?.(),
+        reading: () => onToggleReading?.(),
+      };
+      command.run(context);
+      persist(editor.getJSON() as PmNode);
+    },
+    [editor, onFiche, onToggleReading, persist, toast],
+  );
+
+  const openPalette = useCallback((mode: "run" | "add" = "run") => {
+    setPaletteMode(mode);
+    setPaletteOpen(true);
+  }, []);
+
+  /* `Ctrl/⌘ K` depuis n’importe où dans la note : une palette qu’il faut
+     atteindre à la souris n’est pas une palette. */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      setPaletteMode("run");
+      setPaletteOpen(true);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   /* ----------------------------- MENU « / » ----------------------------- */
   const slashItems = useMemo(() => {
     const needle = slashQuery.trim().toLowerCase();
@@ -505,6 +589,16 @@ export function NoteEditor({
       {/* Compositeur : en haut sur bureau, en bas au-dessus du clavier sur mobile */}
       <div className="composer">
         <NoteDock />
+        {/* Téléphone : le pupitre (quatre gestes choisis). Bureau : la barre
+            complète. Le CSS décide laquelle est visible ; les deux lisent le
+            même état, donc aucune divergence possible. */}
+        <Pupitre
+          snapshot={snapshot}
+          onRun={runCommand}
+          onOpenPalette={() => openPalette(ranging ? "add" : "run")}
+          ranging={ranging}
+          onRangingChange={setRanging}
+        />
         <EditorToolbar
           editor={editor}
           snapshot={snapshot}
@@ -516,8 +610,18 @@ export function NoteEditor({
           open={findOpen}
           onClose={() => setFindOpen(false)}
           onDone={() => editor && persist(editor.getJSON() as PmNode)}
+          focusField={findMode === "replace" ? "replacement" : "query"}
         />
       </div>
+
+      <Palette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        snapshot={snapshot}
+        mode={paletteMode}
+        title={paletteMode === "add" ? "Ajouter un geste au pupitre" : undefined}
+        onRun={runCommand}
+      />
 
       <EditorContent editor={editor} />
 

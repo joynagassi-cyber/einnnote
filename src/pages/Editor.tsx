@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowFatLineRight,
+  BookOpen,
   Check,
   Copy,
   DotsThree,
   DownloadSimple,
+  IdentificationCard,
   Sparkle,
   Stack,
   Trash,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
 import { NoteEditor } from "@/components/editor/NoteEditor";
+import { Fiche } from "@/components/note/Fiche";
+import { FicheWindow } from "@/components/note/FicheWindow";
 import { DisplayMenu } from "@/components/DisplayMenu";
 import { NoteTemplateGallery } from "@/components/TemplateGallery";
 import { groupItems, sortItems, type DisplayFields } from "@/lib/display";
@@ -35,6 +39,7 @@ export default function Editor() {
   const allLinks = useContentStore((s) => s.links);
   const updateNote = useContentStore((s) => s.updateNote);
   const allVaults = useContentStore((s) => s.vaults);
+  const projects = useContentStore((s) => s.projects);
   const replaceBlocks = useContentStore((s) => s.replaceBlocks);
   const addQuestion = useContentStore((s) => s.addQuestion);
   const deleteQuestion = useContentStore((s) => s.deleteQuestion);
@@ -57,6 +62,14 @@ export default function Editor() {
   /* L’éditeur ne relit pas les blocs de l’extérieur : quand un modèle ajoute
      des sections, on le remonte explicitement (et seulement dans ce cas). */
   const [editorEpoch, setEditorEpoch] = useState(0);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findMode, setFindMode] = useState<"find" | "replace">("find");
+  /* Lecture : le texte seul. Le pupitre, la barre et la personnalisation
+     disparaissent — c’est la seule façon de lire sans être sollicité. */
+  const [reading, setReading] = useState(false);
+  /* Le pupitre se range depuis la fiche (clavier) comme par appui long. */
+  const [ranging, setRanging] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<{ blockId: string; text: string } | null>(
     null,
   );
@@ -187,6 +200,88 @@ export default function Editor() {
     toast("Texte copié", "accent");
   };
 
+  const copyLink = async () => {
+    if (!note) return;
+    const url = `${window.location.origin}/note/${note.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Lien de la note copié", "accent");
+    } catch {
+      toast("Le navigateur a refusé l’accès au presse-papiers");
+    }
+    setSheet("none");
+  };
+
+  const moveToProject = (projectId: string) => {
+    if (!note) return;
+    /* Un vault appartient à un projet : changer de projet sans vider le vault
+       laisserait la note dans une catégorie d’un autre projet. */
+    const keepVault = allVaults.some(
+      (vault) => vault.id === note.vaultId && vault.projectId === projectId,
+    );
+    updateNote(note.id, {
+      projectId,
+      vaultId: keepVault ? note.vaultId : undefined,
+    });
+    setSheet("none");
+    toast("Note déplacée", "accent");
+  };
+
+  const fiche = (
+    <Fiche
+      title={note.title}
+      vaults={projectVaults.map((vault) => ({ id: vault.id, name: vault.name }))}
+      vaultId={note.vaultId}
+      projects={projects.map((project) => ({ id: project.id, name: project.name }))}
+      projectId={note.projectId}
+      onVault={(vaultId) => {
+        updateNote(note.id, { vaultId });
+        const target = projectVaults.find((vault) => vault.id === vaultId);
+        toast(
+          target ? `Note rangée dans « ${target.name} »` : "Note retirée du vault",
+          target ? "accent" : undefined,
+        );
+      }}
+      onProject={moveToProject}
+      onRename={() => {
+        setSheet("none");
+        titleRef.current?.focus();
+        titleRef.current?.select();
+      }}
+      onReading={() => {
+        setSheet("none");
+        setReading(true);
+      }}
+      onFind={(mode) => {
+        setSheet("none");
+        setFindMode(mode);
+        setFindOpen(true);
+      }}
+      onExport={exportMarkdown}
+      onCopyText={copyAll}
+      onCopyLink={copyLink}
+      onTemplate={
+        note.method === "outline" || note.method === "cornell"
+          ? () => setSheet("templates")
+          : undefined
+      }
+      onArrange={
+        desktop
+          ? undefined
+          : () => {
+              setSheet("none");
+              setRanging(true);
+            }
+      }
+      onTrash={() => {
+        trashNote(note.id);
+        setSheet("none");
+        toast("Note déplacée dans la corbeille");
+        navigate("/");
+      }}
+    />
+  );
+
   /* Insérer les sections d’un modèle dans une note déjà commencée : on
      n’écrase rien, on ajoute seulement les titres absents. C’est le remix
      demandé — le modèle sert de charpente, pas de gabarit fermé. */
@@ -208,6 +303,30 @@ export default function Editor() {
     toast(`Sections « ${template.name} » ajoutées`, "accent");
   };
 
+  /* Ctrl/⌘ . — la fiche, partout dans l’éditeur. Le raccourci d’Obsidian pour
+     la palette est `Ctrl+P` ; ici la palette tient déjà `Ctrl/⌘ K`, et la
+     fiche prend le point, comme les inspecteurs de mise en page. */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "." || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      setSheet((current) => (current === "menu" ? "none" : "menu"));
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  /* Échap quitte la lecture : c’est le seul geste de sortie dont on se
+     souvienne sans lire une consigne. */
+  useEffect(() => {
+    if (!reading) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setReading(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [reading]);
+
   if (!note) {
     return (
       <Screen className="screen-note">
@@ -228,13 +347,28 @@ export default function Editor() {
   const MethodIcon = METHODS[note.method].icon;
 
   return (
-    <div className="paper screen screen-editor" data-canvas={canvas}>
+    <div
+      className="paper screen screen-editor"
+      data-canvas={canvas}
+      data-reading={reading ? "true" : undefined}
+    >
       <div className="sticky top-0 z-20 glass">
         <AppBar
           back
           onBack={() => navigate("/")}
           action={
-            desktop ? undefined : (
+            desktop ? (
+              <button
+                type="button"
+                onClick={() => setSheet("menu")}
+                aria-label="Fiche de la note (Ctrl + .)"
+                className="pill-quiet flex h-10 items-center gap-1.5 px-3.5 text-[14px]"
+              >
+                <IdentificationCard size={17} weight="duotone" aria-hidden />
+                Fiche
+                <kbd className="kbd-shortcut" aria-hidden>Ctrl .</kbd>
+              </button>
+            ) : (
               <button
                 type="button"
                 onClick={() => setSheet("questions")}
@@ -251,6 +385,7 @@ export default function Editor() {
       <main className="min-w-0 flex-1 px-5 pt-1 lg:px-10">
         <div className="pr-1">
           <input
+            ref={titleRef}
             value={note.title}
             onChange={(event) => updateNote(note.id, { title: event.target.value })}
             placeholder="Titre de la note"
@@ -265,20 +400,27 @@ export default function Editor() {
               {questions.length > 0 &&
                 ` · ${questions.length} question${questions.length > 1 ? "s" : ""}`}
             </span>
-            <button
-              type="button"
-              className="icon-btn -mr-2 h-9 w-9"
-              aria-label="Options de la note"
-              onClick={() => setSheet("menu")}
-            >
-              <DotsThree size={22} weight="bold" />
-            </button>
+            {!desktop && (
+              <button
+                type="button"
+                className="icon-btn -mr-2 h-9 w-9"
+                aria-label="Fiche de la note"
+                onClick={() => setSheet("menu")}
+              >
+                <DotsThree size={22} weight="bold" />
+              </button>
+            )}
           </div>
         </div>
 
         <NoteEditor
           key={`${note.id}:${editorEpoch}`}
           blocks={note.blocks}
+          reading={reading}
+          onFiche={() => setSheet("menu")}
+          onToggleReading={() => setReading((value) => !value)}
+          ranging={ranging}
+          onRangingChange={setRanging}
           onChange={(blocks: Block[]) => replaceBlocks(note.id, blocks)}
           markers={markers}
           onBadgeClick={(blockId) => {
@@ -403,93 +545,37 @@ export default function Editor() {
         </Sheet>
       )}
 
-      {/* Feuille : options */}
-      <Sheet
-        open={sheet === "menu"}
-        onClose={() => setSheet("none")}
-        title="Cette note"
-      >
-        <div className="flex flex-col">
-          {/* Ranger la note dans une catégorie du projet : la même note peut
-              changer de vault sans être réécrite, et une note libre cesse de
-              l’être. */}
-          {projectVaults.length > 0 && (
-            <div className="border-b border-line py-3">
-              <label
-                htmlFor="note-vault"
-                className="flex items-center gap-2 text-[13px] font-semibold text-muted"
-              >
-                <Stack size={17} weight="duotone" aria-hidden />
-                Vault (catégorie)
-              </label>
-              <select
-                id="note-vault"
-                value={note.vaultId ?? ""}
-                onChange={(event) => {
-                  const vaultId = event.target.value || undefined;
-                  updateNote(note.id, { vaultId });
-                  const target = projectVaults.find((vault) => vault.id === vaultId);
-                  toast(
-                    target ? `Note rangée dans « ${target.name} »` : "Note retirée du vault",
-                    target ? "accent" : undefined,
-                  );
-                }}
-                className="field mt-1.5 h-11"
-              >
-                <option value="">Aucun — note du projet</option>
-                {projectVaults.map((vault) => (
-                  <option key={vault.id} value={vault.id}>
-                    {vault.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <button
-            type="button"
-            className="flex min-h-[52px] items-center gap-3 border-b border-line text-left text-[16px]"
-            onClick={exportMarkdown}
-          >
-            <DownloadSimple size={20} className="text-muted" />
-            Exporter en Markdown
-          </button>
-          <button
-            type="button"
-            className="flex min-h-[52px] items-center gap-3 border-b border-line text-left text-[16px]"
-            onClick={copyAll}
-          >
-            <Copy size={20} className="text-muted" />
-            Copier le texte
-          </button>
-          {(note.method === "outline" || note.method === "cornell") && (
-            <button
-              type="button"
-              className="flex min-h-[52px] items-center gap-3 border-b border-line text-left text-[16px]"
-              onClick={() => setSheet("templates")}
-            >
-              <Sparkle size={20} weight="fill" className="text-muted" />
-              Insérer un modèle
-            </button>
-          )}
-          <button
-            type="button"
-            className="flex min-h-[52px] items-center gap-3 text-left text-[16px] text-danger"
-            onClick={() => {
-              trashNote(note.id);
-              setSheet("none");
-              toast("Note déplacée dans la corbeille");
-              navigate("/");
-            }}
-          >
-            <Trash size={20} />
-            Mettre à la corbeille
-          </button>
-        </div>
-        <p className="mt-3 flex items-start gap-2 text-[13px] leading-[19px] text-muted">
-          <Check size={16} className="mt-0.5 shrink-0 text-accent" />
-          Tout est enregistré sur cet appareil, sans compte ni serveur.
-        </p>
-      </Sheet>
+      {/* La fiche : fenêtre flottante sur bureau, feuille sur téléphone.
+          C’est le même composant — un seul contenu à maintenir, deux cadres. */}
+      {desktop ? (
+        sheet === "menu" && (
+          <FicheWindow onClose={() => setSheet("none")}>
+            {fiche}
+          </FicheWindow>
+        )
+      ) : (
+        <Sheet
+          open={sheet === "menu"}
+          onClose={() => setSheet("none")}
+          title="Cette note"
+        >
+          {fiche}
+        </Sheet>
+      )}
+
+      {/* Lecture : une seule sortie, discrète et toujours au même endroit. */}
+      {reading && (
+        <button
+          type="button"
+          onClick={() => setReading(false)}
+          className="lecture-sortie"
+          aria-label="Quitter la lecture"
+        >
+          <BookOpen size={16} weight="duotone" aria-hidden />
+          Quitter la lecture
+          <kbd aria-hidden>Échap</kbd>
+        </button>
+      )}
 
       {/* Feuille : insérer un modèle de sections */}
       <Sheet

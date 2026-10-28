@@ -59,7 +59,7 @@ describe("Barre de mise en forme", () => {
 
     // marques
     for (const label of ["Gras", "Italique", "Souligné", "Barré", "Code en ligne"]) {
-      expect(screen.getByRole("button", { name: label })).toBeTruthy();
+      expect(within(barre).getByRole("button", { name: label })).toBeTruthy();
     }
     // listes et structure
     for (const label of [
@@ -69,7 +69,7 @@ describe("Barre de mise en forme", () => {
       "Décaler à droite",
       "Décaler à gauche",
     ]) {
-      expect(screen.getByRole("button", { name: label })).toBeTruthy();
+      expect(within(barre).getByRole("button", { name: label })).toBeTruthy();
     }
 
     // le menu « Transformer » s’ouvre et propose les six types de bloc
@@ -115,7 +115,8 @@ describe("Barre de mise en forme", () => {
     (prose as HTMLElement).focus();
     caretAtEnd(prose);
 
-    await user.click(screen.getByRole("button", { name: "Case à cocher" }));
+    const barre = screen.getByRole("toolbar", { name: "Mise en forme" });
+    await user.click(within(barre).getByRole("button", { name: "Case à cocher" }));
     await waitFor(() => {
       expect(blocksOf("n-plan").some((block) => block.task)).toBe(true);
     });

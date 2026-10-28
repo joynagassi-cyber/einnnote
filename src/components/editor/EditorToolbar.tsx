@@ -45,6 +45,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import type { Align, EditorSnapshot } from "@/lib/editor/snapshot";
 import {
   changeIndent,
   clearBlockFormatting,
@@ -86,30 +87,10 @@ import {
  * dans un paragraphe ou une citation.
  */
 
-export type Align = "left" | "center" | "right";
-
-export interface EditorSnapshot {
-  kind: BlockTarget;
-  marks: {
-    bold: boolean;
-    italic: boolean;
-    underline: boolean;
-    strike: boolean;
-    code: boolean;
-    highlight: boolean;
-    link: boolean;
-    superscript: boolean;
-    subscript: boolean;
-  };
-  bullet: boolean;
-  ordered: boolean;
-  task: boolean;
-  checked: boolean;
-  marked: boolean;
-  indent: number;
-  align: Align;
-  words: number;
-}
+/* Le type vit désormais dans `@/lib/editor/snapshot` : le pupitre et la palette
+   décrivent le même instant que cette barre, ils ne doivent pas dépendre d’un
+   composant. Ré-exporté ici pour ne pas casser les appelants existants. */
+export type { Align, EditorSnapshot } from "@/lib/editor/snapshot";
 
 const KIND_LABELS: Record<BlockTarget, string> = {
   p: "Texte",

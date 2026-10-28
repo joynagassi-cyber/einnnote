@@ -528,6 +528,16 @@
   .pill-accent {
     @apply inline-flex h-10 items-center gap-1.5 rounded-full border border-accent bg-accent-soft px-3.5 text-[14px] font-semibold text-accent-ink;
   }
+  .pill-quiet {
+    @apply inline-flex items-center rounded-full border border-line text-ink transition-colors;
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+  }
+  .pill-quiet:hover {
+    @apply border-line-strong;
+  }
+  .kbd-shortcut {
+    @apply ml-0.5 rounded-[6px] border border-line bg-surface-2 px-1.5 py-0.5 font-sans text-[11px] font-medium text-muted;
+  }
   .badge {
     @apply inline-flex items-center rounded-[10px] bg-accent-soft px-2.5 py-1 text-[13px] font-semibold text-accent-ink;
   }
@@ -1335,6 +1345,130 @@
   gap: 2px;
   padding: 4px 6px;
   background: transparent;
+}
+
+/* ------------------------------------------------------------
+   La lecture — le texte seul.
+
+   Le compositeur, la colonne de questions et le pupitre
+   disparaissent : plus rien à portée de pouce, rien à fermer.
+   La mesure tombe à 68 signes, la largeur confortable de
+   lecture, et le bouton de sortie est le seul élément flottant.
+   ------------------------------------------------------------ */
+.screen-editor[data-reading="true"] .composer,
+.screen-editor[data-reading="true"] .editor-aside,
+.screen-editor[data-reading="true"] .note-dock {
+  display: none;
+}
+
+.screen-editor[data-reading="true"] .note-prose {
+  max-width: 68ch;
+  margin-inline: auto;
+  padding-bottom: 22vh;
+}
+
+.screen-editor[data-reading="true"] .note-prose p,
+.screen-editor[data-reading="true"] .note-prose li {
+  font-size: 17.5px;
+  line-height: 1.75;
+}
+
+.lecture-sortie {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(16px);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.3);
+}
+
+.lecture-sortie kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------
+   La fiche — panneau latéral du bureau.
+
+   Pas de voile : le texte reste lisible et cliquable à gauche.
+   Collée au bord droit, sous l’en-tête, elle recouvre la colonne
+   de questions quand elle est ouverte — c’est un inspecteur, on
+   l’ouvre pour régler puis on la referme. Au-delà de 1600 px,
+   elle se décale pour ne rien masquer.
+   ------------------------------------------------------------ */
+.fiche-panel {
+  position: fixed;
+  z-index: 62;
+  top: 78px;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  width: 336px;
+  max-width: calc(100vw - 28px);
+  padding: 14px 14px 10px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.28);
+  animation: fiche-in 0.18s ease-out;
+}
+
+@keyframes fiche-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fiche-panel {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------
+   Le pupitre — barre d’écriture du téléphone.
+   Quatre gestes choisis, un bouton « Tout ». Il remplace la
+   barre complète en dessous de 768 px : sur un écran de
+   téléphone, six boutons plus une barre de réglages ne
+   laissent plus de place au texte.
+   ------------------------------------------------------------ */
+
+.pupitre {
+  display: none;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
+}
+
+@media (max-width: 767.98px) {
+  .pupitre {
+    display: block;
+  }
+  .editor-toolbar {
+    display: none;
+  }
 }
 
 /* Barre de personnalisation de la note (2e rangée du compositeur) */

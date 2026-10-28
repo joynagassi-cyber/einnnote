@@ -144,7 +144,7 @@ describe("Une note créée dans un vault y naît rangée", () => {
     const user = userEvent.setup();
     open("/note/n-plan");
 
-    await user.click(screen.getByRole("button", { name: "Options de la note" }));
+    await user.click(screen.getByRole("button", { name: "Fiche de la note" }));
     await user.selectOptions(screen.getByLabelText(/Vault/), "v-eco");
 
     expect(

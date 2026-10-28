@@ -510,6 +510,26 @@ Un refus n’est pas un manque, c’est une promesse tenue :
 | **4** | Liens de notes (lot 2 de la carte §8) | `lib/links/*` | création, aller-retour, suppression |
 | **5** | Nettoyage : ancien menu `/` supprimé, doc Apprendre mise à jour | `docs/`, `src/data/lessons/` | non-régression complète |
 
+**État au 28 octobre 2026** :
+
+| Lot | État | Preuve |
+|---|---|---|
+| **1** Registre + palette | **livré** | `registry.ts` (~55 commandes, 6 groupes), `recent.ts` (5 max), `Palette.tsx` ; `registry.test.ts` 13/13, `commands.test.tsx` 4/4 |
+| **2** Pupitre + Ranger | **livré** | `Pupitre.tsx`, `pupitre.ts` ; `pupitre.test.ts` 10/10, `commands.test.tsx` 6/6 (appui long, clavier, persistance après rechargement) |
+| **3** Fiche + lecture | **livré** | `note/Fiche.tsx`, `note/FicheWindow.tsx` (panneau bureau), `reading` dans `NoteEditor` ; `fiche.test.tsx` 7/7 |
+| **4** Liens de notes | à faire | — |
+| **5** Nettoyage | **partiel** — doc Apprendre à jour (`t-ecrire`), ancien menu `/` encore en place | `lessons.test.ts` 5/5 |
+
+Deux écarts assumés par rapport au tableau ci-dessus :
+
+- **La fiche du bureau est un panneau latéral sans voile**, pas une fenêtre
+  modale : le texte doit rester lisible et cliquable pendant qu’on règle la
+  note. Conséquence : pas de focus piégé (il n’y a rien à piéger), `Échap`
+  referme.
+- **La lecture n’existait pas dans le lot 3** ; elle y entre parce que la fiche
+  est le seul endroit d’où on l’ouvre, et qu’une action sans effet visible se
+  serait fait passer pour un bouton mort.
+
 **Critères d’acceptation communs** : aucun libellé hors français, aucun
 `console.log`, `tsc` 0 erreur, `eslint` 0 erreur, suite complète verte, et
 chaque nouveau composant présent dans au moins un test de rendu.

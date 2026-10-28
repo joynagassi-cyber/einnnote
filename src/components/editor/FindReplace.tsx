@@ -26,17 +26,21 @@ export function FindReplace({
   open,
   onClose,
   onDone,
+  focusField = "query",
 }: {
   editor: Editor | null;
   open: boolean;
   onClose: () => void;
   /** relance l’enregistrement après un remplacement */
   onDone: () => void;
+  /** champ qui prend le focus à l’ouverture (la palette sait pourquoi) */
+  focusField?: "query" | "replacement";
 }) {
   const [query, setQuery] = useState("");
   const [replacement, setReplacement] = useState("");
   const [, force] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const replaceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -47,9 +51,10 @@ export function FindReplace({
       if (editor && !editor.isDestroyed) setSearchQuery(editor, "");
       return;
     }
-    const focus = window.setTimeout(() => inputRef.current?.focus(), 30);
+    const target = focusField === "replacement" ? replaceRef.current : inputRef.current;
+    const focus = window.setTimeout(() => target?.focus(), 30);
     return () => window.clearTimeout(focus);
-  }, [open, editor]);
+  }, [open, editor, focusField]);
 
   /* Le nombre d’occurrences change aussi quand on tape dans le document. */
   useEffect(() => {
@@ -141,6 +146,7 @@ export function FindReplace({
       </button>
 
       <input
+        ref={replaceRef}
         value={replacement}
         onChange={(event) => setReplacement(event.target.value)}
         onKeyDown={(event) => {

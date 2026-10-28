@@ -254,7 +254,7 @@ describe("Einnote — écrans", () => {
     expect(screen.getByText("Tutoriels par outil")).toBeTruthy();
     cleanup();
     open("/learn/t-cornell");
-    expect(screen.getByText(/Leçon 2 sur 6/)).toBeTruthy();
+    expect(screen.getByText(/Leçon 2 sur 7/)).toBeTruthy();
     expect(screen.getByText("Écrire d’abord, normalement")).toBeTruthy();
   });
 
@@ -600,7 +600,8 @@ describe("Einnote — écrans", () => {
     const user = userEvent.setup();
     open("/note/n-plan");
     await user.click(screen.getByLabelText("Contenu de la note"));
-    await user.click(screen.getByRole("button", { name: "Liste à puces" }));
+    const barre = screen.getByRole("toolbar", { name: "Mise en forme" });
+    await user.click(within(barre).getByRole("button", { name: "Liste à puces" }));
     await waitFor(() => {
       const blocks = useContentStore.getState().notes.find(
         (n) => n.id === "n-plan",
@@ -819,7 +820,7 @@ describe("Einnote — écrans", () => {
   it("insère les sections d’un modèle dans une note existante", async () => {
     const user = userEvent.setup();
     open("/note/n-contrats");
-    await user.click(screen.getByRole("button", { name: "Options de la note" }));
+    await user.click(screen.getByRole("button", { name: "Fiche de la note" }));
     await user.click(screen.getByRole("button", { name: /Insérer un modèle/ }));
     await user.click(screen.getByRole("button", { name: /Lecture d’article scientifique/ }));
     const content = document.querySelector(".note-prose")?.textContent ?? "";

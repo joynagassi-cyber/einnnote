@@ -523,4 +523,90 @@ export const outilsLessons: Lesson[] = [
       ),
     ],
   },
+  {
+    id: "t-ecrire",
+    track: 1,
+    index: 7,
+    title: "Écrire sans lever les mains",
+    subtitle: "La palette, le pupitre, la fiche — et la lecture",
+    minutes: 6,
+    outcome:
+      "Mettre en forme sans quitter le clavier, garder quatre gestes sous le pouce sur téléphone, régler une note sans la réécrire, et lire sans être sollicité.",
+    phases: ["Un seul registre", "Le pupitre", "La fiche"],
+    steps: [
+      st(
+        "Une commande, une seule porte",
+        "Tout ce que l’éditeur sait faire existe dans un registre unique. La palette (Ctrl ou ⌘ + K) n’est qu’une façon de l’ouvrir : la barre de mise en forme, le menu de sélection et le pupitre y puisent les mêmes commandes. La conséquence pratique, c’est qu’aucune commande ne peut exister à un endroit et manquer à un autre — et qu’une commande inapplicable s’y affiche grisée, avec sa raison, au lieu de disparaître.",
+        "book",
+        {
+          points: [
+            "Ctrl/⌘ + K ouvre la palette, où que soit le curseur.",
+            "Tapez « puces », « gras », « remplace » : la recherche ignore les accents.",
+            "Une ligne grisée dit pourquoi — jamais de bouton qui s’évapore.",
+            "Les cinq dernières commandes reviennent en tête de liste.",
+          ],
+          mistakes: [
+            "Chercher un geste dans un menu alors que la palette le trouve en trois lettres.",
+          ],
+        },
+      ),
+      st(
+        "Le pupitre : quatre gestes, pas plus",
+        "Sur téléphone, une barre de vingt boutons ne tient pas sous le pouce. Le pupitre en garde quatre, que vous choisissez, plus un bouton « Tout » qui ouvre la palette. Une barre courte n’est pas une barre pauvre : elle est stable, donc vous savez où est chaque geste sans regarder.",
+        "cards",
+        {
+          points: [
+            "Quatre gestes au maximum, choisis par vous.",
+            "Le contenu ne change jamais selon le contexte : même place, même ordre.",
+            "« Tout » ouvre la palette pour les jours où il faut autre chose.",
+          ],
+        },
+      ),
+      st(
+        "Ranger le pupitre, au doigt comme au clavier",
+        "Un appui long de 500 ms sur n’importe quel bouton du pupitre ouvre le rangement : une croix retire un geste, une poignée le déplace (flèches haut et bas au clavier), « Ajouter un geste » en propose un de plus, « Réinitialiser » revient aux quatre d’origine. Rien ne se règle dans un écran de configuration séparé : on range là où l’on écrit.",
+        "map",
+        {
+          points: [
+            "Appui long sur le pupitre, ou « Ranger le pupitre » depuis la fiche.",
+            "La poignée se déplace au clavier, avec les flèches.",
+            "Le réglage suit l’appareil : un téléphone n’impose rien au bureau.",
+          ],
+          mistakes: [
+            "Ranger le pupitre depuis le bureau : la barre n’y existe pas, la palette suffit.",
+          ],
+        },
+      ),
+      st(
+        "La fiche : régler la note sans la toucher",
+        "Ctrl/⌘ + . ouvre la fiche — un panneau collé au bord droit sur bureau, une feuille sur téléphone. Elle range (vault, projet), elle fait lire (lecture, chercher, remplacer), elle fait sortir (exporter, copier, lier) et elle gère (renommer, corbeille). Rien n’y modifie le texte : c’est le point de la séparation. La corbeille est à part, et demande une seconde confirmation.",
+        "question",
+        {
+          points: [
+            "Quatre sections nommées : Ranger, Lire, Sortir, Gérer.",
+            "Changer de projet vide le vault s’il n’appartient pas au nouveau projet.",
+            "La corbeille ne se déclenche jamais au premier clic.",
+          ],
+          mistakes: [
+            "Chercher « Exporter » dans un menu d’édition : c’est une sortie, donc dans Sortir.",
+          ],
+        },
+      ),
+      st(
+        "La lecture : le texte, et rien d’autre",
+        "Le mode lecture retire le compositeur, la colonne de questions et le pupitre. Il reste le texte, à 68 signes de large, et un seul bouton discret pour sortir — ou Échap. C’est le seul mode de l’application qui ne propose rien : c’est pour cela qu’il sert.",
+        "review",
+        {
+          check:
+            "Vous avez réglé un geste du pupitre et relu une note entière en lecture, sans chercher un bouton.",
+          practice: {
+            title: "À vous",
+            text: "Ouvrez une note, appuyez sur « Fiche », passez en lecture, lisez jusqu’au bout, puis quittez avec Échap.",
+            href: "/",
+            hrefLabel: "Choisir une note",
+          },
+        },
+      ),
+    ],
+  },
 ];

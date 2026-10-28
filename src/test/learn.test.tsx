@@ -106,12 +106,12 @@ describe("Apprendre, centré sur Espaces", () => {
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
-  it("garde les six tutoriels et le cours de lecture intacts", async () => {
+  it("garde les sept tutoriels et le cours de lecture intacts", async () => {
     open("/learn");
     expect(screen.getByText("Tutoriels par outil")).toBeTruthy();
     expect(screen.getByText("Cours · Lire pour retenir")).toBeTruthy();
     const tutos = screen.getByText("Tutoriels par outil").closest("section")!;
-    expect(within(tutos).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(tutos).getAllByRole("listitem")).toHaveLength(7);
     const cours = screen.getByText("Cours · Lire pour retenir").closest("section")!;
     expect(within(cours).getAllByRole("listitem")).toHaveLength(9);
   });
