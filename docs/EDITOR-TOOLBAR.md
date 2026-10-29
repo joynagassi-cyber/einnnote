@@ -1,5 +1,11 @@
 # Barre d’outils d’édition : Obsidian, les autres, et le catalogue TipTap
 
+> **Note du 29 octobre 2026.** Le moteur d’édition du produit est désormais
+> **Quill 2**, pas TipTap. Le catalogue TipTap (§4 et suivants) reste dans ce
+> document comme **recherche** : il a servi à décider ce qu’on garde, et il sert
+> encore de référence pour comparer les moteurs. La description de l’éditeur en
+> vigueur, elle, est dans [`EDITOR-QUILL.md`](./EDITOR-QUILL.md).
+
 **Recherche du 28 octobre 2026.** Ce document répond à trois questions, dans
 cet ordre :
 

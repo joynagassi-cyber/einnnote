@@ -104,7 +104,7 @@ Obsidian sur le texte**, et ce n’est pas le but. On le bat sur la *boucle*
 | Capacité | Obsidian (`Editing shortcuts`, `Multiple cursors`, `Find and replace`, `Folding`) | Einnote | Écart |
 |---|---|---|---|
 | Annuler / rétablir | `Ctrl+Z` / `Ctrl+Shift+Z` | ✅ barre d’outils + raccourcis | — |
-| Copier / coller sans format | `Ctrl+Shift+V` | 🟡 collage natif ProseMirror seulement | — |
+| Copier / coller sans format | `Ctrl+Shift+V` | ✅ lecture du presse-papiers, jamais de balise | — |
 | Copier la sélection | `Ctrl+C` sans sélection = paragraphe | 🟡 bouton « Copier la sélection » | — |
 | Supprimer la ligne | `Ctrl+Shift+K` | ⛔ | — |
 | Déplacement par mot | `Ctrl+←/→` | ✅ natif contenteditable | — |
@@ -157,7 +157,7 @@ absolu. Effort : S ≤ ½ j, M ≈ 1–2 j, L ≥ 3 j.
 | 7 | **LaTeX en ligne** | Débloque éco/sciences : c’est un choix de marché | M | Dépend du public visé |
 | 8 | **Pliage des titres** | Lisibilité des notes longues, gratuit en perception | S | Plus tard |
 | 9 | **Propriétés visibles/éditables** | Rend l’organisation explicite au lieu de déduite | M | Plus tard |
-| 10 | **Curseurs multiples / sélection rectangulaire** | Confort d’expert | M | ✋ Refusé : coût d’implémentation ProseMirror très supérieur au gain |
+| 10 | **Curseurs multiples / sélection rectangulaire** | Confort d’expert | M | ✋ Refusé : coût d’implémentation moteur très supérieur au gain |
 
 **Ce qu’on refuse et pourquoi (à dire clairement) :** mode source, Mermaid,
 embeds `![[…]]`, plugins communautaires, palette de commandes extensible,
@@ -184,8 +184,8 @@ d’apprentissage**, pas un atelier de texte.
 
 **Non vérifié (à ne pas affirmer sans test)**
 - Comportement de `Mod-U` (souligné) sur clavier AZERTY et sur mobile.
-- Rendu réel du collage depuis Word / Google Docs (le schéma TipTap peut
-  convertir agressivement).
+- Rendu réel du collage depuis Word / Google Docs (la liste blanche de Quill
+  filtre, mais on n’a pas mesuré ce qu’elle laisse passer).
 - Performance d’une note > 500 blocs avec badges de gouttière.
 - Comportement Obsidian sur les mêmes gestes en version mobile : la doc
   consultée est celle du desktop, avec des notes `mobile: true` ponctuelles.

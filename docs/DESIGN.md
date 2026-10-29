@@ -172,7 +172,7 @@ Des registres de thèmes existent (tweakcn, presets shadcn, colorswitchcn,
 
 | Ce qu’ils vendent | Pourquoi ce n’est pas notre forme |
 | --- | --- |
-| Un `components.json` + des composants shadcn | Le projet n’en a aucun : les primitives sont écrites ici, avec Radix et TipTap. Importer le registre remplacerait nos composants, pas nos couleurs. |
+| Un `components.json` + des composants shadcn | Le projet n’en a aucun : les primitives sont écrites ici, avec Radix et Quill. Importer le registre remplacerait nos composants, pas nos couleurs. |
 | Des jetons `--background`, `--primary`, `--ring` en HSL ou oklch | Nos jetons sont des hex consommés par le verre (`--bg`, `--surface`, `--ink`, `--accent`) et **dérivés** par `src/lib/accent.ts` sur la couleur réelle du fond. Un `--primary` opaque ne sait pas s’éclaircir sur un voile sombre. |
 | Un thème par `class="dark"` | Nous avons `data-theme` + 24 fonds + 12 papiers + accents dérivés : un seul attribut ne suffit pas. |
 | Des dégradés prêts | La règle tient : les dégradés viennent des deux générateurs fournis, avec des arrêts calculés, pas choisis à l’œil. |

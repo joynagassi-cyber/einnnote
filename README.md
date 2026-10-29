@@ -2,7 +2,8 @@
 
 Application de notes qui oblige à l’**apprentissage actif**, construite d’après le
 cahier des charges **v3.0** et les maquettes mobiles « papier calme ».
-Éditeur **TipTap** avec barre de mise en forme, menu « / » et surligneurs ;
+Éditeur **Quill 2** avec barre de mise en forme, palette `Ctrl/⌘ K`, menu « / »
+et surligneurs ;
 thème à accent personnalisable dont les contrastes sont mesurés.
 
 Quatre méthodes — **Outline, Cornell, carte mentale, Zettelkasten** — puis des
@@ -32,7 +33,7 @@ npm run lint
 | --- | --- |
 | `/` | Bibliothèque : recherche, révisions du jour, cartes-rectangles en grille 2 colonnes et filtre à facettes |
 | `/new` | Choisir une méthode (4 méthodes + « Je lis simplement ») |
-| `/note/:id` | Éditeur TipTap : titre, barre de mise en forme, menu « / », gouttière Q, panneau des questions |
+| `/note/:id` | Éditeur Quill : titre, barre de mise en forme, palette `Ctrl/⌘ K`, menu « / », gouttière `Q1`, fiche de note |
 | `/review` | Révision : question, passage écrit, 4 évaluations avec intervalle prévu |
 | `/mindmap/:id` | Carte mentale : nœuds libres, « + » pour créer une liane, formes, courbes/angles |
 | `/vault/:id` | Zettelkasten : pile de cartes, glissement, références manuelles |
@@ -104,30 +105,34 @@ Détails qui font la différence :
 
 Toute la logique est pure et testée à part dans `src/lib/libraryFilters.ts`.
 
-## Éditeur (TipTap 3)
+## Éditeur (Quill 2)
 
 - **Barre persistante** groupée comme une barre d’Obsidian : annuler/rétablir ·
-  H1/H2, puces, numéros, citation · gras, italique, souligné, barré, code,
-  **surligneur 5 couleurs**, lien · retrait ±. État actif visible, compteur de
-  mots.
-- **Menu « / »** dans un paragraphe vide : titre 1/2, liste à puces, liste
-  numérotée, citation, retour au texte normal.
-- **Barre contextuelle** sur sélection : « Créer une question » (le geste
-  central du produit), surligner, gras, copier.
-- **Raccourcis** : `Tab` / `Shift-Tab` (retrait), `Ctrl/⌘+Maj+8` (puces),
-  `Ctrl/⌘+Maj+7` (numéros), `Ctrl/⌘+Maj+9` (citation), plus ceux de ProseMirror
-  (`⌘B`, `⌘I`, `⌘Z`, `⌘⇧Z`, `⌘⌥1-2`).
-- **Gouttière** : les pastilles `Q1`, `Q2` sont des décorations ProseMirror :
-  elles ne polluent ni le copier-coller ni l’export.
-- **Continuité garantie** : un bloc = un nœud de premier niveau, avec son
-  `blockId`. Rééditer une note ne casse ni les questions ni le lien vers le
-  passage. Le pont est testé (`src/lib/editor/blocks.test.ts`).
+  H1/H2/H3, puces, numéros, citation, filet · gras, italique, souligné, barré,
+  code, **surligneur 5 couleurs**, lien · retrait ±, alignement · déplacement,
+  duplication, suppression du bloc. État actif visible, compteur de mots.
+- **Palette `Ctrl/⌘ K`** : les 55 commandes, groupées, cherchables sans accent ;
+  une commande inapplicable est **grisée avec son motif**, jamais absente.
+- **Menu « / »** sur une ligne vide : la même palette, ouverte sur les gestes
+  d’insertion.
+- **Pupitre mobile** : quatre gestes choisis, rangés au doigt **et** au clavier,
+  contenu stable — les commandes restent les mêmes que sur bureau.
+- **Fiche de note** (`Ctrl/⌘ .`) : fenêtre flottante sur bureau, feuille sur
+  téléphone ; rangement, lecture, recherche, export, renvois entrants et
+  sortants, corbeille.
+- **Gouttière** : les pastilles `Q1`, `Q2` sont posées **à côté** du texte
+  (`quill.getBounds`) ; elles ne polluent ni le copier-coller ni l’export.
+- **Continuité garantie** : un bloc = une ligne, avec son `data-block-id`.
+  Rééditer une note ne casse ni les questions ni le lien vers le passage. Le
+  pont et les gestes sont testés (`src/lib/editor/quill/delta.test.ts`,
+  `adapt.test.ts`).
+- **Renvois de notes** : `[[Titre]]` reste du **texte** décoré, donc il s’exporte
+  en Markdown ; un renvoi mort est dessiné en pointillé et annoncé.
 - **Sécurité** : le HTML stocké est assaini (scripts, iframes, `on*`,
   `javascript:`) avant d’entrer dans l’éditeur.
-- **Refonte spécifiée, pas encore codée** : le pupitre mobile (quatre gestes
-  rangés sur place), la palette `Ctrl/⌘ K` et la fiche de note remplacent à
-  terme cette barre — voir [`docs/PUPITRE.md`](docs/PUPITRE.md), qui cartographie
-  les 96 commandes relevées dans Obsidian, une par une.
+- **Architecture** : trois couches, décrites dans
+  [`docs/EDITOR-QUILL.md`](docs/EDITOR-QUILL.md) — le pont blocs ↔ Delta, le
+  contrat `EditorHost`, l’adaptateur Quill. Aucun composant ne connaît le moteur.
 
 ## Thème et accents
 
@@ -196,10 +201,9 @@ Ce dépôt est une **maquette interactive fidèle**, pas encore l’application
 native :
 
 - persistance dans `localStorage` et non SQLite (Capacitor / Electron à venir) ;
-- éditeur TipTap, mais **puces et numéros portés par des attributs de bloc** :
-  l’aller-retour vers un traitement de texte perd la sémantique de liste
-  (choix expliqué dans `docs/ROADMAP.md`) ; pas encore d’images, de tableaux ni
-  de recherche interne ;
+- éditeur Quill 2 : **listes et citations sont des nœuds natifs**, donc
+  l’export HTML reste standard ; il n’y a en revanche **pas de saut de ligne
+  doux** à l’intérieur d’un bloc, et pas encore d’images ni de tableaux ;
 - ordonnanceur de répétition espacée maison, à remplacer par `ts-fsrs` ;
 - pas de code PIN, de biométrie ni de verrouillage automatique ;
 - bureau sans panneau redimensionnable ni raccourcis clavier (le rail, lui,
@@ -211,7 +215,7 @@ native :
 - `src/test/smoke.test.tsx` (29 tests) monte l’application réelle (routeur,
   stores, React Flow) : écrans, navigation, rail de bureau, thème, révision,
   renommage, graphe à deux niveaux, édition d’un nœud, filtre par collection,
-  filtre méthode + révision, recherche sans résultat, frappe dans TipTap,
+  filtre méthode + révision, recherche sans résultat, frappe dans la note,
   puce depuis la barre d’outils, menu « / », accent libre, filtre par projet,
   personnalisation (densité, papier) appliquée au document, page `/preview`.
 - `src/lib/libraryFilters.test.ts` (12 tests) couvre la logique de filtre sur
@@ -233,12 +237,20 @@ native :
 - `src/components/ErrorBoundary.test.tsx` (4 tests) : écran de secours,
   trace dans `sessionStorage`, bouton « Réessayer » qui remonte au parent,
   retour à la bibliothèque.
-- `src/lib/editor/blocks.test.ts` (10 tests) : aller-retour blocs / TipTap
-  (identifiants, titres, puces, retrait, citation, marques, surlignage, lien),
-  assainissement du HTML, exports Markdown et texte.
+- `src/lib/editor/quill/delta.test.ts` (17 tests) : pont blocs ↔ Delta —
+  identifiants, titres, listes, retrait, alignement, filet, marques, surlignage
+  en hexadécimal, lien, exposant ; `<br>` → espace ; note vide.
+- `src/lib/editor/quill/adapt.test.ts` (17 tests) : **un vrai moteur Quill** est
+  instancié, puis les gestes sont rejoués — transformation de bloc sans perdre
+  l’identifiant, case à cocher, puce, déplacement, duplication, filet, casse,
+  remplacement, annuler/rétablir, stabilité des identifiants.
+- `src/lib/editor/blocks.test.ts` (12 tests) : assainissement du HTML, exports
+  Markdown et texte.
+- `src/lib/editor/search.test.ts` (24 tests) : occurrences, casse, accents,
+  chevauchement, remplacement de bout en bout.
 
 ```bash
-npx vitest run                        # 110 tests, 9 fichiers
+npx vitest run                        # 719 tests, 65 fichiers
 npx tsc -p tsconfig.app.json --noEmit # le tsconfig racine ne vérifie rien
 npx vite build
 ```
@@ -247,9 +259,10 @@ Ce qui reste à faire, avec utilité et effort : [`docs/ROADMAP.md`](docs/ROADMA
 
 ## Limites d’architecture
 
-- TipTap ajoute ~400 kB : le bundle passe à 1,21 Mo (361 kB gzip). Une découpe
-  par route est la prochaine optimisation, volontairement reportée pour ne pas
-  fragiliser les tests d’écran.
+- Quill et React Flow forment les deux plus gros blocs : le bundle mesuré au
+  dernier build fait **1,76 Mo (502 kB gzip)**. Une découpe par route est la
+  prochaine optimisation, volontairement reportée pour ne pas fragiliser les
+  tests d’écran.
 - La mesure de stockage est celle de `localStorage` (≈ 5 Mo). Un jour SQLite
   rendra cette jauge obsolète : elle est isolée dans `src/lib/storage.ts` pour
   que ce remplacement ne touche qu’un fichier.

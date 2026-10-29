@@ -33,19 +33,19 @@ utilité de 1 (confort) à 5 (sans quoi le produit ne tient pas), effort S/M/L/X
 
 ## 2. Ce qui manque au produit, par domaine
 
-### Éditeur (TipTap)
+### Éditeur (Quill 2)
 
 | Fonction | État | Utilité | Effort | Commentaire |
 | --- | --- | --- | --- | --- |
-| Listes sémantiques (`<ul>`, `<ol>`) | [Établi] puces/numéros = attributs de bloc, pas de nœuds de liste | 3 | M | Choix assumé : garantit l’ancrage 1:1 des questions. Conséquence : un copier-coller vers Word perd la sémantique de liste. Alternative : nœuds de liste + identifiant sur chaque `listItem`. |
+| Listes sémantiques (`<ul>`, `<ol>`) | ✅ **fait** — listes natives de Quill | 3 | — | L’ancrage des questions tient à l’identifiant posé sur la **ligne**, pas à l’absence de nœuds de liste : le HTML exporté est standard. |
 | Images et pièces jointes | absent | 4 | L | Un cours se prend souvent en photo. Demande du stockage (IndexedDB) et une politique de compression. |
 | Tableaux, code multi-lignes, maths | absent | 2 | M | Rare dans des notes de cours littéraires ; les maths demandent KaTeX. |
-| Réorganisation par poignée | absent | 3 | M | Déplacer un bloc est aujourd’hui un copier-coller. Une poignée TipTap (`drag handle`) règle le problème. |
-| Rechercher / remplacer | absent | 3 | S | Indispensable au-delà de 20 blocs. |
+| Réorganisation par poignée | 🟡 partiel — monter / descendre / dupliquer / supprimer existent (barre, palette) ; le glissement à la souris reste à faire | 3 | M | Le geste direct manque encore, mais aucune opération de déplacement n’est absente. |
+| Rechercher / remplacer | ✅ **fait** — `Ctrl/⌘ F`, compteur `3 / 7`, remplacer un ou tout | 3 | — | La recherche sélectionne l’occurrence au lieu de décorer le texte. |
 | Plan de la note (sommaire) | absent | 2 | S | Les titres existent ; une liste cliquable latérale suffirait. |
 | Indicateur « enregistré » | [Établi] enregistrement différé 350 ms, sans retour visuel | 3 | S | Un point qui pulse puis « enregistré » supprime le doute. |
 | Historique de versions | absent | 3 | M | Utile pour revenir sur une suppression ; coûteux en stockage. |
-| Notes H3 | [Établi] `kind: "h3"` accepté au chargement, absent de la barre | 1 | S | Une ligne dans la barre d’outils. |
+| Notes H3 | ✅ **fait** — dans la barre, la palette et les raccourcis | 1 | — | — |
 
 ### Apprentissage
 
@@ -113,17 +113,20 @@ transforment des écrans déjà écrits en boucle d’usage.
 
 ## 3. Décisions d’architecture prises dans ce passage
 
-**TipTap plutôt que `contentEditable` brut.** L’ancien éditeur posait un
-`contentEditable` par bloc et sauvegardait `innerHTML` à chaque frappe. Il ne
-gérait ni annuler/rétablir, ni raccourcis Markdown, ni sélection multi-blocs,
-et laissait passer du HTML quelconque. TipTap apporte le schéma, l’historique,
-les entrées Markdown et la validation — au prix de ~400 kB.
+**Un moteur, derrière un contrat — et non un moteur dans les composants.**
+Le premier éditeur posait un `contentEditable` par bloc ; le suivant a été
+TipTap, dont les commandes avaient fini par entrer dans la barre, la palette et
+le registre. Le 29 octobre 2026, le moteur est devenu **Quill 2**, et la
+migration a coûté trois fichiers au lieu de trente parce que le produit ne parle
+plus qu’à `EditorHost` (`src/lib/editor/host.ts`). Le pont blocs ↔ Delta
+(`quill/delta.ts`) est le seul endroit qui connaît le format ; l’adaptateur
+(`quill/adapt.ts`) le seul qui appelle Quill. Détail complet :
+[`EDITOR-QUILL.md`](./EDITOR-QUILL.md).
 
-**Un bloc = un nœud de premier niveau.** Le pont `src/lib/editor/blocks.ts`
-garantit que l’aller-retour éditeur ↔ stockage ne perd ni identifiant, ni type,
-ni puce, ni retrait ; c’est ce qui permet aux questions de rester ancrées après
-réédition. Le prix est assumé : puces et numéros sont des attributs, pas des
-listes HTML.
+**Un bloc = une ligne.** Le pont garantit que l’aller-retour éditeur ↔ stockage
+ne perd ni identifiant, ni type, ni puce, ni retrait : c’est ce qui permet aux
+questions de rester ancrées après réédition. Le prix est assumé : un saut de
+ligne doux (`<br>`) à l’intérieur d’un bloc devient une espace.
 
 **Assainissement à la frontière.** `sanitizeHtml()` retire scripts, iframes et
 gestionnaires `on*` du HTML stocké avant qu’il n’entre dans l’éditeur, et le
@@ -138,10 +141,10 @@ illisible : la palette est corrigée jusqu’à AA, et le ratio est affiché.
 
 1. **Le vrai test est sur téléphone.** Clavier iOS, `contenteditable`, gestes :
    rien de tout cela n’est couvert par jsdom. [Incertain]
-2. **Poids du bundle** : 1,15 Mo de JS. La découpe par route (`React.lazy`) et
-   le chargement paresseux de TipTap diviseraient par deux le premier
-   chargement ; je ne l’ai pas fait pour ne pas fragiliser les tests d’écran,
-   qui montent les routes de façon synchrone. [Établi]
+2. **Poids du bundle** : 1,76 Mo de JS (502 kB gzip) au dernier build. La
+   découpe par route (`React.lazy`) et le chargement paresseux du moteur
+   diviseraient le premier chargement ; ce n’est pas fait pour ne pas fragiliser
+   les tests d’écran, qui montent les routes de façon synchrone. [Établi]
 3. **L’ordonnanceur maison dérive.** Il est testé, mais il ne fait pas du FSRS.
    Ne pas communiquer sur des intervalles « scientifiques » avant migration.
    [Probable]
@@ -157,8 +160,8 @@ illisible : la palette est corrigée jusqu’à AA, et le ratio est affiché.
 1. **S** Raccourcis de révision (`1-4`, `Espace`, `Échap`) et annulation de la
    dernière évaluation.
 2. **S** Édition d’une question (texte + ré-ancrage du passage).
-3. **S** Découpe du bundle par route (`React.lazy` + `manualChunks` TipTap,
-   React Flow) — le premier chargement est à 361 kB gzip.
+3. **S** Découpe du bundle par route (`React.lazy` + `manualChunks` Quill,
+   React Flow) — le premier chargement est à 502 kB gzip.
 4. **M** `ts-fsrs` + plafond de nouvelles cartes.
 5. **M** PWA (manifeste, service worker) + test sur deux appareils réels.
 6. **M** Import Markdown inverse (front-matter → note + projet).
