@@ -1,8 +1,14 @@
 # L’éditeur : une seule barre, en haut sur bureau, au-dessus du clavier sur téléphone
 
-**Décision du 29 octobre 2026.** La note n’a plus qu’**une** barre. Elle tient la
-mise en forme, la question ancrée, les réglages de la note et la palette. Tout ce
-qui était empilé à côté d’elle est supprimé.
+**Décision du 29 octobre 2026, révisée le même jour (tour 39).** La note n’a plus
+qu’**une** barre. Elle tient la mise en forme, la question ancrée, les réglages
+de la note et la palette. Tout ce qui était empilé à côté d’elle est supprimé.
+
+La révision du tour 39 ne revient sur aucune de ces règles ; elle en corrige trois
+effets de bord : la flèche des questions était une **bande** de 20 px au milieu du
+bord droit, le côté des questions s’ouvrait en **fenêtre** sur téléphone, et la
+barre **débordait** de la colonne de texte en bureau. Les § 7 à 9 décrivent l’état
+retenu, et le § 10 la cinquième méthode.
 
 Ce document est le wireframe demandé pour une mise en page de bureau : il décrit
 la cible **avant** l’implémentation, puis les écarts assumés.
@@ -149,7 +155,7 @@ canevas »** (trois choix), avec la mention « jamais les notes ».
 | --- | --- |
 | `tsc` | 0 erreur |
 | `eslint src` | 0 erreur (2 avertissements préexistants) |
-| `vitest` | 760/760 (les tests du pupitre remplacés par ceux de la barre) |
+| `vitest` | 767/767 (dont `src/test/canevas.test.tsx` : forme libre, poignée `+`, habillage, barre repliée, tableau blanc) |
 | `vite build` | ✓ |
 
 Tests qui tiennent cette page :
@@ -164,3 +170,115 @@ Tests qui tiennent cette page :
 
 Ce que ces tests **ne** prouvent pas : la position réelle de la barre (jsdom ne
 calcule pas de mise en page). Elle se vérifie à l’écran, aux deux largeurs.
+
+---
+
+## 7. Le côté des questions — un côté, pas une fenêtre
+
+Décision : **plus de fenêtre pour les questions**, ni sur téléphone ni sur
+bureau. Le panneau est un **côté** de la feuille, et il ne recouvre jamais le
+texte d’un voile : on doit sentir le texte derrière.
+
+```
+bureau (≥ 768 px)                        téléphone (< 768 px)
+┌──────────────────────┬──────────────┐  ┌──────────────────────────┐
+│ ⌨ │ Ce que je lis     │  Questions   │  │ ←  Note                  │
+│   │ Le texte respire. │  ① ② ③       │  │                          │
+│   │                   │  ▸ Trier     │  │  le texte, plein cadre   │
+│   │                   │              │  │                          │
+└──────────────────────┴──────────────┘  └──────────────────────────┘
+                                           le panneau arrive par le bord
+```
+
+| Point | Décision | Pourquoi |
+| --- | --- | --- |
+| déclencheur | une **icône fine** (`ChatsCircle`) collée au coin **haut-gauche** du texte, avec le compte des questions | la flèche `ArrowFatLineRight` de 20 × 80 px volait une bande entière de marge pour dire « il y a des questions » |
+| ouverture (bureau) | le panneau est **ouvert d’emblée**, il se replie en largeur (0 px) | la colonne Cornell n’a de valeur que visible pendant l’écriture |
+| ouverture (téléphone) | **glissement** depuis le bord droit, ou l’icône | le geste, pas le bouton |
+| fermeture | glissement vers la droite, `Échap`, ou la flèche de l’en-tête du panneau | trois issues, aucune n’est une fenêtre |
+| voile | **aucun** | un voile dit « tu ne peux plus écrire » ; ici on écrit toujours |
+| hors champ | `aria-hidden` **et** `inert` quand replié | un panneau invisible ne doit pas attraper le focus |
+| questions posées depuis le texte | le panneau s’ouvre, puis on saute au passage | le lien entre la question et le passage reste visible |
+
+## 8. La barre s’arrête où s’arrête le texte
+
+| Contexte | Avant | Maintenant |
+| --- | --- | --- |
+| bureau | `sticky`, d’un bord à l’autre de la fenêtre, `border-bottom` sur toute la largeur | `sticky`, **calée sur la colonne de lecture** (`margin-left: 74px`, `margin-right: 40px`, contenu borné à `--reading-width`) |
+| téléphone | fixe au-dessus du clavier, pleine largeur | inchangé — c’est la bonne forme au pouce |
+| écran d’écriture | `.screen` avec bordures et ombre en bureau | **plein cadre** : ni bordure, ni ombre, ni largeur maximale ; la mesure de lecture reste tenue par `.note-prose` |
+
+La règle qui décide : *une barre qui traverse toute la fenêtre pendant que le
+paragraphe s’arrête à 720 px laisse une marge vide qu’on voit* — et cette marge
+fait « formulaire », pas « feuille ».
+
+## 9. Une icône par élément, et le clavier pour aller vite
+
+| Élément | Signe | Ne partage son signe avec rien |
+| --- | --- | --- |
+| Paragraphe | `¶` | — |
+| Filet | `—` | — |
+| Texte plus grand / plus petit | `A+` / `A−` | — |
+| Casse : MAJUSCULES / Capitale / minuscules / Chaque Mot | `AA` · `Aa` · `aa` · `Aa Bb` | — |
+| Gras · Italique · Souligné · Barré · Code | `B` · `I` · `U` · `S` · `</>` | — |
+| Dupliquer le bloc / Copier le bloc | `CopySimple` / `Copy` | — |
+| Surlignage : retirer | `X` dans la palette du surligneur | `Eraser` reste à « Effacer la mise en forme » |
+| Plus d’options | `SlidersHorizontal` | `DotsThree` reste au menu de la fiche |
+
+**Commandes rapides.** Chaque bouton annonce son raccourci dans son infobulle,
+et la palette (`Ctrl+K`, bouton « Tout ») porte les mêmes verbes. Les raccourcis
+nouvellement annoncés : `Ctrl+Maj+L` (gauche), `Ctrl+Maj+E` (centrer),
+`Ctrl+Maj+R` (droite), en plus de `Ctrl+Alt+0…3` pour les blocs.
+
+## 10. Le tableau blanc — la cinquième méthode
+
+**Décision.** Une dernière méthode réunit **le texte et la planche** dans la
+même note. Tout ce que les autres méthodes savent faire s’y applique — sauf le
+zettelkasten, qui n’est pas une mise en page mais un **réseau de fiches** dans
+un vault, et qui garde son propre espace.
+
+| Ce qui est vrai | Détail |
+| --- | --- |
+| La note a du **texte** | même éditeur, mêmes blocs, mêmes questions ancrées, mêmes étiquettes |
+| La note a une **planche** | la carte mentale de la note (`note.mindmapId`), créée en même temps qu’elle |
+| Deux vues, un seul état | la planche du tableau blanc **est** la carte mentale : la modifier ici la modifie sur la page Carte mentale |
+| Bureau | trois vues : `Texte` · `Planche` · `Les deux` (côte à côte, planche collante à droite) |
+| Téléphone | deux vues : `Texte` · `Planche` — la bascule vit dans l’en-tête, donc elle reste atteignable quand le texte est masqué |
+| Export | le Markdown emporte **les deux** : le plan de la carte, puis le texte |
+| Ce que la planche ne refait pas | changer de style de graphe, appliquer un modèle, afficher la mini-carte : ces gestes appartiennent à la page Carte mentale, qui les tient avec ses réglages |
+
+**Composants partagés** (une seule implémentation, deux surfaces) :
+
+- `src/components/canvas/mindFlow.tsx` — `toFlow`, `EinnoteNode` : le dessin d’un
+  nœud et la conversion de la carte en graphe ;
+- `src/components/canvas/MapDock.tsx` — la barre flottante, **la même partout** ;
+- `src/components/canvas/MindCanvas.tsx` — la planche sans la page autour.
+
+## 11. Le canevas de carte mentale (tour 39)
+
+| Geste | Effet |
+| --- | --- |
+| Un bouton de forme de la **barre flottante** | **pose** une forme libre au centre du canevas — aucune liaison |
+| Une poignée `+` d’une forme sélectionnée (quatre côtés) | **relie** une nouvelle forme du côté touché |
+| Toucher un **trait** | ouvre son habillage : couleur, épaisseur, pointillé, six pointes |
+| Toucher une **forme** | ouvre son habillage : remplissage, encre, contour (avec épaisseur), texture, surlignage |
+| Poignée de la barre | replie/déplie tous les outils |
+| Pincement / molette | dézoom jusqu’à **0,08** — le canevas n’a pas de limite visible |
+| Plein cadre | `data-canvas` : ni bordure, ni ombre, ni largeur maximale |
+
+**Défaut de couleur = accent du thème.** `NodePaint` et `EdgePaint` sont
+**optionnels** : un champ absent suit `var(--accent)`. Changer d’accent recolore
+donc la carte entière sans réécrire un nœud ; dès qu’une personne choisit une
+couleur, ce choix-là ne bouge plus. Les couleurs proposées sont des **jetons du
+thème**, jamais des teintes inventées — le contraste est déjà garanti.
+
+## 12. Hors périmètre, consigné pour plus tard
+
+**« À long terme, nous allons permettre aux agents de manipuler tout Einnote. »**
+Ce n’est pas de ce tour. Ce qui est acquis et qui le rendra possible un jour :
+tout l’état vit dans des magasins (zustand) sérialisables, les actions du
+magasin sont nommées et typées (`addMindNode`, `updateMindEdge`, `addMindNodeAt`,
+`connectMindNodes`…), et la synchronisation passe déjà par des RPC
+(`push_entities` / `pull_entities`). Un agent n’aurait donc pas à piloter
+l’interface : il appellerait les mêmes actions. Ce qui manque est **la
+permission**, pas le levier.
