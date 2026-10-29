@@ -1186,6 +1186,17 @@
     overflow: hidden;
   }
 
+  /* Un canevas n’est pas une feuille : pas de bordure, pas d’ombre portée, pas
+     de largeur maximale. Le cadre d’une page se voit à ses marges ; un canevas
+     n’en a pas — c’est ce qui donne le sentiment qu’il continue au-delà de
+     l’écran. Le sélecteur est doublé pour passer devant les règles de `.screen`
+     en bureau, sans `!important`. */
+  .screen.screen-canvas {
+    max-width: none;
+    border-inline: 0;
+    box-shadow: none;
+  }
+
   .screen-wide {
     --screen-max: 1060px;
   }

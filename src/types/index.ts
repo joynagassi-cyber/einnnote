@@ -186,6 +186,39 @@ export interface ZettelCard {
   schedule?: Schedulable;
 }
 
+/**
+ * L’habillage d’une forme — couleur, texture, texte, contour.
+ *
+ * Tout est **optionnel**, et un champ absent n’est pas une couleur par défaut
+ * inventée : c’est l’accent actif du thème qui s’applique (voir
+ * `lib/graph/paint.ts`). Conséquence : changer de thème recolore une carte
+ * entière sans réécrire un seul nœud, et ce que l’auteur a choisi reste
+ * intact.
+ */
+export interface NodePaint {
+  /** remplissage, en `#rrggbb` ou en jeton (`var(--accent)`) */
+  fill?: string;
+  /** texture posée **sur** le remplissage */
+  texture?: "none" | "dots" | "grid" | "diagonal" | "cross";
+  /** couleur du texte */
+  ink?: string;
+  /** couleur du contour */
+  border?: string;
+  /** surlignage du texte (le fond derrière les mots, pas celui de la forme) */
+  highlight?: string;
+  /** épaisseur du contour, en pixels */
+  borderWidth?: number;
+}
+
+/** La même chose pour un trait : couleur, épaisseur, pointillé, pointe. */
+export interface EdgePaint {
+  color?: string;
+  width?: number;
+  dashed?: boolean;
+  /** la pointe au bout du trait */
+  arrow?: "none" | "arrow" | "triangle" | "circle" | "diamond" | "bar";
+}
+
 export interface MindNode {
   id: string;
   text: string;
@@ -194,12 +227,16 @@ export interface MindNode {
   x: number;
   y: number;
   parentId?: string;
+  /** habillage ; vide = tout suit l’accent du thème */
+  paint?: NodePaint;
 }
 
 export interface MindEdge {
   id: string;
   source: string;
   target: string;
+  /** habillage ; vide = tout suit l’accent du thème */
+  paint?: EdgePaint;
 }
 
 export type EdgeStyle = "curved" | "step" | "straight";

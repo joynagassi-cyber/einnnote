@@ -5,6 +5,7 @@ import type {
   EdgeStyle,
   LessonProgress,
   Method,
+  MindEdge,
   MindMap,
   MindNode,
   Note,
@@ -36,6 +37,16 @@ const uid = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 export const DEFAULT_PROJECT_ID = "p-general";
+
+/** Les quatre poignées d’une forme, dans l’ordre où on les lit. */
+export type MindDirection = "top" | "right" | "bottom" | "left";
+
+const DELTA: Record<MindDirection, { x: number; y: number }> = {
+  top: { x: 0, y: -168 },
+  right: { x: 232, y: 0 },
+  bottom: { x: 0, y: 176 },
+  left: { x: -232, y: 0 },
+};
 
 interface ContentState {
   projects: Project[];
@@ -120,7 +131,29 @@ interface ContentState {
 
   /* Carte mentale */
   updateMindMap: (id: string, patch: Partial<MindMap>) => void;
-  addMindNode: (mapId: string, parentId: string, shape: MindNode["shape"]) => void;
+  /** Ajoute une forme **connectée** à `parentId` ; renvoie son identifiant. */
+  addMindNode: (
+    mapId: string,
+    parentId: string,
+    shape: MindNode["shape"],
+    direction?: MindDirection,
+  ) => string;
+  /**
+   * Ajoute une forme **libre**, sans lien.
+   *
+   * C’est la différence qui compte : la barre flottante pose une idée sur le
+   * canevas, la poignée d’un nœud en ajoute une branche. Les deux gestes
+   * existent et ne se confondent pas.
+   */
+  addMindNodeAt: (mapId: string, options: {
+    x: number;
+    y: number;
+    shape: MindNode["shape"];
+    text?: string;
+  }) => string;
+  /** Relie deux formes déjà posées (le glissement d’une poignée à l’autre). */
+  connectMindNodes: (mapId: string, source: string, target: string) => void;
+  updateMindEdge: (mapId: string, edgeId: string, patch: Partial<MindEdge>) => void;
   updateMindNode: (mapId: string, nodeId: string, patch: Partial<MindNode>) => void;
   removeMindNode: (mapId: string, nodeId: string) => void;
   setEdgeStyle: (mapId: string, edgeStyle: EdgeStyle) => void;
@@ -814,17 +847,25 @@ export const useContentStore = create<ContentState>()(
           ),
         })),
 
-      addMindNode: (mapId, parentId, shape) => {
+      addMindNode: (mapId, parentId, shape, direction) => {
         const map = get().mindmaps.find((m) => m.id === mapId);
         const parent = map?.nodes.find((n) => n.id === parentId);
-        if (!map) return;
+        if (!map) return "";
+
+        /* Sans direction, on empile à droite comme avant. Avec une direction,
+           la nouvelle forme se pose du côté de la poignée qu’on a touchée :
+           c’est ce qui rend le geste prévisible, et c’est ce qui manquait pour
+           dessiner une carte depuis zéro. */
         const siblings = map.edges.filter((e) => e.source === parentId).length;
+        const delta = direction ? DELTA[direction] : { x: 210, y: 0 };
         const node: MindNode = {
           id: uid("mn"),
           text: "Nouvelle idée",
           shape,
-          x: (parent?.x ?? 0) + 210,
-          y: (parent?.y ?? 0) + (siblings - 0.5) * 110,
+          x: Math.round((parent?.x ?? 0) + delta.x),
+          y: Math.round(
+            (parent?.y ?? 0) + delta.y + (direction ? 0 : (siblings - 0.5) * 110),
+          ),
           parentId,
         };
         set((s) => ({
@@ -842,7 +883,68 @@ export const useContentStore = create<ContentState>()(
               : m,
           ),
         }));
+        return node.id;
       },
+
+      addMindNodeAt: (mapId, options) => {
+        const node: MindNode = {
+          id: uid("mn"),
+          text: options.text ?? "Nouvelle idée",
+          shape: options.shape,
+          x: Math.round(options.x),
+          y: Math.round(options.y),
+        };
+        set((s) => ({
+          mindmaps: s.mindmaps.map((m) =>
+            m.id === mapId
+              ? { ...m, nodes: [...m.nodes, node], updatedAt: new Date().toISOString() }
+              : m,
+          ),
+        }));
+        return node.id;
+      },
+
+      connectMindNodes: (mapId, source, target) =>
+        set((s) => ({
+          mindmaps: s.mindmaps.map((m) => {
+            if (m.id !== mapId) return m;
+            const source0 = m.nodes.find((n) => n.id === source);
+            const target0 = m.nodes.find((n) => n.id === target);
+            if (!source0 || !target0 || source === target) return m;
+            /* Un seul trait par paire, dans un sens ou dans l’autre : deux
+               flèches opposées entre deux formes ne disent rien de plus. */
+            const exists = m.edges.some(
+              (e) =>
+                (e.source === source && e.target === target) ||
+                (e.source === target && e.target === source),
+            );
+            if (exists) return m;
+            /* Le lien pose aussi la filiation, sinon la carte n’aurait plus de
+               hiérarchie : profondeur, repli et modèles en dépendent. */
+            const nodes = m.nodes.map((n) =>
+              n.id === target && !n.parentId ? { ...n, parentId: source } : n,
+            );
+            return {
+              ...m,
+              nodes,
+              edges: [...m.edges, { id: uid("me"), source, target }],
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        })),
+
+      updateMindEdge: (mapId, edgeId, patch) =>
+        set((s) => ({
+          mindmaps: s.mindmaps.map((m) =>
+            m.id === mapId
+              ? {
+                  ...m,
+                  edges: m.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
+                  updatedAt: new Date().toISOString(),
+                }
+              : m,
+          ),
+        })),
 
       updateMindNode: (mapId, nodeId, patch) =>
         set((s) => ({

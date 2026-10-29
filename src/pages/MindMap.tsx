@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ReactFlow,
@@ -6,7 +6,6 @@ import {
   BackgroundVariant,
   Controls,
   Handle,
-  MarkerType,
   MiniMap,
   Position,
   useEdgesState,
@@ -14,9 +13,12 @@ import {
   type Edge,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
+  CaretDown,
+  CaretUp,
   Circle,
   Diamond,
   Hexagon,
@@ -29,6 +31,7 @@ import {
   Sparkle,
   Square,
   Trash,
+  X,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
 import { DisplayMenu } from "@/components/DisplayMenu";
@@ -45,7 +48,24 @@ import { useIsDesktop } from "@/lib/useMediaQuery";
 import { useContentStore } from "@/stores/useContentStore";
 import { useToast } from "@/stores/useToast";
 import { cn } from "@/lib/utils";
-import type { EdgeStyle, MindMap as MindMapType, MindNode } from "@/types";
+import type {
+  EdgePaint,
+  EdgeStyle,
+  MindEdge,
+  MindMap as MindMapType,
+  MindNode,
+} from "@/types";
+import type { MindDirection } from "@/stores/useContentStore";
+import {
+  ARROWS,
+  EDGE_WIDTHS,
+  PAINT_COLORS,
+  TEXTURES,
+  edgeLook,
+  nodeLook,
+  textureBackground,
+  type ArrowKind,
+} from "@/lib/graph/paint";
 import { MINDMAP_TEMPLATES, type MindmapTemplate } from "@/lib/templates/mindmaps";
 import { mindmapFromTemplate } from "@/lib/templates/apply";
 import { GraphStyleGallery } from "@/components/GraphStyleGallery";
@@ -63,7 +83,8 @@ type FlowNodeData = {
   root: boolean;
   depth: number;
   sel: boolean;
-  onAdd: (id: string) => void;
+  paint: MindNode["paint"];
+  onAdd: (id: string, direction: MindDirection) => void;
   onOpen: (id: string) => void;
 };
 
@@ -121,7 +142,7 @@ function edgeKindFor(style: GraphStyle | null, fallback: EdgeStyle): GraphEdgeKi
 }
 
 function toFlow(map: MindMapType, handlers: {
-  onAdd: (id: string) => void;
+  onAdd: (id: string, direction: MindDirection) => void;
   onOpen: (id: string) => void;
 }, selId: string | null = null, style: GraphStyle | null = null): { nodes: FlowNode[]; edges: Edge[] } {
   const depthOfNode = new Map<string, number>();
@@ -149,6 +170,7 @@ function toFlow(map: MindMapType, handlers: {
         root: !node.parentId,
         depth: depthOfNode.get(node.id) ?? 0,
         sel: node.id === selId,
+        paint: node.paint,
         onAdd: handlers.onAdd,
         onOpen: handlers.onOpen,
       },
@@ -168,24 +190,33 @@ function toFlow(map: MindMapType, handlers: {
           targetHandle: `t-${sides.target}`,
         };
       }
+      const look = edgeLook(edge, {
+        width: style?.weight ?? 2.5,
+        dashed: Boolean(style?.dashed),
+        arrow: style ? Boolean(style.arrow) : map.edgeStyle === "step",
+      });
       return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
         ...handles,
         type: "engram",
-        style: { stroke: "var(--accent)" },
+        /* Le trait porte son habillage dans `data` : le composant d’arête s’en
+           sert pour la couleur, l’épaisseur et le pointillé. Sans cela, un
+           trait personnalisé reviendrait à l’accent au premier rendu. */
+        style: {
+          stroke: look.color,
+          strokeWidth: look.width,
+          strokeDasharray: look.dashed ? "6 5" : undefined,
+        },
         data: {
           kind: edgeKindFor(style, map.edgeStyle),
           echo: false,
-          weight: style?.weight ?? 2.5,
-          dashed: Boolean(style?.dashed),
+          weight: look.width,
+          dashed: look.dashed,
+          color: look.color,
+          arrow: look.arrow,
         },
-        /* Une carte hiérarchique se lit dans un sens : la flèche dit lequel.
-           Sur les courbes organiques et les rubans, elle alourdirait le dessin. */
-        ...((style ? style.arrow : map.edgeStyle === "step")
-          ? { markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "var(--accent)" } }
-          : {}),
       };
     }),
   };
@@ -198,7 +229,9 @@ export default function MindMap() {
   const graphStyle = graphStyleById(map?.styleId);
   const updateMindMap = useContentStore((s) => s.updateMindMap);
   const addMindNode = useContentStore((s) => s.addMindNode);
+  const addMindNodeAt = useContentStore((s) => s.addMindNodeAt);
   const updateMindNode = useContentStore((s) => s.updateMindNode);
+  const updateMindEdge = useContentStore((s) => s.updateMindEdge);
   const removeMindNode = useContentStore((s) => s.removeMindNode);
   const setEdgeStyle = useContentStore((s) => s.setEdgeStyle);
   const toast = useToast((s) => s.show);
@@ -217,6 +250,12 @@ export default function MindMap() {
      case, un nœud déplacé à la main le reste : la présentation seule change. */
   const [keepPositions, setKeepPositions] = useState(false);
   const [defaultShape, setDefaultShape] = useState<MindNode["shape"]>("rect");
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  /* La barre flottante se replie : dépliée elle porte tous les outils, repliée
+     elle ne laisse qu’une poignée. Sur un canevas, la place est au dessin. */
+  const [dockOpen, setDockOpen] = useState(true);
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   const openEditor = useCallback((nodeId: string) => {
     const node = useContentStore
@@ -227,18 +266,47 @@ export default function MindMap() {
     setDraftText(node?.text ?? "");
   }, [id]);
 
+  /**
+   * Le geste qui relie : la poignée `+` d’une forme pose une branche du côté
+   * touché et ouvre son texte. Rien d’autre ne crée de lien.
+   */
   const addChild = useCallback(
-    (parentId: string, shape?: MindNode["shape"]) => {
-      addMindNode(id, parentId, shape ?? defaultShape);
-      const mapNow = useContentStore.getState().mindmaps.find((m) => m.id === id);
-      const created = [...(mapNow?.nodes ?? [])].pop();
-      if (created) {
-        setSelectedId(created.id);
-        setEditingId(created.id);
-        setDraftText(created.text);
-      }
+    (parentId: string, direction: MindDirection, shape?: MindNode["shape"]) => {
+      const createdId = addMindNode(id, parentId, shape ?? defaultShape, direction);
+      if (!createdId) return;
+      setSelectedId(createdId);
+      setEditingId(createdId);
+      setDraftText("Nouvelle idée");
     },
     [addMindNode, id, defaultShape],
+  );
+
+  /**
+   * Le geste qui pose : la barre flottante dépose une forme **libre** au centre
+   * du canevas, sans lien. C’est ce qui permet de commencer une carte depuis
+   * une feuille vide, puis de relier à la main.
+   */
+  const createShape = useCallback(
+    (shape: MindNode["shape"]) => {
+      const rect = mapRef.current?.getBoundingClientRect();
+      const center = flow && rect
+        ? flow.screenToFlowPosition({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 })
+        : { x: 0, y: 0 };
+      /* Un léger décalage à chaque pose : deux formes créées d’affilée ne se
+         superposent pas exactement, on les voit toutes les deux. */
+      const drift = (map?.nodes.length ?? 0) * 14;
+      const createdId = addMindNodeAt(id, {
+        x: center.x - 70 + drift,
+        y: center.y - 30 + drift,
+        shape,
+      });
+      setDefaultShape(shape);
+      setSelectedId(createdId);
+      setEditingId(createdId);
+      setDraftText("Nouvelle idée");
+      setSelectedEdgeId(null);
+    },
+    [addMindNodeAt, flow, id, map?.nodes.length],
   );
 
   const initial = useMemo(
@@ -247,7 +315,7 @@ export default function MindMap() {
         ? toFlow(
             map,
             {
-              onAdd: (nodeId) => addChild(nodeId),
+              onAdd: (nodeId, direction) => addChild(nodeId, direction),
               onOpen: openEditor,
             },
             null,
@@ -263,7 +331,17 @@ export default function MindMap() {
 
   /* Reflète l’état enregistré (texte, forme, ajout, suppression, style) */
   const nodesKey = (map?.nodes ?? [])
-    .map((node) => `${node.id}:${node.text}:${node.shape}`)
+    .map(
+      (node) =>
+        `${node.id}:${node.text}:${node.shape}:${node.x}:${node.y}:${JSON.stringify(node.paint ?? null)}`,
+    )
+    .join("|");
+
+  /* L’habillage d’un trait vit dans l’arête, pas dans le style : il faut donc
+     suivre aussi son contenu, sinon une couleur choisie n’arriverait jamais au
+     dessin. */
+  const edgesKey = (map?.edges ?? [])
+    .map((edge) => `${edge.id}:${JSON.stringify(edge.paint ?? null)}`)
     .join("|");
 
   useEffect(() => {
@@ -271,7 +349,7 @@ export default function MindMap() {
     const flow = toFlow(
       map,
       {
-        onAdd: (nodeId) => addChild(nodeId),
+        onAdd: (nodeId, direction) => addChild(nodeId, direction),
         onOpen: openEditor,
       },
       selectedId,
@@ -280,7 +358,9 @@ export default function MindMap() {
     setNodes(flow.nodes);
     setEdges(flow.edges);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodesKey, map?.edges.length, map?.edgeStyle, map?.styleId, map?.title, selectedId]);
+  }, [nodesKey, edgesKey, map?.edgeStyle, map?.styleId, map?.title, selectedId]);
+
+  /* Un clic sur le fond referme aussi le panneau du trait. */
 
   /* Affichage des nœuds : la carte reste reine, mais un plan lisible évite
      de tourner autour du canevas pour retrouver une idée. Les crochets sont
@@ -368,13 +448,47 @@ export default function MindMap() {
   const editing = map.nodes.find((n) => n.id === editingId);
   const selected = map.nodes.find((n) => n.id === selectedId);
 
+  /**
+   * La barre de formes fait exactement deux choses, et elles sont distinctes :
+   * avec une forme sélectionnée elle la **change** ; sans sélection elle en
+   * **pose une nouvelle**, libre, au centre. L’ancienne version ne faisait que
+   * mémoriser une préférence invisible — d’où l’impression que rien ne se
+   * passait.
+   */
   const applyShape = (shape: MindNode["shape"]) => {
     if (selected) {
       updateMindNode(map.id, selected.id, { shape });
     } else {
-      setDefaultShape(shape);
-      toast(`Nouveaux nœuds : ${shapeLabel(shape)}`);
+      createShape(shape);
     }
+  };
+
+  const selectedEdge = map.edges.find((edge) => edge.id === selectedEdgeId) ?? null;
+
+  const paintNode = (patch: Partial<NonNullable<MindNode["paint"]>>) => {
+    if (!selected) return;
+    updateMindNode(map.id, selected.id, {
+      paint: { ...(selected.paint ?? {}), ...patch },
+    });
+  };
+
+  const paintEdge = (patch: Partial<EdgePaint>) => {
+    if (!selectedEdge) return;
+    updateMindEdge(map.id, selectedEdge.id, {
+      paint: { ...(selectedEdge.paint ?? {}), ...patch },
+    });
+  };
+
+  /** Une carte vidée de tout, sauf un point de départ. */
+  const blankMap = () => {
+    const keep = map.nodes[0];
+    updateMindMap(map.id, {
+      nodes: keep ? [{ ...keep, paint: undefined }] : [],
+      edges: [],
+    });
+    setSelectedId(keep?.id ?? null);
+    setSelectedEdgeId(null);
+    toast("Carte vierge", "accent");
   };
 
   const deleteNode = () => {
@@ -555,9 +669,10 @@ export default function MindMap() {
         </p>
       </Sheet>
 
-      <div className="relative min-h-0 flex-1">
+      <div ref={mapRef} className="relative min-h-0 flex-1">
         <div className="flow-fill">
         <ReactFlow
+          onInit={setFlow}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -573,8 +688,10 @@ export default function MindMap() {
             minZoom: desktop ? 0.5 : 0.6,
             maxZoom: 1.1,
           }}
-          minZoom={0.35}
-          maxZoom={1.8}
+          /* Un canevas sans limite : on peut s’éloigner jusqu’à voir la carte
+             entière comme une planète, et zoomer jusqu’au détail du texte. */
+          minZoom={0.08}
+          maxZoom={2.4}
           panOnScroll
           zoomOnPinch
           /* Miro et tldraw ont la même grammaire : le glissement déplace le
@@ -599,7 +716,17 @@ export default function MindMap() {
               return next;
             })
           }
-          onNodeClick={(_, node) => setSelectedId(node.id)}
+          onNodeClick={(_, node) => {
+            setSelectedId(node.id);
+            setSelectedEdgeId(null);
+          }}
+          /* Toucher un trait ouvre son habillage : couleur, épaisseur, pointillé,
+             forme de la pointe. */
+          onEdgeClick={(_, edge) => {
+            setSelectedEdgeId(edge.id);
+            setSelectedId(null);
+            setDockOpen(true);
+          }}
           onNodeDoubleClick={(_, node) => openEditor(node.id)}
           onNodeDragStop={(_, node) => {
             updateMindNode(map.id, node.id, {
@@ -607,7 +734,10 @@ export default function MindMap() {
               y: Math.round(node.position.y),
             });
           }}
-          onPaneClick={() => setSelectedId(null)}
+          onPaneClick={() => {
+            setSelectedId(null);
+            setSelectedEdgeId(null);
+          }}
           proOptions={{ hideAttribution: true }}
           nodesFocusable
           edgesFocusable
@@ -683,83 +813,19 @@ export default function MindMap() {
         )}
       </div>
 
-      <div className="dock pointer-events-none fixed inset-x-0 bottom-[calc(16px+var(--safe-bottom))] z-20 mx-auto px-4">
-        <div className="pointer-events-auto flex h-[68px] items-center gap-1 rounded-big border border-line bg-surface px-1 shadow-float">
-          <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
-            <ShapeButton
-              label="Cercle"
-              active={selected?.shape === "circle" || (!selected && defaultShape === "circle")}
-              onClick={() => applyShape("circle")}
-            >
-              <Circle size={22} />
-            </ShapeButton>
-            <ShapeButton
-              label="Rectangle"
-              active={selected?.shape === "rect" || (!selected && defaultShape === "rect")}
-              onClick={() => applyShape("rect")}
-            >
-              <Rectangle size={22} />
-            </ShapeButton>
-            <ShapeButton
-              label="Carré"
-              active={selected?.shape === "square" || (!selected && defaultShape === "square")}
-              onClick={() => applyShape("square")}
-            >
-              <Square size={22} />
-            </ShapeButton>
-            <ShapeButton
-              label="Losange"
-              active={selected?.shape === "diamond" || (!selected && defaultShape === "diamond")}
-              onClick={() => applyShape("diamond")}
-            >
-              <Diamond size={22} />
-            </ShapeButton>
-            <ShapeButton
-              label="Pilule"
-              active={selected?.shape === "pill" || (!selected && defaultShape === "pill")}
-              onClick={() => applyShape("pill")}
-            >
-              <span className="h-[13px] w-[26px] rounded-full border-[2.5px] border-current" aria-hidden />
-            </ShapeButton>
-            <ShapeButton
-              label="Hexagone"
-              active={selected?.shape === "hex" || (!selected && defaultShape === "hex")}
-              onClick={() => applyShape("hex")}
-            >
-              <Hexagon size={22} />
-            </ShapeButton>
-          </div>
-
-          <span className="h-6 w-px shrink-0 bg-line" aria-hidden="true" />
-
-          {/* Aimant : accroche les nœuds à une grille de 16 px. Le geste
-              attendu sur un canevas (Miro, tldraw) — sans lui, deux nœuds
-              alignés « à l’œil » ne le sont jamais au pixel. */}
-          <button
-            type="button"
-            onClick={() => setSnap((value) => !value)}
-            aria-pressed={snap}
-            aria-label={snap ? "Désactiver l’aimant" : "Activer l’aimant"}
-            title={snap ? "Aimant activé (grille 16 px)" : "Aimant désactivé"}
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px]",
-              snap ? "text-accent" : "text-muted",
-            )}
-          >
-            <Magnet size={19} weight={snap ? "fill" : "regular"} aria-hidden />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStyleOpen(true)}
-            className="flex h-11 shrink-0 items-center gap-1.5 rounded-[22px] px-3 text-[13.5px] font-semibold text-accent"
-            aria-label={`Style actuel : ${graphStyle.label}`}
-          >
-            <Palette size={18} weight="fill" aria-hidden />
-            Style
-          </button>
-        </div>
-      </div>
+      <MapDock
+        open={dockOpen}
+        onToggle={() => setDockOpen((value) => !value)}
+        selected={selected}
+        edge={selectedEdge}
+        snap={snap}
+        onSnap={() => setSnap((value) => !value)}
+        onShape={applyShape}
+        onPaintNode={paintNode}
+        onPaintEdge={paintEdge}
+        onStyle={() => setStyleOpen(true)}
+        styleLabel={graphStyle.label}
+      />
 
       {/* Édition d’un nœud */}
       <Sheet
@@ -826,7 +892,7 @@ export default function MindMap() {
               type="button"
               className="btn-quiet mt-2 w-full"
               onClick={() => {
-                addChild(editing.id);
+                addChild(editing.id, "right");
               }}
             >
               <Plus size={18} weight="bold" /> Ajouter un enfant
@@ -930,11 +996,72 @@ function shapeIcon(shape: MindNode["shape"]) {
   return <Rectangle size={20} />;
 }
 
+/** Les deux formes à angles : elles demandent un tracé, pas un `border`. */
+const POLY: Partial<Record<MindNode["shape"], string>> = {
+  diamond: "50% 0%, 100% 50%, 50% 100%, 0% 50%",
+  hex: "25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%",
+};
+
+const POINTS: Partial<Record<MindNode["shape"], string>> = {
+  diamond: "50,0 100,50 50,100 0,50",
+  hex: "25,0 75,0 100,50 75,100 25,100 0,50",
+};
+
+const SIDE_OF: Record<MindDirection, { x: string; y: string; label: string }> = {
+  top: { x: "left-1/2 -translate-x-1/2", y: "-top-3", label: "au-dessus" },
+  right: { x: "-right-3", y: "top-1/2 -translate-y-1/2", label: "à droite" },
+  bottom: { x: "left-1/2 -translate-x-1/2", y: "-bottom-3", label: "en dessous" },
+  left: { x: "-left-3", y: "top-1/2 -translate-y-1/2", label: "à gauche" },
+};
+
+/**
+ * Une forme de la carte.
+ *
+ * Trois choses s’y décident :
+ * 1. **l’habillage** vient de `nodeLook` : couleur, encre, contour, épaisseur,
+ *    surlignage, texture — et, quand rien n’est choisi, l’accent du thème ;
+ * 2. **les quatre poignées `+`** n’apparaissent que sur la forme sélectionnée et
+ *    posent une branche du côté touché : c’est le seul geste qui relie ;
+ * 3. les formes à angles (losange, hexagone) sont tracées en SVG, car un
+ *    `border` sur un `clip-path` se fait couper aux pointes.
+ */
 function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
-  const { text, shape, root, depth, sel, onAdd, onOpen } = data;
+  const { text, shape, root, depth, sel, paint, onAdd, onOpen } = data;
+  const look = nodeLook({ paint }, root);
+  const texture = textureBackground(look.texture, look.border);
 
   const base =
     "relative flex items-center justify-center text-center font-medium leading-[19px] transition-colors";
+
+  const sizing = cn(
+    base,
+    shape === "circle" && (root ? "h-28 w-28 rounded-full p-3 font-serif text-[15px] font-semibold" : "h-20 w-20 rounded-full p-2"),
+    shape === "rect" && depth <= 1 && "min-h-[52px] w-[136px] gap-1.5 rounded-rect px-3 py-2 text-[14.5px]",
+    shape === "rect" && depth > 1 && "min-h-10 w-[120px] rounded-rect px-2.5 py-1.5 text-[13px] leading-[17px]",
+    shape === "square" && "h-20 w-20 rounded-rect p-2",
+    shape === "pill" && "h-12 w-[148px] rounded-full px-4 text-[13.5px]",
+    shape === "diamond" && "h-16 w-[124px] p-2 text-[13px] leading-[17px]",
+    shape === "hex" && "h-[108px] w-[136px] p-3 text-[13px] leading-[17px]",
+    !root && shape !== "circle" && "shadow-[0_1px_2px_rgba(0,0,0,.05)]",
+  );
+
+  /* Le remplissage et le trait passent en style : ils dépendent du nœud, pas
+     d’une classe. `backgroundImage` porte la texture par-dessus la couleur. */
+  const surface = {
+    background: look.fill,
+    backgroundImage: texture.image,
+    backgroundSize: texture.size,
+    color: look.ink,
+    borderColor: look.border,
+    borderWidth: look.borderWidth,
+    /* Surlignage : une aura extérieure, jamais une deuxième couleur de fond —
+       le texte doit rester lisible sur n’importe quel remplissage. */
+    boxShadow: look.highlight
+      ? `0 0 0 5px color-mix(in srgb, ${look.highlight} 42%, transparent)`
+      : undefined,
+  } as const;
+
+  const poly = POINTS[shape] ?? null;
 
   return (
     <div className="group relative">
@@ -942,45 +1069,41 @@ function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
       <Handle type="target" id="t-right" position={Position.Right} isConnectable={false} style={HIDDEN} />
       <Handle type="target" id="t-top" position={Position.Top} isConnectable={false} style={HIDDEN} />
       <Handle type="target" id="t-bottom" position={Position.Bottom} isConnectable={false} style={HIDDEN} />
+
       <div
         onDoubleClick={() => onOpen(id)}
-        className={cn(
-          base,
-          shape === "circle" &&
-            (root
-              ? "h-28 w-28 rounded-full bg-accent p-3 font-serif font-semibold text-on-accent"
-              : "h-20 w-20 rounded-full border-[1.5px] border-line-strong bg-surface p-2"),
-          shape === "rect" && depth <= 1 &&
-            "min-h-[52px] w-[136px] gap-1.5 rounded-rect border-[1.5px] border-line-strong bg-surface px-3 py-2 text-[14.5px] shadow-[0_1px_2px_rgba(0,0,0,.05)]",
-          shape === "rect" && depth > 1 &&
-            "min-h-10 w-[120px] rounded-rect border border-line bg-surface px-2.5 py-1.5 text-[13px] leading-[17px]",
-          shape === "square" &&
-            "h-20 w-20 rounded-rect border-[1.5px] border-line-strong bg-surface p-2",
-          shape === "diamond" && "h-16 w-[124px] p-2",
-          shape === "pill" &&
-            "h-12 w-[148px] rounded-full border-[1.5px] border-line-strong bg-surface px-4 text-[13.5px]",
-          shape === "hex" && "h-[108px] w-[136px] p-3 text-[13px] leading-[17px]",
-          sel && shape !== "circle" && "border-2 border-accent bg-accent-soft text-accent-ink",
-          sel && shape === "circle" && !root && "border-2 border-accent bg-accent-soft text-accent-ink",
-        )}
-        style={
-          shape === "diamond"
-            ? {
-                clipPath: "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)",
-                background: sel ? "var(--accent-soft)" : "var(--surface-2)",
-                color: sel ? "var(--accent-ink)" : "var(--ink)",
-              }
-            : shape === "hex"
-              ? {
-                  clipPath:
-                    "polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)",
-                  background: sel ? "var(--accent-soft)" : "var(--surface-2)",
-                  color: sel ? "var(--accent-ink)" : "var(--ink)",
-                }
-              : undefined
-        }
+        className={cn(sizing, sel && "outline outline-2 outline-offset-[3px] outline-accent")}
+        style={sel && poly ? { ...surface, outlineOffset: 6 } : surface}
       >
-        <span className="line-clamp-3">{text}</span>
+        {poly && (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="absolute inset-0 h-full w-full"
+          >
+            <polygon
+              points={poly}
+              fill={look.fill}
+              stroke={look.border}
+              strokeWidth={look.borderWidth}
+              vectorEffect="non-scaling-stroke"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+        {poly && texture.image && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[2px] opacity-70"
+            style={{
+              clipPath: `polygon(${POLY[shape]})`,
+              backgroundImage: texture.image,
+              backgroundSize: texture.size,
+            }}
+          />
+        )}
+        <span className={cn("relative line-clamp-3", poly && "px-3")}>{text}</span>
       </div>
 
       <Handle type="source" id="s-left" position={Position.Left} isConnectable={false} style={HIDDEN} />
@@ -989,32 +1112,374 @@ function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
       <Handle type="source" id="s-bottom" position={Position.Bottom} isConnectable={false} style={HIDDEN} />
 
       {sel && (
-        <div className="absolute -right-4 top-1/2 flex -translate-y-1/2 flex-col gap-1.5">
+        <>
+          {(Object.keys(SIDE_OF) as MindDirection[]).map((direction) => (
+            <button
+              key={direction}
+              type="button"
+              aria-label={`Ajouter une forme ${SIDE_OF[direction].label}`}
+              title={`Ajouter une forme ${SIDE_OF[direction].label}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAdd(id, direction);
+              }}
+              className={cn(
+                "absolute flex h-6 w-6 items-center justify-center rounded-full border border-accent bg-surface text-accent shadow-float",
+                "opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
+                sel && "opacity-100",
+                SIDE_OF[direction].x,
+                SIDE_OF[direction].y,
+              )}
+            >
+              <Plus size={13} weight="bold" />
+            </button>
+          ))}
           <button
             type="button"
-            aria-label="Ajouter un nœud enfant"
-            onClick={(event) => {
-              event.stopPropagation();
-              onAdd(id);
-            }}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-on-accent shadow-float"
-          >
-            <Plus size={16} weight="bold" />
-          </button>
-          <button
-            type="button"
-            aria-label="Modifier le nœud"
+            aria-label="Modifier la forme"
+            title="Modifier la forme"
             onClick={(event) => {
               event.stopPropagation();
               onOpen(id);
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-float"
+            className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-float"
           >
-            <PencilSimple size={14} weight="bold" />
+            <PencilSimple size={12} weight="bold" />
           </button>
-        </div>
+        </>
       )}
     </div>
+  );
+}
+
+/**
+ * La barre flottante du canevas.
+ *
+ * Elle fait deux métiers, et c’est voulu qu’ils cohabitent : **poser** une
+ * forme libre quand rien n’est sélectionné, **habiller** la forme ou le trait
+ * sélectionné le reste du temps. Repliée, elle ne laisse qu’une poignée — sur
+ * un canevas, la place appartient au dessin.
+ */
+function MapDock({
+  open,
+  onToggle,
+  selected,
+  edge,
+  snap,
+  onSnap,
+  onShape,
+  onPaintNode,
+  onPaintEdge,
+  onStyle,
+  styleLabel,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  selected: MindNode | undefined;
+  edge: MindEdge | null;
+  snap: boolean;
+  onSnap: () => void;
+  onShape: (shape: MindNode["shape"]) => void;
+  onPaintNode: (patch: Partial<NonNullable<MindNode["paint"]>>) => void;
+  onPaintEdge: (patch: Partial<EdgePaint>) => void;
+  onStyle: () => void;
+  styleLabel: string;
+}) {
+  const [panel, setPanel] = useState<"node" | "edge">("node");
+  /* Le panneau suit ce qui est sélectionné : toucher un trait montre ses
+     réglages, toucher une forme montre les siens — sans geste de plus. */
+  const showing = edge ? "edge" : selected ? "node" : panel;
+  const paint = selected?.paint ?? {};
+  const edgePaint = edge?.paint ?? {};
+
+  const heading = edge
+    ? "Trait"
+    : selected
+      ? `Forme · ${selected.text.slice(0, 22)}`
+      : "Poser une forme";
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(12px+var(--safe-bottom))] z-20 mx-auto flex w-full justify-center px-3">
+      <div className="pointer-events-auto w-full max-w-[760px] overflow-hidden rounded-big border border-line bg-surface shadow-float">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-label={open ? "Replier les outils du canevas" : "Déplier les outils du canevas"}
+          className="flex h-9 w-full items-center gap-2 px-3 text-left"
+        >
+          <span className="h-1 w-6 rounded-full bg-line-strong" aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-muted">
+            {heading}
+          </span>
+          {open ? <CaretDown size={15} /> : <CaretUp size={15} />}
+        </button>
+
+        {open && (
+          <div className="max-h-[54vh] overflow-y-auto border-t border-line px-2 pb-2">
+            <div className="flex items-center gap-1 overflow-x-auto py-1.5">
+              <ShapeButton label="Cercle" active={selected?.shape === "circle"} onClick={() => onShape("circle")}>
+                <Circle size={21} />
+              </ShapeButton>
+              <ShapeButton label="Rectangle" active={selected?.shape === "rect"} onClick={() => onShape("rect")}>
+                <Rectangle size={21} />
+              </ShapeButton>
+              <ShapeButton label="Carré" active={selected?.shape === "square"} onClick={() => onShape("square")}>
+                <Square size={21} />
+              </ShapeButton>
+              <ShapeButton label="Losange" active={selected?.shape === "diamond"} onClick={() => onShape("diamond")}>
+                <Diamond size={21} />
+              </ShapeButton>
+              <ShapeButton label="Pilule" active={selected?.shape === "pill"} onClick={() => onShape("pill")}>
+                <span className="h-[12px] w-[24px] rounded-full border-2 border-current" aria-hidden />
+              </ShapeButton>
+              <ShapeButton label="Hexagone" active={selected?.shape === "hex"} onClick={() => onShape("hex")}>
+                <Hexagon size={21} />
+              </ShapeButton>
+
+              <span className="mx-1 h-6 w-px shrink-0 bg-line" aria-hidden />
+
+              <button
+                type="button"
+                onClick={onSnap}
+                aria-pressed={snap}
+                aria-label={snap ? "Désactiver l’aimant" : "Activer l’aimant"}
+                title={snap ? "Aimant activé (grille 16 px)" : "Aimant désactivé"}
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect",
+                  snap ? "text-accent" : "text-muted",
+                )}
+              >
+                <Magnet size={19} weight={snap ? "fill" : "regular"} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={onStyle}
+                className="flex h-11 shrink-0 items-center gap-1.5 rounded-rect px-3 text-[13px] font-semibold text-accent"
+                aria-label={`Style actuel : ${styleLabel}`}
+              >
+                <Palette size={17} weight="fill" aria-hidden />
+                Style
+              </button>
+            </div>
+
+            {(selected || edge) && (
+              <div className="flex gap-1 border-t border-line pt-1.5">
+                {selected && (
+                  <button
+                    type="button"
+                    onClick={() => setPanel("node")}
+                    aria-pressed={showing === "node"}
+                    className={cn(
+                      "h-7 rounded-full px-2.5 text-[12px] font-semibold",
+                      showing === "node" ? "bg-accent-soft text-accent-ink" : "text-muted",
+                    )}
+                  >
+                    Forme
+                  </button>
+                )}
+                {edge && (
+                  <button
+                    type="button"
+                    onClick={() => setPanel("edge")}
+                    aria-pressed={showing === "edge"}
+                    className={cn(
+                      "h-7 rounded-full px-2.5 text-[12px] font-semibold",
+                      showing === "edge" ? "bg-accent-soft text-accent-ink" : "text-muted",
+                    )}
+                  >
+                    Trait
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!selected && !edge && (
+              <p className="pb-1 text-[12px] leading-[17px] text-muted">
+                Touchez une forme pour la poser librement sur le canevas, puis reliez-la avec le
+                « + » d’une autre forme.
+              </p>
+            )}
+
+            {selected && showing === "node" && (
+              <div className="flex flex-col gap-1.5 pb-1">
+                <PaintRow label="Remplissage">
+                  {PAINT_COLORS.map((choice) => (
+                    <Swatch
+                      key={`fill-${choice.label}`}
+                      label={choice.label}
+                      color={choice.swatch}
+                      active={(paint.fill ?? null) === choice.value}
+                      onClick={() => onPaintNode({ fill: choice.value ?? undefined })}
+                    />
+                  ))}
+                </PaintRow>
+                <PaintRow label="Texte">
+                  {PAINT_COLORS.map((choice) => (
+                    <Swatch
+                      key={`ink-${choice.label}`}
+                      label={choice.label}
+                      color={choice.swatch}
+                      active={(paint.ink ?? null) === choice.value}
+                      onClick={() => onPaintNode({ ink: choice.value ?? undefined })}
+                    />
+                  ))}
+                </PaintRow>
+                <PaintRow label="Contour">
+                  {PAINT_COLORS.map((choice) => (
+                    <Swatch
+                      key={`border-${choice.label}`}
+                      label={choice.label}
+                      color={choice.swatch}
+                      active={(paint.border ?? null) === choice.value}
+                      onClick={() => onPaintNode({ border: choice.value ?? undefined })}
+                    />
+                  ))}
+                  <span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden />
+                  {[1.5, 2.5, 4].map((width) => (
+                    <Chip
+                      key={`bw-${width}`}
+                      label={`${width} px`}
+                      active={(paint.borderWidth ?? 1.5) === width}
+                      onClick={() => onPaintNode({ borderWidth: width })}
+                    />
+                  ))}
+                </PaintRow>
+                <PaintRow label="Texture">
+                  {TEXTURES.map((texture) => (
+                    <Chip
+                      key={texture.value}
+                      label={texture.label}
+                      active={(paint.texture ?? "none") === texture.value}
+                      onClick={() => onPaintNode({ texture: texture.value })}
+                    />
+                  ))}
+                </PaintRow>
+                <PaintRow label="Surlignage">
+                  {PAINT_COLORS.map((choice) => (
+                    <Swatch
+                      key={`hl-${choice.label}`}
+                      label={choice.label}
+                      color={choice.swatch}
+                      active={(paint.highlight ?? null) === choice.value}
+                      onClick={() => onPaintNode({ highlight: choice.value ?? undefined })}
+                    />
+                  ))}
+                </PaintRow>
+              </div>
+            )}
+
+            {edge && showing === "edge" && (
+              <div className="flex flex-col gap-1.5 pb-1">
+                <PaintRow label="Couleur">
+                  {PAINT_COLORS.map((choice) => (
+                    <Swatch
+                      key={`edge-${choice.label}`}
+                      label={choice.label}
+                      color={choice.swatch}
+                      active={(edgePaint.color ?? null) === choice.value}
+                      onClick={() => onPaintEdge({ color: choice.value ?? undefined })}
+                    />
+                  ))}
+                </PaintRow>
+                <PaintRow label="Épaisseur">
+                  {EDGE_WIDTHS.map((width) => (
+                    <Chip
+                      key={`ew-${width}`}
+                      label={`${width} px`}
+                      active={(edgePaint.width ?? 2.5) === width}
+                      onClick={() => onPaintEdge({ width })}
+                    />
+                  ))}
+                  <span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden />
+                  <Chip
+                    label="Pointillé"
+                    active={Boolean(edgePaint.dashed)}
+                    onClick={() => onPaintEdge({ dashed: !edgePaint.dashed })}
+                  />
+                </PaintRow>
+                <PaintRow label="Pointe">
+                  {ARROWS.map((arrow) => (
+                    <Chip
+                      key={arrow.value}
+                      label={arrow.label}
+                      active={(edgePaint.arrow ?? "arrow") === arrow.value}
+                      onClick={() => onPaintEdge({ arrow: arrow.value as ArrowKind })}
+                    />
+                  ))}
+                </PaintRow>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PaintRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto">
+      <span className="w-[74px] shrink-0 text-[11.5px] font-semibold text-muted">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function Swatch({
+  label,
+  color,
+  active,
+  onClick,
+}: {
+  label: string;
+  color: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+        active ? "border-accent" : "border-transparent",
+      )}
+    >
+      <span
+        className="h-[19px] w-[19px] rounded-full border border-line"
+        style={{
+          background: color,
+          /* « Automatique » n’est pas une couleur : c’est un dégradé qui dit
+             qu’on suit le thème. */
+          backgroundImage: label === "Automatique"
+            ? "linear-gradient(135deg, var(--accent) 50%, var(--surface) 50%)"
+            : undefined,
+        }}
+        aria-hidden
+      />
+    </button>
+  );
+}
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "h-8 shrink-0 rounded-full border px-2.5 text-[12px] font-semibold",
+        active
+          ? "border-accent bg-accent-soft text-accent-ink"
+          : "border-line bg-surface text-ink",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 

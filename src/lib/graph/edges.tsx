@@ -7,6 +7,7 @@ import {
   type Box,
 } from "@/lib/graph/floating";
 import type { GraphEdgeKind } from "@/lib/graph/styles";
+import type { Point, Side } from "@/lib/graph/floating";
 
 /**
  * L’arête unique du graphe — une seule implémentation, cinq dessins.
@@ -34,6 +35,10 @@ export interface EinnoteEdgeData extends Record<string, unknown> {
   animate?: boolean;
   weight?: number;
   dashed?: boolean;
+  /** habillage explicite d’un trait ; absent = accent du thème */
+  color?: string;
+  /** forme de la pointe ; `none` = trait nu */
+  arrow?: "none" | "arrow" | "triangle" | "circle" | "diamond" | "bar";
 }
 
 function boxOf(node: InternalNode | undefined, fallbackWidth: number, fallbackHeight: number): Box | null {
@@ -77,7 +82,8 @@ export function EinnoteEdge({ id, source, target, data, style, markerEnd }: Edge
   const echo = Boolean(config.echo);
   const weight = config.weight ?? 2;
   const path = pathFor(kind, a, b, weight);
-  const color = (style?.stroke as string) ?? "var(--accent)";
+  const tip = edgeTip(kind, a, b);
+  const color = config.color ?? (style?.stroke as string) ?? "var(--accent)";
   const showLabel = Boolean(config.labels) && Boolean(config.label) && !echo;
   const animate = Boolean(config.animate);
   /* Motif de tirets : 14 px de période dans tous les cas animés, pour que
@@ -125,6 +131,10 @@ export function EinnoteEdge({ id, source, target, data, style, markerEnd }: Edge
         />
       )}
 
+      {/* La pointe est dessinée ici, jamais par `markerEnd` : React Flow ne
+          fournirait qu’une flèche. */}
+      {!echo && arrowhead(config.arrow ?? "none", tip, color)}
+
       {showLabel && (
         <text
           className="pointer-events-none select-none"
@@ -147,6 +157,110 @@ export function EinnoteEdge({ id, source, target, data, style, markerEnd }: Edge
       )}
     </>
   );
+}
+
+/** En deçà de cette longueur, une pointe ne dit plus rien : elle devient une tache. */
+const POINT_LENGTH = 13;
+
+const round = (value: number) => Math.round(value * 100) / 100;
+
+const INWARD: Record<Side, Point> = {
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+  top: { x: 0, y: -1 },
+  bottom: { x: 0, y: 1 },
+};
+
+/**
+ * Où le trait arrive, et dans quelle direction il arrive.
+ *
+ * Les courbes flottantes et les traits en escalier touchent la forme
+ * perpendiculairement à leur côté : leur tangente est donc la normale du côté
+ * visé, pas la droite entre les deux centres. Sans cette distinction, la pointe
+ * d’une arête verticale partirait de travers.
+ */
+function edgeTip(kind: GraphEdgeKind, from: Box, to: Box): { end: Point; dir: Point } {
+  const p = floatingParams(from, to);
+  const dir =
+    kind === "straight" || kind === "bezier"
+      ? { x: p.tx - p.sx, y: p.ty - p.sy }
+      : INWARD[p.targetSide];
+  return { end: { x: p.tx, y: p.ty }, dir };
+}
+
+/**
+ * Les six pointes.
+ *
+ * React Flow n’en connaît que deux (flèche ouverte, flèche fermée) et une seule
+ * longueur. Or une carte mentale se lit aussi à la pointe : le cercle marque une
+ * appartenance, le losange une décision, la barre une fin de relation. On les
+ * dessine donc ici, orientés sur la tangente réelle du chemin, pour qu’ils
+ * suivent les courbes au lieu de flotter.
+ */
+function arrowhead(
+  shape: NonNullable<EinnoteEdgeData["arrow"]>,
+  tipAt: { end: Point; dir: Point },
+  color: string,
+) {
+  const { end, dir } = tipAt;
+  const angle = Math.atan2(dir.y, dir.x);
+  const tip = `translate(${round(end.x)}, ${round(end.y)}) rotate(${round((angle * 180) / Math.PI)})`;
+  const L = POINT_LENGTH;
+  const half = L * 0.42;
+  const head = L * 0.9;
+
+  switch (shape) {
+    case "none":
+      return null;
+    case "arrow":
+      return (
+        <path
+          d={`M ${-L} ${-half} L 0 0 L ${-L} ${half}`}
+          transform={tip}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+    case "triangle":
+      return (
+        <path
+          d={`M 0 0 L ${-L} ${-half} L ${-L} ${half} Z`}
+          transform={tip}
+          fill={color}
+        />
+      );
+    case "circle":
+      return (
+        <circle
+          cx={-head * 0.5}
+          cy={0}
+          r={Math.max(4, L * 0.4)}
+          transform={tip}
+          fill={color}
+        />
+      );
+    case "diamond":
+      return (
+        <path
+          d={`M 0 0 L ${-half} ${-half} L ${-L} 0 L ${-half} ${half} Z`}
+          transform={tip}
+          fill={color}
+        />
+      );
+    default:
+      return (
+        <path
+          d={`M 0 ${-half - 1} L 0 ${half + 1}`}
+          transform={tip}
+          stroke={color}
+          strokeWidth={2.2}
+          strokeLinecap="round"
+        />
+      );
+  }
 }
 
 export const GRAPH_EDGE_TYPES = {
