@@ -155,7 +155,7 @@ canevas »** (trois choix), avec la mention « jamais les notes ».
 | --- | --- |
 | `tsc` | 0 erreur |
 | `eslint src` | 0 erreur (2 avertissements préexistants) |
-| `vitest` | 771/771 (dont `src/test/canevas.test.tsx` : forme libre, poignée `+`, habillage, redimensionnement, fond unique, barre repliée, tableau blanc) |
+| `vitest` | 773/773 (dont `src/test/canevas.test.tsx` : forme libre, poignée `+`, habillage, redimensionnement, fond unique, barre repliée, tableau blanc) |
 | `vite build` | ✓ |
 
 Tests qui tiennent cette page :
