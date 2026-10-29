@@ -3009,3 +3009,77 @@
   text-decoration: underline dashed color-mix(in srgb, var(--danger) 65%, transparent);
   text-underline-offset: 3px;
 }
+
+/* ---- Étiquettes : `#nom` reste du texte, habillé d’une pastille ----
+   Le nom est stocké tel quel dans la note ; la pastille n’est qu’un
+   habillage reposé à chaque frappe. L’export Markdown garde `#nom`. */
+.note-prose .tag-item {
+  padding: 0 3px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-decoration-break: clone;
+}
+
+/* Le menu de `#` : une liste, pas une fenêtre. Il se pose sous le curseur,
+   ne dépasse jamais le bord de la note, et se parcourt au clavier. */
+.tag-menu {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  max-height: 15rem;
+  width: min(16rem, 72vw);
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-field, 14px);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  padding: 4px;
+}
+
+.tag-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  width: 100%;
+  border-radius: 10px;
+  padding: 0 8px;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  text-align: left;
+}
+
+.tag-menu-item svg {
+  flex: none;
+  color: var(--accent-ink);
+}
+
+.tag-menu-item.is-active,
+.tag-menu-item:hover {
+  background: var(--accent-soft);
+}
+
+.tag-menu-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-menu-empty {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tag-menu-empty b {
+  color: var(--ink);
+  font-weight: 600;
+}

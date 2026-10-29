@@ -103,9 +103,14 @@ describe("migration de contenu v1 → v2", () => {
     expect(migrated.vaults[0].projectId).toBe(projectId);
   });
 
-  it("ne touche pas à un contenu déjà en v2", () => {
-    const input = { projects: [], notes: [note("n1", "p-z")], vaults: [] };
-    const migrated = migrateContentData(input, 2) as typeof input;
+  it("ne touche pas à un contenu déjà à jour", () => {
+    const input = {
+      projects: [],
+      notes: [note("n1", "p-z")],
+      vaults: [],
+      tags: [],
+    };
+    const migrated = migrateContentData(input, 3) as typeof input;
     expect(migrated).toEqual(input);
   });
 

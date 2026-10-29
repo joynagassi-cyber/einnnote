@@ -46,6 +46,7 @@ import {
   filterNotes,
   hasConstraints,
   noteStats,
+  tagsOf,
   toggleValue,
   type ActivityFilter,
   type LibraryFilters,
@@ -710,6 +711,7 @@ function FilterPanel({
   onChange: (filters: LibraryFilters) => void;
 }) {
   const collections = useMemo(() => collectionsOf(source), [source]);
+  const tagList = useMemo(() => tagsOf(source), [source]);
 
   const methodCounts = useMemo(
     () =>
@@ -731,6 +733,15 @@ function FilterPanel({
           : [...current.collections, collection],
       })),
     [source, filters, collections],
+  );
+
+  const tagCounts = useMemo(
+    () =>
+      facetCounts(source, filters, tagList, (current, tag) => ({
+        ...current,
+        tags: current.tags.includes(tag) ? current.tags : [...current.tags, tag],
+      })),
+    [source, filters, tagList],
   );
 
   const statusCounts = useMemo(
@@ -814,6 +825,22 @@ function FilterPanel({
                     ...filters,
                     collections: toggleValue(filters.collections, collection),
                   })
+                }
+              />
+            ))}
+          </Group>
+        )}
+
+        {tagList.length > 0 && (
+          <Group label="Étiquettes">
+            {tagList.map((tag) => (
+              <Pill
+                key={tag}
+                label={`#${tag}`}
+                count={tagCounts[tag]}
+                active={filters.tags.includes(tag)}
+                onClick={() =>
+                  onChange({ ...filters, tags: toggleValue(filters.tags, tag) })
                 }
               />
             ))}

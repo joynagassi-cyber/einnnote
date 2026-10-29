@@ -188,6 +188,11 @@ export function registerEinnoteFormats() {
       "formats/notelink": new parchment.ClassAttributor("notelink", "note", {
         scope: parchment.Scope.INLINE,
       }),
+      /* `#étiquette` : une classe, pas un nœud. Le texte reste intact, donc
+         l’export Markdown emporte l’étiquette avec lui. */
+      "formats/tag": new parchment.ClassAttributor("tag", "tag", {
+        scope: parchment.Scope.INLINE,
+      }),
     },
     true,
   );
@@ -212,6 +217,7 @@ export const QUILL_FORMATS = [
   FORMAT.marked,
   FORMAT.rule,
   "notelink",
+  "tag",
 ];
 
 /* ------------------------------------------------------------------ */

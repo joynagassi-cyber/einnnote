@@ -33,13 +33,38 @@ export function caretAtEndOfNote(): void {
   });
 }
 
-/** Sélectionner un passage, comme le ferait un glissement de souris. */
-export function selectInNote(from: number, to: number): void {
+/**
+ * Sélectionner un passage, comme le ferait un glissement de souris.
+ *
+ * `source: "user"` reproduit un vrai déplacement du curseur — donc les
+ * auditeurs `selection-change` se déclenchent, comme au clavier. C’est ce qu’il
+ * faut pour vérifier un menu qui s’ouvre quand on revient dans un mot.
+ */
+export function selectInNote(
+  from: number,
+  to: number,
+  source: "api" | "user" = "api",
+): void {
   const quill = editingEngine();
   if (!quill) throw new Error("L’éditeur n’est pas monté.");
   act(() => {
-    quill.setSelection(from, Math.max(0, to - from), "api");
+    quill.setSelection(from, Math.max(0, to - from), source);
   });
+}
+
+/**
+ * La position d’un texte dans le document, telle que la voit le moteur.
+ *
+ * On ne la calcule pas depuis le DOM : `textContent` colle les blocs les uns aux
+ * autres, sans les sauts de ligne qui existent dans le document. Un curseur posé
+ * à partir du DOM atterrirait une ou deux lignes plus haut.
+ */
+export function indexOfInNote(needle: string): number {
+  const quill = editingEngine();
+  if (!quill) throw new Error("L’éditeur n’est pas monté.");
+  const index = quill.getText().indexOf(needle);
+  if (index < 0) throw new Error(`« ${needle} » n’est pas dans la note.`);
+  return index;
 }
 
 /** Le nombre de caractères du document, hors saut de ligne final. */

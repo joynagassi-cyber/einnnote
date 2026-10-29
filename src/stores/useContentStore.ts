@@ -14,11 +14,18 @@ import type {
   Rating,
   ReviewCard,
   ReviewLog,
+  Tag,
   ZettelCard,
   ZettelVault,
 } from "@/types";
 import { seedLessons } from "@/data/lessons";
 import { nextCardState } from "@/lib/scheduler";
+import {
+  normalizeTagName,
+  renameTagInBlocks,
+  tagKey,
+  tagsInBlocks,
+} from "@/lib/editor/tags";
 import { DEFAULT_MINDMAP_TEMPLATE } from "@/lib/templates/mindmaps";
 import {
   mindmapFromTemplate,
@@ -41,6 +48,8 @@ interface ContentState {
   zettel: ZettelCard[];
   mindmaps: MindMap[];
   progress: LessonProgress[];
+  /** la base des étiquettes : le vocabulaire déjà employé */
+  tags: Tag[];
 
   /* Projets */
   createProject: (name: string, description?: string) => Project;
@@ -116,6 +125,14 @@ interface ContentState {
   removeMindNode: (mapId: string, nodeId: string) => void;
   setEdgeStyle: (mapId: string, edgeStyle: EdgeStyle) => void;
 
+  /* Étiquettes */
+  /** Ajoute à la base les noms qu’on ne connaissait pas encore. */
+  registerTags: (names: string[]) => void;
+  /** Renomme une étiquette dans la base **et** dans le texte des notes. */
+  renameTag: (id: string, name: string) => { ok: boolean; reason?: string };
+  /** Retire une étiquette de la base — seulement si plus aucune note ne la porte. */
+  deleteTag: (id: string) => { ok: boolean; reason?: string };
+
   /* Leçons */
   setLessonStep: (lessonId: string, step: number) => void;
   completeLesson: (lessonId: string) => void;
@@ -150,23 +167,34 @@ const starterBlocks = (method: Method): Block[] => {
 };
 
 /**
- * Migration v1 → v2 : les données n’avaient pas de projets.
+ * Migrations du contenu.
  *
- * Tout est rattaché au premier projet connu (sinon au projet par défaut) ;
- * aucun note ni vault n’est laissé orphelin, ce qui garantit qu’un
- * utilisateur existant retrouve ses notes après la mise à jour.
+ * Chaque version ne s’occupe que de son saut, dans l’ordre, et **rien n’est
+ * perdu** : une sauvegarde de 2025 doit encore s’ouvrir après trois ajouts de
+ * champs. Une version déjà à jour traverse la fonction sans être copiée.
+ *
+ * | Saut | Ce qui change |
+ * | ---- | ------------- |
+ * | v1 → v2 | les projets apparaissent : tout est rattaché au premier projet |
+ * | v2 → v3 | la base des étiquettes apparaît, reconstituée depuis les notes |
  */
 export function migrateContentData(persisted: unknown, version: number) {
   const state = persisted as Partial<ContentState> | undefined;
   if (!state) return state as never;
-  if (version >= 2) return state as never;
 
+  let next = state;
+  if (version < 2) next = migrateToProjects(next);
+  if (version < 3) next = migrateToTags(next);
+  return next as never;
+}
+
+/** v1 → v2 : les données n’avaient pas de projets. */
+function migrateToProjects(state: Partial<ContentState>): Partial<ContentState> {
   const existing = state.projects ?? [];
   const projectId = existing[0]?.id ?? DEFAULT_PROJECT_ID;
   /* Une sauvegarde ancienne sans projet mais avec du contenu ne doit pas
      perdre ce contenu : on lui crée son espace de rattachement. */
-  const hasContent =
-    (state.notes?.length ?? 0) + (state.vaults?.length ?? 0) > 0;
+  const hasContent = (state.notes?.length ?? 0) + (state.vaults?.length ?? 0) > 0;
   const projects: Project[] =
     existing.length === 0 && hasContent
       ? [
@@ -189,7 +217,32 @@ export function migrateContentData(persisted: unknown, version: number) {
       ...vault,
       projectId: vault.projectId ?? projectId,
     })),
-  } as never;
+  };
+}
+
+/**
+ * v2 → v3 : la base des étiquettes.
+ *
+ * Les étiquettes des notes n’ont pas besoin d’être recopiées — elles sont dans
+ * le texte. On remplit seulement le vocabulaire, pour que `#` propose tout de
+ * suite les noms déjà employés au lieu d’une liste vide.
+ */
+function migrateToTags(state: Partial<ContentState>): Partial<ContentState> {
+  if (Array.isArray(state.tags)) return state;
+
+  const seen = new Set<string>();
+  const tags: Tag[] = [];
+  for (const note of state.notes ?? []) {
+    for (const raw of tagsInBlocks(note.blocks ?? [])) {
+      const name = normalizeTagName(raw);
+      if (!name) continue;
+      const key = tagKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tags.push({ id: `t-${tags.length + 1}`, name, createdAt: new Date().toISOString() });
+    }
+  }
+  return { ...state, tags };
 }
 
 export const useContentStore = create<ContentState>()(
@@ -206,6 +259,7 @@ export const useContentStore = create<ContentState>()(
       zettel: [],
       mindmaps: [],
       progress: [],
+      tags: [],
 
       createProject: (name, description) => {
         const project: Project = {
@@ -324,6 +378,9 @@ export const useContentStore = create<ContentState>()(
         }
 
         set((s) => ({ notes: [note, ...s.notes] }));
+        /* Un modèle peut déjà porter des étiquettes : elles entrent dans la
+           base au moment où la note naît, pas à la première frappe. */
+        get().registerTags(tagsInBlocks(note.blocks));
         return note;
       },
 
@@ -351,14 +408,18 @@ export const useContentStore = create<ContentState>()(
           ),
         })),
 
-      replaceBlocks: (noteId, blocks) =>
+      replaceBlocks: (noteId, blocks) => {
         set((s) => ({
           notes: s.notes.map((n) =>
             n.id === noteId
               ? { ...n, blocks, updatedAt: new Date().toISOString() }
               : n,
           ),
-        })),
+        }));
+        /* La base des étiquettes apprend en écrivant : chaque enregistrement
+           enregistre aussi les noms nouveaux. Le texte reste la vérité. */
+        get().registerTags(tagsInBlocks(blocks));
+      },
 
       addBlock: (noteId, afterBlockId) => {
         const newBlock: Block = {
@@ -659,6 +720,86 @@ export const useContentStore = create<ContentState>()(
           ),
         })),
 
+      /* --------------------------- ÉTIQUETTES --------------------------- */
+
+      /* La base ne devine rien : elle apprend les noms qu’on lui donne, une
+         fois chacun, et garde l’orthographe de la première rencontre. Deux
+         étiquettes ne peuvent pas ne différer que par la casse — sinon le
+         menu en proposerait deux lignes identiques à l’œil. */
+      registerTags: (names) => {
+        const known = new Set((get().tags ?? []).map((tag) => tagKey(tag.name)));
+        const fresh: Tag[] = [];
+        for (const raw of names) {
+          const name = normalizeTagName(raw);
+          if (!name) continue;
+          const key = tagKey(name);
+          if (known.has(key)) continue;
+          known.add(key);
+          fresh.push({ id: uid("t"), name, createdAt: new Date().toISOString() });
+        }
+        if (fresh.length === 0) return;
+        set((s) => ({ tags: [...(s.tags ?? []), ...fresh] }));
+      },
+
+      /* Le texte est la vérité : renommer dans la base sans réécrire les notes
+         laisserait l’ancien nom partout. On fait donc les deux, et on refuse
+         plutôt que de fusionner deux étiquettes en silence. */
+      renameTag: (id, raw) => {
+        const state = get();
+        const target = (state.tags ?? []).find((tag) => tag.id === id);
+        if (!target) return { ok: false, reason: "Cette étiquette n’existe plus." };
+
+        const name = normalizeTagName(raw);
+        if (!name) {
+          return {
+            ok: false,
+            reason: "Une étiquette n’accepte ni espace ni ponctuation : lettres, chiffres, - et /.",
+          };
+        }
+        const key = tagKey(name);
+        if (key !== tagKey(target.name)) {
+          const taken = (state.tags ?? []).some(
+            (tag) => tag.id !== id && tagKey(tag.name) === key,
+          );
+          if (taken) return { ok: false, reason: "Une autre étiquette porte déjà ce nom." };
+        }
+
+        const now = new Date().toISOString();
+        set({
+          tags: (state.tags ?? []).map((tag) => (tag.id === id ? { ...tag, name } : tag)),
+          notes: state.notes.map((note) => {
+            const result = renameTagInBlocks(note.blocks, target.name, name);
+            if (result.changed === 0) return note;
+            return { ...note, blocks: result.blocks, updatedAt: now };
+          }),
+        });
+        return { ok: true };
+      },
+
+      deleteTag: (id) => {
+        const state = get();
+        const target = (state.tags ?? []).find((tag) => tag.id === id);
+        if (!target) return { ok: false, reason: "Cette étiquette n’existe plus." };
+
+        const key = tagKey(target.name);
+        const used = state.notes.filter(
+          (note) =>
+            !note.deletedAt &&
+            tagsInBlocks(note.blocks).some((name) => tagKey(name) === key),
+        ).length;
+        if (used > 0) {
+          return {
+            ok: false,
+            reason:
+              used === 1
+                ? "Une note porte encore cette étiquette : retirez-la du texte d’abord."
+                : `${used} notes portent encore cette étiquette : retirez-la de leur texte d’abord.`,
+          };
+        }
+        set({ tags: (state.tags ?? []).filter((tag) => tag.id !== id) });
+        return { ok: true };
+      },
+
       updateMindMap: (id, patch) =>
         set((s) => ({
           mindmaps: s.mindmaps.map((m) =>
@@ -792,7 +933,11 @@ export const useContentStore = create<ContentState>()(
           zettel: data.zettel ?? [],
           mindmaps: data.mindmaps ?? [],
           progress: data.progress ?? [],
+          tags: data.tags ?? [],
         });
+        /* Une sauvegarde ancienne n’a pas de base d’étiquettes : on la
+           reconstitue depuis le texte des notes importées. */
+        for (const note of data.notes ?? []) get().registerTags(tagsInBlocks(note.blocks));
         return {
           notes: data.notes?.length ?? 0,
           cards: data.cards?.length ?? 0,
@@ -813,10 +958,11 @@ export const useContentStore = create<ContentState>()(
           zettel,
           mindmaps,
           progress,
+          tags,
         } = get();
         return {
           app: "Einnote",
-          version: 2,
+          version: 3,
           exportedAt: new Date().toISOString(),
           projects,
           notes,
@@ -828,12 +974,13 @@ export const useContentStore = create<ContentState>()(
           zettel,
           mindmaps,
           progress,
+          tags,
         };
       },
     }),
     {
       name: "engram.content.v1",
-      version: 2,
+      version: 3,
       /* v1 n’avait pas de projets : tout est rattaché au projet par défaut,
          et les vaults héritent du même projet. */
       migrate: migrateContentData,

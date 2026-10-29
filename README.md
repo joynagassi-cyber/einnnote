@@ -128,6 +128,9 @@ Toute la logique est pure et testée à part dans `src/lib/libraryFilters.ts`.
   `adapt.test.ts`).
 - **Renvois de notes** : `[[Titre]]` reste du **texte** décoré, donc il s’exporte
   en Markdown ; un renvoi mort est dessiné en pointillé et annoncé.
+- **Étiquettes** : `#méthode` reste du texte, et tapez `#` pour voir la liste
+  des étiquettes déjà employées — base persistée, menu au clavier, filtre dans
+  la bibliothèque. Décrit dans [`docs/ETIQUETTES.md`](docs/ETIQUETTES.md).
 - **Sécurité** : le HTML stocké est assaini (scripts, iframes, `on*`,
   `javascript:`) avant d’entrer dans l’éditeur.
 - **Architecture** : trois couches, décrites dans

@@ -531,8 +531,8 @@ export const outilsLessons: Lesson[] = [
     subtitle: "La palette, le pupitre, la fiche — et la lecture",
     minutes: 6,
     outcome:
-      "Mettre en forme sans quitter le clavier, garder quatre gestes sous le pouce sur téléphone, régler une note sans la réécrire, et lire sans être sollicité.",
-    phases: ["Un seul registre", "Le pupitre", "La fiche"],
+      "Mettre en forme sans quitter le clavier, garder quatre gestes sous le pouce sur téléphone, régler une note sans la réécrire, étiqueter un passage en un caractère, et lire sans être sollicité.",
+    phases: ["Un seul registre", "Pupitre et fiche", "Étiquettes"],
     steps: [
       st(
         "Une commande, une seule porte",
@@ -589,6 +589,24 @@ export const outilsLessons: Lesson[] = [
           ],
           mistakes: [
             "Chercher « Exporter » dans un menu d’édition : c’est une sortie, donc dans Sortir.",
+          ],
+        },
+      ),
+      st(
+        "Les étiquettes : un mot qui traverse les notes",
+        "Tapez # dans une note : la liste des étiquettes déjà employées s’ouvre sous le curseur, filtrée à mesure que vous écrivez. Choisissez avec les flèches et Entrée, ou cliquez. L’étiquette écrite reste du texte — #méthode, pas un objet caché —, ce qui veut dire qu’elle survit à l’export Markdown, à une sauvegarde restaurée et à un changement d’éditeur. La base retient les noms rencontrés : à la note suivante, la même liste vous attend, même dans une note vide.",
+        "cards",
+        {
+          points: [
+            "Tapez # puis les premières lettres : la liste se filtre.",
+            "Entrée prend la proposition surlignée, Échap referme sans rien écrire.",
+            "#chapitre/3 reste une seule étiquette : la barre oblique hiérarchise.",
+            "L’accent compte, la casse non : #Thèse et #thèse sont la même étiquette.",
+            "La bibliothèque filtre par étiquette, et deux étiquettes cochées élargissent la vue.",
+          ],
+          mistakes: [
+            "Mettre une espace dans une étiquette : elle s’arrête au premier blanc.",
+            "Compter sur # au milieu d’un mot : « C# » n’ouvre pas la liste.",
           ],
         },
       ),

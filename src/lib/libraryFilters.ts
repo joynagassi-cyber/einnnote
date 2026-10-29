@@ -1,3 +1,4 @@
+import { tagKey, tagsInBlocks } from "@/lib/editor/tags";
 import type {
   Method,
   MindMap,
@@ -41,6 +42,8 @@ export interface LibraryFilters {
   scope: SearchScope;
   methods: Method[];
   collections: string[];
+  /** étiquettes (`#nom`, forme de comparaison) : au moins une suffit */
+  tags: string[];
   statuses: NoteStatus[];
   review: ReviewFilter;
   activity: ActivityFilter;
@@ -52,6 +55,7 @@ export const DEFAULT_FILTERS: LibraryFilters = {
   scope: "all",
   methods: [],
   collections: [],
+  tags: [],
   statuses: [],
   review: "all",
   activity: "all",
@@ -263,6 +267,12 @@ export function matchesFilters(
   if (filters.statuses.length && !filters.statuses.includes(note.status)) {
     return false;
   }
+  /* Les étiquettes sont un **ou** : cocher `#thèse` et `#lecture` élargit la
+     vue, sinon la liste se viderait à chaque case ajoutée. */
+  if (filters.tags.length) {
+    const carried = new Set(tagsInBlocks(note.blocks).map((name) => tagKey(name)));
+    if (!filters.tags.some((tag) => carried.has(tag))) return false;
+  }
   if (!matchesReview(noteStats(note, source, now), filters.review)) return false;
   if (!matchesActivity(note.updatedAt, filters.activity, now)) return false;
   return matchesQuery(note, filters, source);
@@ -381,6 +391,7 @@ export function activeFilterCount(filters: LibraryFilters): number {
   return (
     filters.methods.length +
     filters.collections.length +
+    filters.tags.length +
     filters.statuses.length +
     (filters.review === "all" ? 0 : 1) +
     (filters.activity === "all" ? 0 : 1) +
@@ -412,6 +423,16 @@ export function activeChips(filters: LibraryFilters, methodLabel: (m: Method) =>
       clear: (current) => ({
         ...current,
         collections: current.collections.filter((item) => item !== collection),
+      }),
+    });
+  }
+  for (const tag of filters.tags) {
+    chips.push({
+      key: `tag-${tag}`,
+      label: `#${tag}`,
+      clear: (current) => ({
+        ...current,
+        tags: current.tags.filter((item) => item !== tag),
       }),
     });
   }
@@ -453,6 +474,22 @@ export function toggleValue<T extends string>(list: T[], value: T): T[] {
   return list.includes(value)
     ? list.filter((item) => item !== value)
     : [...list, value];
+}
+
+/**
+ * Les étiquettes réellement portées, pour la colonne de filtres.
+ *
+ * On part des notes et pas de la base du magasin : un filtre qui propose une
+ * étiquette portée par zéro note donnerait une liste vide, ce qui ressemble à
+ * une panne.
+ */
+export function tagsOf(source: LibrarySource): string[] {
+  const keys = new Set<string>();
+  for (const note of source.notes) {
+    if (note.deletedAt) continue;
+    for (const name of tagsInBlocks(note.blocks)) keys.add(tagKey(name));
+  }
+  return [...keys].sort((a, b) => a.localeCompare(b, "fr"));
 }
 
 export function collectionsOf(source: LibrarySource): string[] {

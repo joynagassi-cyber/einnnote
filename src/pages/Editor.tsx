@@ -27,6 +27,7 @@ import { useToast } from "@/stores/useToast";
 import { METHODS } from "@/lib/methods";
 import { blocksToMarkdown } from "@/lib/editor/blocks";
 import { backlinksTo, outgoingFrom } from "@/lib/links/notes";
+import { buildTagIndex } from "@/lib/editor/tags";
 import { noteTemplatesFor, type NoteTemplate } from "@/lib/templates/notes";
 import { blocksFromTemplate } from "@/lib/templates/apply";
 import type { Block } from "@/types";
@@ -43,10 +44,14 @@ export default function Editor() {
   const projects = useContentStore((s) => s.projects);
   const allNotes = useContentStore((s) => s.notes);
   const createNote = useContentStore((s) => s.createNote);
+  const allTags = useContentStore((s) => s.tags);
   /* Les notes qu’on peut lier : pas soi-même, pas la corbeille. */
   /* Le texte d’une note, sans balises : c’est ce que lisent les liens. */
   const plainText = (blocks: Block[]) =>
     blocks.map((block) => block.html.replace(/<[^>]+>/g, " ")).join("\n");
+  /* La base des étiquettes, croisée avec l’usage réel : c’est la liste que
+     propose `#`. Les notes en corbeille ne comptent pas. */
+  const tagIndex = useMemo(() => buildTagIndex(allNotes, allTags ?? []), [allNotes, allTags]);
   const liveNotes = useMemo(
     () =>
       allNotes
@@ -475,6 +480,7 @@ export default function Editor() {
           reading={reading}
           noteId={note.id}
           notes={liveNotes}
+          tags={tagIndex}
           onOpenNote={(target) => navigate(`/note/${target.id}`)}
           onCreateNote={(title) => {
             const created = createNote(note.method, {

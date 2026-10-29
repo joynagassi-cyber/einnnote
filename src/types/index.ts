@@ -77,6 +77,21 @@ export interface Note {
   vaultId?: string;
 }
 
+/**
+ * Une étiquette connue du carnet — `#méthodologie`.
+ *
+ * La base ne dit **pas** quelles notes portent l’étiquette : cela se lit dans
+ * le texte des notes (voir `lib/editor/tags.ts`). Elle garde le vocabulaire
+ * déjà employé pour pouvoir le proposer dès qu’on tape `#`, même dans une note
+ * encore vide.
+ */
+export interface Tag {
+  id: string;
+  /** forme affichée, telle qu’on l’a écrite la première fois */
+  name: string;
+  createdAt: string;
+}
+
 export interface Question {
   id: string;
   noteId: string;

@@ -12,6 +12,7 @@ import "quill/dist/quill.snow.css";
 import {
   Code,
   Copy,
+  Hash,
   Highlighter,
   LinkSimple,
   TextB,
@@ -41,6 +42,12 @@ import { FindReplace } from "@/components/editor/FindReplace";
 import { NotePicker } from "@/components/note/NotePicker";
 import type { Command, CommandContext } from "@/lib/commands/registry";
 import { normalizeTitle, resolveLink, type NoteRef } from "@/lib/links/notes";
+import {
+  activeTagQuery,
+  findTags,
+  rankTags,
+  type TagCount,
+} from "@/lib/editor/tags";
 
 /* ------------------------------------------------------------------ */
 /* Les formats maison                                                  */
@@ -112,6 +119,32 @@ function paintNoteLinks(quill: Quill, exists: (title: string) => boolean, only?:
   }
 }
 
+/**
+ * Habille les `#étiquettes` d’une ligne.
+ *
+ * Même contrat que pour les renvois : le texte reste le texte. On efface
+ * d’abord l’habillage de la ligne entière, puis on repose — sans cela, une
+ * étiquette effacée garderait sa pastille et le texte mentirait.
+ *
+ * Ce n’est pas une fonction de saisie : elle ne crée jamais d’étiquette, elle
+ * ne décore que ce qui est déjà écrit.
+ */
+function paintTags(quill: Quill, only?: LineInfo) {
+  const targets = only ? [only] : readLines(quill);
+  for (const line of targets) {
+    if (line.text.length === 0) continue;
+    quill.formatText(line.start, line.text.length, { tag: false }, "silent");
+    for (const found of findTags(line.text)) {
+      quill.formatText(
+        line.start + found.start,
+        found.end - found.start,
+        { tag: "item" },
+        "silent",
+      );
+    }
+  }
+}
+
 /* ------------------------------------------------------------------ */
 
 /** Ce que la fiche peut demander à l’éditeur sans le connaître. */
@@ -133,6 +166,7 @@ export function NoteEditor({
   onRangingChange: onRangingChangeProp,
   notes = [],
   noteId,
+  tags = [],
   onOpenNote,
   onCreateNote,
   ref,
@@ -155,6 +189,8 @@ export function NoteEditor({
   notes?: NoteRef[];
   /** la note ouverte — on ne se lie pas à soi-même */
   noteId?: string;
+  /** la base des étiquettes : ce que propose `#` */
+  tags?: TagCount[];
   onOpenNote?: (note: NoteRef) => void;
   /** le sélecteur de note peut en créer une à la volée */
   onCreateNote?: (title: string) => NoteRef | undefined;
@@ -169,6 +205,9 @@ export function NoteEditor({
   const [linkOpen, setLinkOpen] = useState(false);
   const [rangingLocal, setRangingLocal] = useState(false);
   const [tick, setTick] = useState(0);
+  /* `#` en cours de frappe : où il commence, et ce qui suit. */
+  const [tagMenu, setTagMenu] = useState<{ start: number; query: string } | null>(null);
+  const [tagCursor, setTagCursor] = useState(0);
 
   const ranging = rangingProp ?? rangingLocal;
   const setRanging = (open: boolean) => {
@@ -183,6 +222,8 @@ export function NoteEditor({
   const saveTimer = useRef<number | null>(null);
   /** les derniers blocs produits par le moteur, prêts à être écrits */
   const pendingBlocks = useRef<Block[] | null>(null);
+  /** le menu d’étiquettes, lisible depuis les écouteurs du moteur */
+  const tagMenuRef = useRef<{ start: number; query: string } | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const markersRef = useRef(markers);
@@ -219,6 +260,7 @@ export function NoteEditor({
     quill.root.setAttribute("spellcheck", "true");
     quill.root.setAttribute("aria-label", "Contenu de la note");
     quill.setContents(blocksToDelta(blocks), "silent");
+    paintTags(quill);
     resetHistory(quill);
 
     const editor = createQuillHost(quill, (next) => onChangeRef.current(next));
@@ -248,6 +290,23 @@ export function NoteEditor({
 
     const exists = (title: string) => titleIndexRef.current.has(normalizeTitle(title));
 
+    /* Le menu d’étiquettes ne se réaffiche que s’il change vraiment : sans ce
+       garde-fou, chaque frappe remplacerait l’objet et relancerait un rendu
+       complet pour rien. */
+    const syncTagMenu = (next: { start: number; query: string } | null) => {
+      const current = tagMenuRef.current;
+      if (!next) {
+        if (!current) return;
+        tagMenuRef.current = null;
+        setTagMenu(null);
+        return;
+      }
+      if (current && current.start === next.start && current.query === next.query) return;
+      if (!current || current.query !== next.query) setTagCursor(0);
+      tagMenuRef.current = next;
+      setTagMenu(next);
+    };
+
     const onText = () => {
       ensureBlockIds(quill);
       const lines = readLines(quill);
@@ -256,7 +315,18 @@ export function NoteEditor({
       const line =
         lines.find((candidate) => at >= candidate.start && at <= candidate.start + candidate.text.length) ??
         lines[lines.length - 1];
-      if (line) paintNoteLinks(quill, exists, line);
+      if (line) {
+        paintNoteLinks(quill, exists, line);
+        paintTags(quill, line);
+      }
+
+      /* `#` : on regarde le texte **avant le curseur**. Dès que le caractère
+         qui suit n’est plus une lettre — espace, ponctuation — le menu se
+         referme de lui-même, sans qu’on ait à traquer les sorties. */
+      const typed = line
+        ? activeTagQuery(line.text.slice(0, Math.max(0, at - line.start)))
+        : null;
+      syncTagMenu(typed && line ? { start: line.start + typed.start, query: typed.query } : null);
 
       /* « / » seul sur une ligne vide : on retire le caractère et on ouvre la
          palette sur les gestes d’insertion. Un seul catalogue pour toutes les
@@ -284,7 +354,26 @@ export function NoteEditor({
       setTick((value) => value + 1);
     };
 
-    const onSelection = () => setTick((value) => value + 1);
+    const onSelection = () => {
+      setTick((value) => value + 1);
+      /* Cliquer ailleurs ferme le menu : garder une liste ouverte loin du
+         curseur ferait choisir une étiquette au mauvais endroit. */
+      const range = quill.getSelection();
+      const lines = readLines(quill);
+      const line = range
+        ? lines.find(
+            (candidate) =>
+              range.index >= candidate.start &&
+              range.index <= candidate.start + candidate.text.length,
+          )
+        : undefined;
+      const typed = line
+        ? activeTagQuery(line.text.slice(0, Math.max(0, (range?.index ?? 0) - line.start)))
+        : null;
+      syncTagMenu(
+        typed && line ? { start: line.start + typed.start, query: typed.query } : null,
+      );
+    };
 
     quill.on("text-change", onText);
     quill.on("selection-change", onSelection);
@@ -440,6 +529,78 @@ export function NoteEditor({
 
   useImperativeHandle(ref, () => ({ link: () => setLinkOpen(true) }), []);
 
+  /* --------------------------- LES ÉTIQUETTES -------------------------- */
+
+  /* Ce que le menu propose : la base des étiquettes, filtrée par ce qui est
+     déjà tapé après le `#`. */
+  const tagSuggestions = useMemo(
+    () => (tagMenu ? rankTags(tags, tagMenu.query) : []),
+    [tagMenu, tags],
+  );
+
+  const closeTagMenu = useCallback(() => {
+    tagMenuRef.current = null;
+    setTagMenu(null);
+    setTagCursor(0);
+  }, []);
+
+  /* Choisir une étiquette : on remplace le `#début` par le nom complet suivi
+     d’une espace, et le curseur reste après — on continue sa phrase. */
+  const chooseTag = useCallback(
+    (tag: TagCount) => {
+      const quill = quillRef.current;
+      const menu = tagMenuRef.current;
+      if (!quill || !menu) return;
+      const range = quill.getSelection();
+      /* On remplace **l’étiquette entière**, pas seulement ce qui précède le
+         curseur : si on choisit avec le curseur au milieu de `#sourc`, la fin
+         du mot ne doit pas rester collée derrière le nom choisi. */
+      const tail = /^#[\p{L}\p{N}_/-]*/u.exec(quill.getText(menu.start, 64));
+      const wordEnd = menu.start + (tail ? tail[0].length : 1);
+      const end = Math.max(wordEnd, range ? range.index : menu.start);
+      quill.deleteText(menu.start, end - menu.start, "api");
+      quill.insertText(menu.start, `#${tag.name} `, {}, "api");
+      quill.setSelection(menu.start + tag.name.length + 2, 0, "api");
+      closeTagMenu();
+    },
+    [closeTagMenu],
+  );
+
+  /* Le clavier du menu. En phase de **capture** : sans cela, Quill aurait déjà
+     avalé Entrée (un saut de ligne au milieu du mot) avant qu’on ait pu
+     choisir. Les flèches ne quittent jamais la note, et Échap referme. */
+  useEffect(() => {
+    const quill = quillRef.current;
+    if (!quill || !tagMenu || tagSuggestions.length === 0) return;
+    const root = quill.root;
+    const last = tagSuggestions.length - 1;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        event.stopPropagation();
+        const down = event.key === "ArrowDown";
+        setTagCursor((index) => (down ? (index >= last ? 0 : index + 1) : index <= 0 ? last : index - 1));
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+        chooseTag(tagSuggestions[Math.min(tagCursor, last)]);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeTagMenu();
+      }
+    };
+
+    root.addEventListener("keydown", onKey, true);
+    return () => root.removeEventListener("keydown", onKey, true);
+  }, [tagMenu, tagSuggestions, tagCursor, chooseTag, closeTagMenu]);
+
   const runCommand = useCallback(
     (command: Command) => {
       if (!host) return;
@@ -547,6 +708,16 @@ export function NoteEditor({
     return [...titles];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, titleIndex]);
+
+  /* Où poser le menu : sous le `#` qu’on est en train de taper. La position
+     vient du moteur, pas du DOM — elle reste juste après un repli de fenêtre. */
+  const tagMenuBox = useMemo(() => {
+    const quill = quillRef.current;
+    if (!tagMenu || !quill) return null;
+    const bounds = quill.getBounds(tagMenu.start);
+    return { top: bounds.top + (bounds.height || 22) + 6, left: bounds.left };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagMenu, tick]);
 
   /* --------------------------- LES PASTILLES --------------------------- */
 
@@ -669,6 +840,43 @@ export function NoteEditor({
             )}
           </button>
         ))}
+
+        {tagMenu && (
+          <div
+            className="tag-menu"
+            role="listbox"
+            aria-label="Étiquettes disponibles"
+            style={tagMenuBox ? { top: tagMenuBox.top, left: tagMenuBox.left } : undefined}
+          >
+            {tagSuggestions.length === 0 ? (
+              <p className="tag-menu-empty">
+                Aucune étiquette pour l’instant. Écrivez <b>#idée</b> puis une espace :
+                elle entrera dans la base et sera proposée les fois suivantes.
+              </p>
+            ) : (
+              tagSuggestions.map((tag, index) => (
+                <button
+                  key={tag.key}
+                  type="button"
+                  role="option"
+                  aria-selected={index === tagCursor}
+                  /* Le curseur ne doit pas quitter la note : sans cela, la
+                     sélection se ferme et le `#début` ne peut plus être
+                     remplacé au bon endroit. */
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => chooseTag(tag)}
+                  className={`tag-menu-item${index === tagCursor ? " is-active" : ""}`}
+                >
+                  <Hash size={14} aria-hidden="true" />
+                  <span className="truncate">{tag.name}</span>
+                  <span className="tag-menu-count">
+                    {tag.count === 0 ? "—" : tag.count}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Barre contextuelle : n’apparaît que sur une sélection */}

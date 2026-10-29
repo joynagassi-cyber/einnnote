@@ -1,6 +1,7 @@
 import type {
   Project,
   Block,
+  Tag,
   MindMap,
   Note,
   Question,
@@ -35,6 +36,20 @@ const b = (
   indent: 0,
   ...extra,
 });
+
+/* ------------------------------------------------------------------ */
+/* Étiquettes                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le vocabulaire déjà employé. Il ne sert qu’au menu de `#` : les étiquettes
+ * elles-mêmes vivent dans le texte des notes, jamais ici.
+ */
+export const demoTags: Tag[] = [
+  { id: "t-methode", name: "méthode", createdAt: iso(30 * D) },
+  { id: "t-lecture", name: "lecture", createdAt: iso(30 * D) },
+  { id: "t-source", name: "source", createdAt: iso(30 * D) },
+];
 
 /* ------------------------------------------------------------------ */
 /* Notes                                                               */
@@ -698,4 +713,5 @@ export const demoContent = {
   mindmaps: demoMindMaps,
   logs: [],
   progress: [],
+  tags: demoTags,
 };

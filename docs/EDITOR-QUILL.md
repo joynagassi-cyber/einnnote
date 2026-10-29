@@ -110,7 +110,8 @@ sur les fragments de texte. C’est la règle qui rend l’aller-retour exact.
 
 Formats en ligne reconnus : `bold`, `italic`, `underline`, `strike`, `code`,
 `background` (surlignage, conservé en hexadécimal), `link`, `script`
-(`"sub"` / `"super"`), `notelink` (classe `note-link[-‑broken]`).
+(`"sub"` / `"super"`), `notelink` (classe `note-link[-‑broken]`), `tag`
+(classe `tag-item`, pour `#étiquette`).
 
 **Lecture défensive :** Parchment relit ses attributs dans le DOM, donc un
 booléen écrit revient sous forme de chaîne (`"true"`). `isSet()` accepte les deux
@@ -128,6 +129,7 @@ rechargement.
 | 3 | **L’adaptateur** | `adapt.ts` : marques, blocs, listes, retrait, alignement, filet, casse, déplacement, duplication, suppression, historique. |
 | 4 | **Le composant** | `NoteEditor.tsx` : montage neutre (pas de `React.StrictMode` double-moteur), frappe débouncée à 350 ms, `/` seul → palette d’insertion, `Ctrl/⌘ F`, `Ctrl/⌘ K`, `Ctrl/⌘ .`, collage sans format. |
 | 5 | **Les décorations** | Renvois `[[…]]` par classes, résumé `role="status"` pour les renvois morts, badges de question dans la gouttière (`Q1`, `Q1 +1`). |
+| 6 | **Les étiquettes** | `#nom` décoré (`tag-item`) et menu de propositions ancré sous le curseur, au clavier comme à la souris — voir `docs/ETIQUETTES.md`. |
 
 Les formats maison sont enregistrés **une seule fois** (`registerEinnoteFormats`)
 et la liste blanche passée à `new Quill` empêche un collage de faire entrer un
@@ -143,12 +145,14 @@ format que le produit ne sait pas stocker.
 2. **Les renvois ne sont pas tabulables.** Une décoration en ligne n’est pas un
    élément focusable. Le chemin clavier existe quand même : la palette propose
    **« Ouvrir le lien sous le curseur »**.
-3. **La recherche ne surligne pas.** Elle sélectionne l’occurrence et affiche le
+3. **Le menu de `#` est un menu, pas un nœud.** Il vit à côté du document et
+   lit la position du curseur (`getBounds`) ; l’étiquette, elle, reste du texte.
+4. **La recherche ne surligne pas.** Elle sélectionne l’occurrence et affiche le
    compteur. C’était le choix de ne pas écrire dans le document pour une action
    de lecture.
-4. **Les listes sont celles de Quill.** `<ol>`/`<ul>` natifs, marqueurs dessinés
+5. **Les listes sont celles de Quill.** `<ol>`/`<ul>` natifs, marqueurs dessinés
    en CSS (`.ql-ui` masqué) : le HTML exporté reste standard.
-5. **Le moteur ne décore pas son propre DOM.** Toute écriture d’attribut dans
+6. **Le moteur ne décore pas son propre DOM.** Toute écriture d’attribut dans
    `.ql-editor` relance l’observateur de Quill, qui relance la mise en forme —
    donc une boucle. Les informations d’accessibilité vivent **à côté** du
    document, jamais dedans.

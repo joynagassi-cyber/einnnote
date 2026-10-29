@@ -10,6 +10,7 @@ import {
   matchesFilters,
   noteBody,
   noteStats,
+  tagsOf,
   toggleValue,
   type LibraryFilters,
   type LibrarySource,
@@ -121,6 +122,58 @@ const withFilters = (patch: Partial<LibraryFilters>): LibraryFilters => ({
 const ids = (list: Note[]) => list.map((item) => item.id).sort();
 /** Ordre de passage du tri. */
 const orderedIds = (list: Note[]) => list.map((item) => item.id);
+
+/* ------------------------------------------------------------------ */
+
+describe("filtres — étiquettes", () => {
+  const taggedNote = (id: string, html: string) =>
+    note({
+      id,
+      title: `Note ${id}`,
+      blocks: [{ id: `${id}-b1`, html, kind: "p", bullet: false, indent: 0 }],
+    });
+
+  const tagged: LibrarySource = {
+    ...source,
+    notes: [
+      taggedNote("n-t1", "Un #thèse et une #lecture"),
+      taggedNote("n-t2", "Une #Thèse majuscule"),
+      taggedNote("n-t3", "Un #these sans accent"),
+    ],
+  };
+
+  /* L’accent compte : `#thèse` et `#these` sont deux étiquettes. La casse,
+     elle, ne compte pas — sinon `#Thèse` ouvrirait une deuxième entrée. */
+  it("liste les étiquettes réellement portées, sans doubler sur la casse", () => {
+    expect(tagsOf(tagged)).toEqual(["lecture", "these", "thèse"]);
+  });
+
+  it("garde les notes qui portent l’étiquette, casse comprise", () => {
+    expect(ids(filterNotes(tagged, withFilters({ tags: ["thèse"] }), NOW))).toEqual([
+      "n-t1",
+      "n-t2",
+    ]);
+  });
+
+  it("élargit avec plusieurs étiquettes — un OU, pas un ET", () => {
+    expect(
+      ids(filterNotes(tagged, withFilters({ tags: ["lecture", "inconnue"] }), NOW)),
+    ).toEqual(["n-t1"]);
+  });
+
+  it("ne laisse rien passer quand l’étiquette n’existe pas", () => {
+    expect(filterNotes(tagged, withFilters({ tags: ["absente"] }), NOW)).toEqual([]);
+  });
+
+  it("compte l’étiquette comme un filtre actif, avec sa puce", () => {
+    const filters = withFilters({ tags: ["lecture"] });
+    expect(activeFilterCount(filters)).toBe(1);
+    expect(hasConstraints(filters)).toBe(true);
+    const chip = activeChips(filters, () => "")[0];
+    expect(chip.label).toBe("#lecture");
+    expect(chip.clear(filters).tags).toEqual([]);
+  });
+});
 
 /* ------------------------------------------------------------------ */
 
