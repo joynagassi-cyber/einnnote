@@ -17,6 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
+  Broom,
   Circle,
   Diamond,
   Hexagon,
@@ -336,16 +337,20 @@ export default function MindMap() {
     });
   };
 
-  /** Une carte vidée de tout, sauf un point de départ. */
+  /**
+   * Repartir de zéro : plus aucun nœud, plus aucun trait.
+   *
+   * C’est le geste qui manquait pour « corriger une carte à la main » : on vide,
+   * puis on pose les formes une à une avec la barre, et on relie avec les
+   * poignées. Une carte vide reste utilisable — le canevas, lui, est toujours là.
+   */
   const blankMap = () => {
-    const keep = map.nodes[0];
-    updateMindMap(map.id, {
-      nodes: keep ? [{ ...keep, paint: undefined }] : [],
-      edges: [],
-    });
-    setSelectedId(keep?.id ?? null);
+    updateMindMap(map.id, { nodes: [], edges: [] });
+    setSelectedId(null);
     setSelectedEdgeId(null);
-    toast("Carte vierge", "accent");
+    setTemplatesOpen(false);
+    setPickedTemplate(null);
+    toast("Carte vierge : posez votre première forme", "accent");
   };
 
   const deleteNode = () => {
@@ -663,7 +668,12 @@ export default function MindMap() {
           </div>
         )}
 
-        {map.nodes.length < 3 && (
+        {map.nodes.length === 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted shadow-float">
+            Carte vide — la barre du bas pose la première forme
+          </div>
+        )}
+        {map.nodes.length > 0 && map.nodes.length < 3 && (
           <div className="pointer-events-none absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted shadow-float">
             Touchez un nœud, puis « + » pour créer une liane
           </div>
@@ -811,6 +821,13 @@ export default function MindMap() {
           selectedId={pickedTemplate}
           onPick={(template) => setPickedTemplate(template.id)}
         />
+        <button
+          type="button"
+          onClick={blankMap}
+          className="btn-secondary mt-3 flex w-full items-center justify-center gap-2"
+        >
+          <Broom size={18} aria-hidden /> Partir d’une carte vierge
+        </button>
         <button
           type="button"
           disabled={!pickedTemplate}

@@ -169,3 +169,25 @@ describe("Tableau blanc", () => {
     expect(screen.queryByRole("toolbar", { name: "Mise en forme" })).toBeNull();
   });
 });
+
+describe("Carte vierge", () => {
+  it("vide la carte puis pose les formes une à une", async () => {
+    const user = userEvent.setup();
+    open(`/mindmap/${boardId}`);
+
+    await user.click(await screen.findByRole("button", { name: "Modèles de carte" }));
+    await user.click(
+      await screen.findByRole("button", { name: /Partir d’une carte vierge/ }),
+    );
+
+    const empty = useContentStore.getState().mindmaps.find((m) => m.id === boardId)!;
+    expect(empty.nodes).toHaveLength(0);
+    expect(empty.edges).toHaveLength(0);
+
+    // la barre reste le seul moyen de commencer — et elle commence
+    await user.click(screen.getByRole("button", { name: "Rectangle" }));
+    const after = useContentStore.getState().mindmaps.find((m) => m.id === boardId)!;
+    expect(after.nodes).toHaveLength(1);
+    expect(after.edges).toHaveLength(0);
+  });
+});
