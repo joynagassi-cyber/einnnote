@@ -42,12 +42,24 @@ async function expand(
 
 /** Simule un poste de travail (media query bureau) le temps d’un test. */
 function withDesktop<T>(run: () => Promise<T> | T): Promise<T> {
+  return withMedia(run, ["min-width: 1024px", "min-width: 768px"]);
+}
+
+/**
+ * Un poste **large** : le côté des questions tient à côté du texte.
+ *
+ * Trois seuils comptent désormais — 768 (rail), 1024 (bureau), 1180 (large).
+ * Un test qui parle de la colonne doit choisir large, pas seulement bureau.
+ */
+function withWide<T>(run: () => Promise<T> | T): Promise<T> {
+  return withMedia(run, ["min-width: 1180px", "min-width: 1024px", "min-width: 768px"]);
+}
+
+/** Les media queries vraies le temps d’un test, et rien d’autre. */
+function withMedia<T>(run: () => Promise<T> | T, widths: string[]): Promise<T> {
   const original = window.matchMedia;
   window.matchMedia = ((query: string) => ({
-    matches:
-      query.includes("min-width: 1024px") ||
-      query.includes("min-width: 768px") ||
-      query.includes("color-scheme"),
+    matches: widths.some((width) => query.includes(width)) || query.includes("color-scheme"),
     media: query,
     onchange: null,
     addEventListener: () => undefined,
@@ -868,8 +880,8 @@ describe("Einnote — écrans", () => {
     });
   });
 
-  it("tient les questions dans une colonne latérale en bureau", async () => {
-    await withDesktop(async () => {
+  it("tient les questions dans une colonne latérale quand la place existe", async () => {
+    await withWide(async () => {
       open("/note/n-contrats");
       const aside = screen.getByRole("complementary", {
         name: "Questions de la note",
@@ -878,10 +890,33 @@ describe("Einnote — écrans", () => {
       expect(
         within(aside).getByRole("button", { name: /^Trier/ }),
       ).toBeTruthy();
-      // l’onglet flottant et la feuille mobile disparaissent
+      // la colonne est ouverte d’emblée : aucun bouton pour l’appeler
       expect(
         screen.queryByRole("button", { name: "Ouvrir le panneau des questions" }),
       ).toBeNull();
+    });
+  });
+
+  it("n’écrase plus le texte quand la fenêtre est trop étroite pour le côté", async () => {
+    await withDesktop(async () => {
+      open("/note/n-contrats");
+      /* 340 px de panneau à 1024 px laissaient 480 px de texte : le côté
+         devient un tiroir, fermé d’abord, et le texte reprend la largeur.
+         Replié, il est `inert` — donc invisible pour les rôles : c’est bien
+         la preuve qu’il ne prend ni la place ni le focus. */
+      expect(
+        screen.queryByRole("complementary", { name: "Questions de la note" }),
+      ).toBeNull();
+
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole("button", { name: "Ouvrir le panneau des questions" }),
+      );
+      const aside = await screen.findByRole("complementary", {
+        name: "Questions de la note",
+      });
+      expect(aside.getAttribute("data-open")).toBe("true");
+      expect(within(aside).getAllByText(/question/).length).toBeGreaterThan(0);
     });
   });
 

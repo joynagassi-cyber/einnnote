@@ -1,4 +1,5 @@
 import Quill from "quill";
+import Table from "quill/modules/table";
 import type { Delta, DeltaAttributes, DeltaOp, Range } from "quill";
 import type { Block } from "@/types";
 import type { Align, BlockAttrs, BlockTarget, CaseMode, EditorHost, MarkName } from "@/lib/editor/host";
@@ -157,6 +158,12 @@ let formatsReady = false;
 export function registerEinnoteFormats() {
   if (formatsReady) return;
 
+  /* Les tableaux sont livrés avec Quill 2 (`modules/table`), mais **pas
+     enregistrés** par défaut : leurs quatre formats vivent avec le module.
+     On les déclare une fois, ici, avec les nôtres — un tableau est donc du
+     vrai HTML `<table>`, pas une image ni un emballage maison. */
+  Quill.register(Table);
+
   /* Quill 2 s’appuie sur Parchment 3 : la classe `Attributor` y est concrète
      pour les **attributs** HTML, et `ClassAttributor` pour les classes. On
      déclare donc cinq formats maison, avec la portée qui convient — sans eux,
@@ -213,6 +220,8 @@ export const QUILL_FORMATS = [
   "indent",
   "align",
   "blockquote",
+  "color",
+  "table",
   FORMAT.blockId,
   FORMAT.marked,
   FORMAT.rule,
@@ -368,6 +377,19 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
     highlight(color) {
       const { index, length } = selection();
       quill.formatText(index, length, { background: color ?? false }, "api");
+      quill.focus();
+      commit();
+    },
+
+    currentColor() {
+      const { index } = selection();
+      const value = quill.getFormat(index, 0).color;
+      return typeof value === "string" && value ? value : null;
+    },
+
+    setColor(color) {
+      const { index, length } = selection();
+      quill.formatText(index, length, { color: color ?? false }, "api");
       quill.focus();
       commit();
     },
@@ -570,6 +592,59 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
       quill.setContents({ ops: opsOfLines(reordered) }, "api");
       const offset = reordered.slice(0, at + 2).reduce((sum, line) => sum + line.length, 0);
       quill.setSelection(offset, 0, "api");
+      quill.focus();
+      commit();
+      return true;
+    },
+
+    insertTable(rows, cols) {
+      /* `insertTable` place le tableau **au curseur** et laisse le bloc
+         d’origine derrière lui : on force le curseur sur la ligne courante
+         avant, sinon un tableau inséré depuis une sélection remplacerait le
+         passage sélectionné. */
+      const { index } = selection();
+      quill.setSelection(index, 0, "api");
+      const table = quill.getModule("table") as Table | undefined;
+      if (!table) return false;
+      table.insertTable(Math.max(1, rows), Math.max(1, cols));
+      quill.focus();
+      commit();
+      return true;
+    },
+
+    inTable() {
+      const table = quill.getModule("table") as Table | undefined;
+      if (!table) return false;
+      return table.getTable()[2] != null;
+    },
+
+    tableCommand(action) {
+      const table = quill.getModule("table") as Table | undefined;
+      if (!table) return false;
+      if (!host.inTable()) return false;
+      switch (action) {
+        case "rowAbove":
+          table.insertRowAbove();
+          break;
+        case "rowBelow":
+          table.insertRowBelow();
+          break;
+        case "columnLeft":
+          table.insertColumnLeft();
+          break;
+        case "columnRight":
+          table.insertColumnRight();
+          break;
+        case "deleteRow":
+          table.deleteRow();
+          break;
+        case "deleteColumn":
+          table.deleteColumn();
+          break;
+        case "deleteTable":
+          table.deleteTable();
+          break;
+      }
       quill.focus();
       commit();
       return true;

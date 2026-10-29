@@ -23,7 +23,7 @@ import { DisplayMenu } from "@/components/DisplayMenu";
 import { NoteTemplateGallery } from "@/components/TemplateGallery";
 import { groupItems, sortItems, type DisplayFields } from "@/lib/display";
 import { useSurfacePrefs } from "@/stores/useDisplayStore";
-import { useIsDesktop } from "@/lib/useMediaQuery";
+import { useIsDesktop, useIsWide } from "@/lib/useMediaQuery";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
@@ -81,6 +81,9 @@ export default function Editor() {
      graphes, pas à une page de texte. */
   const notePaper = useAppStore((s) => s.settings.notePaper);
   const desktop = useIsDesktop();
+  /* « Large » n’est pas « bureau » : à 840 px on est en bureau, et pourtant une
+     colonne de 340 px y mange les trois quarts du texte. Voir `useIsWide`. */
+  const wide = useIsWide();
   const toast = useToast((s) => s.show);
 
   /* Les catégories du projet de la note : on ne propose que celles-là, sinon
@@ -95,12 +98,14 @@ export default function Editor() {
      feuille. Sur bureau il est ouvert d’emblée (la colonne Cornell) ; sur
      téléphone il s’ouvre d’un glissement depuis le bord droit, et il ne recouvre
      jamais le texte d’un voile — on doit sentir le texte derrière. */
-  const [questionsOpen, setQuestionsOpen] = useState(desktop);
+  /* La colonne Cornell ne s’ouvre d’elle-même que si le texte garde sa place ;
+     sinon le panneau attend qu’on l’appelle, par le bord. */
+  const [questionsOpen, setQuestionsOpen] = useState(desktop && wide);
   /* Tableau blanc : le texte et la planche sont **deux vues du même travail**.
      Sur téléphone on passe de l’une à l’autre ; en bureau on peut les tenir
      côte à côte, parce que c’est là qu’on relie une phrase à une forme. */
   const [boardMode, setBoardMode] = useState<"text" | "board" | "split">(
-    desktop ? "split" : "text",
+    desktop && wide ? "split" : "text",
   );
   const [panelDrag, setPanelDrag] = useState(0);
   const swipeFrom = useRef<number | null>(null);
@@ -438,6 +443,11 @@ export default function Editor() {
   const isBoard = note.method === "whiteboard";
   const showText = !isBoard || boardMode !== "board";
   const showBoard = isBoard && boardMode !== "text" && Boolean(boardMap);
+  /* **Trois colonnes ne tiennent pas dans une fenêtre.**
+     En vue « Les deux », la planche est le côté : le panneau des questions se
+     retire, sinon le texte n’aurait plus que 400 px — et c’est le texte qu’on
+     est en train d’écrire. Les questions reviennent en vue Texte ou Planche. */
+  const showQuestions = !(showBoard && boardMode === "split");
 
   /* **La bascule de mode.** Une icône, tout de suite à gauche du menu de la
      fiche (le « ⋯ » sur téléphone) : on change de mode sans ouvrir un panneau,
@@ -457,7 +467,9 @@ export default function Editor() {
         [
           { value: "text", label: "Texte" },
           { value: "board", label: "Planche" },
-          ...(desktop ? [{ value: "split", label: "Les deux" }] : []),
+          /* « Les deux » n’existe que si les deux tiennent : sinon on
+             n’affiche pas un choix qui écrase le texte à 300 px. */
+          ...(desktop && wide ? [{ value: "split", label: "Les deux" }] : []),
         ] as { value: "text" | "board" | "split"; label: string }[]
       ).map((option) => (
         <button
@@ -534,7 +546,7 @@ export default function Editor() {
       <div className="flex min-h-0 flex-1 items-start">
       <main className={cn("min-w-0 flex-1", showBoard && boardMode === "split" && "flex items-stretch")}>
         <div className={cn("min-w-0", showBoard && boardMode === "split" && "flex-1")}>
-        <div className="px-5 pt-1 lg:px-10">
+        <div className="note-head">
           <input
             ref={titleRef}
             value={note.title}
@@ -549,6 +561,7 @@ export default function Editor() {
               {/* Le côté des questions s’ouvre d’ici : une icône fine, collée au
                   coin haut-gauche du texte. Pas de bande, pas de flèche de
                   20 px qui vole la moitié de la marge. */}
+              {showQuestions && (
               <button
                 type="button"
                 onClick={() => setQuestionsOpen((value) => !value)}
@@ -569,6 +582,7 @@ export default function Editor() {
                   <span className="tabnum text-[11.5px] font-bold">{questions.length}</span>
                 )}
               </button>
+              )}
               <MethodIcon size={16} aria-hidden />
               {METHODS[note.method].label}
             </span>
@@ -625,7 +639,12 @@ export default function Editor() {
         </div>
 
         {showBoard && (
-          <div className={cn("board-pane relative min-w-0", boardMode === "split" ? "w-[46%] shrink-0 border-l border-line" : "flex-1")}>
+          <div
+            className={cn(
+              "board-pane relative min-w-0",
+              boardMode === "split" ? "w-[46%] min-w-[380px] shrink-0" : "flex-1",
+            )}
+          >
             <MindCanvas
               mapId={boardMap?.id ?? ""}
               onOpenFull={() => navigate(`/mindmap/${boardMap?.id ?? ""}`)}
@@ -637,6 +656,7 @@ export default function Editor() {
       {/* Les questions vivent **à côté** du texte, jamais devant.
           C’est le geste Cornell : la colonne d’indices reste visible pendant
           qu’on écrit, et sur téléphone elle arrive par le bord, sans voile. */}
+      {showQuestions && (
       <aside
         className="editor-aside"
         role="complementary"
@@ -696,6 +716,7 @@ export default function Editor() {
           showMenu
         />
       </aside>
+      )}
       </div>
 
       {/* Sur téléphone, le bord droit est la poignée du panneau : on glisse

@@ -135,6 +135,27 @@ export function parseInline(html: string): InlinePiece[] {
       continue;
     }
 
+    /* Une couleur ne s’écrit pas avec une balise à elle : c’est un `style`.
+       On reconnaît donc `<span>` et l’ancien `<font color>`, et l’on empile
+       une entrée `color` — même quand il n’y a pas de couleur, pour qu’une
+       fermeture ne retire pas la couleur d’un parent. */
+    if (lower === "span" || lower === "font") {
+      if (closing === "/") {
+        for (let at = stack.length - 1; at >= 0; at -= 1) {
+          if (stack[at].name === "color") {
+            stack.splice(at, 1);
+            break;
+          }
+        }
+        continue;
+      }
+      const fromStyle = attrs.match(/style\s*=\s*"[^"]*color\s*:\s*([^;"]+)/i)?.[1];
+      const fromAttr = attrs.match(/\scolor\s*=\s*"([^"]*)"/i)?.[1];
+      const raw = fromStyle ?? fromAttr;
+      stack.push({ name: "color", value: raw ? toHexColor(unescapeHtml(raw.trim())) : undefined });
+      continue;
+    }
+
     const format = TAG_FORMAT[lower];
     if (!format) continue;
 
@@ -174,6 +195,7 @@ export function parseInline(html: string): InlinePiece[] {
 /** Ordre d’imbrication stable : `<em><strong>` ne doit jamais varier. */
 const FORMAT_ORDER = [
   "link",
+  "color",
   "bold",
   "italic",
   "underline",
@@ -206,6 +228,8 @@ function openTag(name: string, value: unknown): string {
       return `<mark data-color="${escapeHtml(String(toHexColor(value) ?? "var(--highlight)"))}">`;
     case "link":
       return `<a href="${escapeHtml(String(value))}">`;
+    case "color":
+      return value ? `<span style="color: ${escapeHtml(String(toHexColor(value) ?? value))}">` : "";
     default:
       return "";
   }
@@ -229,6 +253,8 @@ function closeTag(name: string, value?: unknown): string {
       return "</mark>";
     case "link":
       return "</a>";
+    case "color":
+      return value ? "</span>" : "";
     default:
       return "";
   }
@@ -284,6 +310,9 @@ export function lineFormats(block: Block): DeltaAttributes {
   if (block.indent > 0) formats.indent = block.indent;
   if (block.align) formats.align = block.align;
   if (block.marked) formats[FORMAT.marked] = true;
+  /* Une cellule : sa rangée est portée par la ligne, comme chez Quill. Les
+     cellules d’une même rangée se suivent, donc l’ordre des colonnes tient. */
+  if (block.table) formats.table = block.table;
 
   return formats;
 }
@@ -383,6 +412,9 @@ export function deltaToBlocks(delta: Delta, makeId: () => string = fallbackId): 
         ? { align: attributes.align as "center" | "right" }
         : {}),
       ...(isSet(attributes[FORMAT.marked]) ? { marked: true } : {}),
+      ...(typeof attributes.table === "string" && attributes.table
+        ? { table: attributes.table }
+        : {}),
     });
   }
 

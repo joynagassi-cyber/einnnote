@@ -17,7 +17,11 @@ import {
   Copy,
   CopySimple,
   SlidersHorizontal,
+  Columns,
+  Rows,
+  Table as TableIcon,
   TextAa,
+  TextT,
   Eraser,
   Highlighter,
   LinkSimple,
@@ -79,6 +83,23 @@ import { useAppStore } from "@/stores/useAppStore";
    décrivent le même instant que cette barre, ils ne doivent pas dépendre d’un
    composant. Ré-exporté ici pour ne pas casser les appelants existants. */
 export type { Align, EditorSnapshot } from "@/lib/editor/snapshot";
+
+/**
+ * Les couleurs de texte proposées d’emblée.
+ *
+ * Six teintes, choisies pour rester lisibles sur le papier clair **et** sur le
+ * papier sombre : ce sont des valeurs fixes, pas des jetons de thème — un texte
+ * coloré doit garder la couleur qu’on lui a donnée, même si l’on change de
+ * thème. Le sélecteur libre reste à côté, pour tout le reste.
+ */
+const TEXT_COLORS: { label: string; value: string }[] = [
+  { label: "Rouge", value: "#b3261e" },
+  { label: "Ambre", value: "#8a5a00" },
+  { label: "Vert", value: "#1f6b45" },
+  { label: "Bleu", value: "#1d4ed8" },
+  { label: "Violet", value: "#6b34a3" },
+  { label: "Gris", value: "#5b5b5b" },
+];
 
 const KIND_LABELS: Record<BlockTarget, string> = {
   p: "Texte",
@@ -342,7 +363,9 @@ export function EditorToolbar({
       run: () => setNotePaper(settings.notePaper === "ruled" ? "plain" : "ruled"),
     },
   ];
-  const [menu, setMenu] = useState<null | "block" | "more" | "highlight">(null);
+  const [menu, setMenu] = useState<null | "block" | "more" | "highlight" | "color" | "table">(
+    null,
+  );
   const close = () => setMenu(null);
   const run = (action: (instance: EditorHost) => void) => {
     setMenu(null);
@@ -364,7 +387,7 @@ export function EditorToolbar({
 
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Mise en forme">
-      <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-1">
+      <div className="editor-toolbar-scroll flex items-center gap-0.5 px-1">
         {/* ------------------------------------------------- historique */}
         <div className="flex shrink-0 items-center gap-0.5">
           <ToolButton label="Annuler" hint="Ctrl+Z" onClick={chain((i) => i.undo())}>
@@ -465,6 +488,58 @@ export function EditorToolbar({
             </MenuPanel>
           </span>
 
+          {/* La couleur du **texte**, à côté de celle du surligneur : deux
+              gestes voisins, deux boutons différents, et le sélecteur libre
+              dans le même menu. */}
+          <span className="relative">
+            <ToolButton
+              label="Couleur du texte"
+              hint={snapshot.color ? snapshot.color : "Couleur du thème"}
+              active={Boolean(snapshot.color)}
+              onClick={() => setMenu(menu === "color" ? null : "color")}
+            >
+              <TextT size={18} weight={snapshot.color ? "bold" : "regular"} />
+            </ToolButton>
+            <MenuPanel label="Couleur du texte" open={menu === "color"} onClose={close}>
+              <div className="flex flex-wrap items-center gap-2 px-2 pb-1.5">
+                <button
+                  type="button"
+                  aria-label="Couleur du thème"
+                  aria-pressed={!snapshot.color}
+                  title="Automatique — la couleur du thème"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => run((i) => i.setColor(null))}
+                  className="editor-swatch flex items-center justify-center bg-surface text-[12px] font-semibold text-muted"
+                >
+                  A
+                </button>
+                {TEXT_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    aria-label={`Écrire en ${color.label.toLowerCase()}`}
+                    aria-pressed={snapshot.color === color.value}
+                    title={color.label}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => run((i) => i.setColor(color.value))}
+                    className="editor-swatch"
+                    style={{ background: color.value }}
+                  />
+                ))}
+              </div>
+              <label className="editor-color-free">
+                <input
+                  type="color"
+                  aria-label="Choisir une couleur de texte"
+                  value={/^#[0-9a-f]{6}$/i.test(snapshot.color ?? "") ? (snapshot.color as string) : "#1d4ed8"}
+                  onChange={(event) => run((i) => i.setColor(event.target.value))}
+                  className="h-7 w-9 cursor-pointer rounded border border-line bg-transparent"
+                />
+                Autre couleur…
+              </label>
+            </MenuPanel>
+          </span>
+
           <ToolButton label="Lien" hint="Ctrl+K" active={snapshot.marks.link} onClick={setLink}>
             <LinkSimple size={18} />
           </ToolButton>
@@ -492,6 +567,96 @@ export function EditorToolbar({
             <TextOutdent size={18} />
           </ToolButton>
         </div>
+        <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
+
+        {/* ------------------------------------------------- tableau */}
+        <span className="relative shrink-0">
+          <button
+            type="button"
+            aria-label="Tableau"
+            aria-haspopup="menu"
+            aria-expanded={menu === "table"}
+            title={snapshot.inTable ? "Lignes et colonnes" : "Insérer un tableau"}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setMenu(menu === "table" ? null : "table")}
+            className={cn("editor-tool", menu === "table" && "editor-tool-active")}
+          >
+            <TableIcon size={18} />
+          </button>
+          <MenuPanel label="Tableau" open={menu === "table"} onClose={close} wide>
+            <p className="px-2 pb-1 pt-1 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+              Insérer un tableau
+            </p>
+            <div className="flex flex-wrap gap-1 px-2 pb-2">
+              {[
+                { rows: 2, cols: 2 },
+                { rows: 3, cols: 2 },
+                { rows: 3, cols: 3 },
+                { rows: 5, cols: 3 },
+              ].map((size) => (
+                <button
+                  key={`${size.rows}x${size.cols}`}
+                  type="button"
+                  aria-label={`Insérer un tableau ${size.rows} lignes et ${size.cols} colonnes`}
+                  title={`${size.rows} lignes × ${size.cols} colonnes`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => run((i) => i.insertTable(size.rows, size.cols))}
+                  className="rounded-[8px] border border-line px-2 py-1 text-[12px] font-semibold hover:bg-surface-2"
+                >
+                  {size.rows} × {size.cols}
+                </button>
+              ))}
+            </div>
+
+            <span className="editor-menu-sep" role="separator" />
+
+            <p className="px-2 pb-1 pt-1 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+              Dans le tableau
+            </p>
+            <MenuItem
+              icon={Rows}
+              label="Insérer une ligne au-dessus"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("rowAbove"))}
+            />
+            <MenuItem
+              icon={Rows}
+              label="Insérer une ligne en dessous"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("rowBelow"))}
+            />
+            <MenuItem
+              icon={Columns}
+              label="Insérer une colonne à gauche"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("columnLeft"))}
+            />
+            <MenuItem
+              icon={Columns}
+              label="Insérer une colonne à droite"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("columnRight"))}
+            />
+            <MenuItem
+              icon={Minus}
+              label="Supprimer la ligne"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("deleteRow"))}
+            />
+            <MenuItem
+              icon={Minus}
+              label="Supprimer la colonne"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("deleteColumn"))}
+            />
+            <MenuItem
+              icon={Trash}
+              label="Supprimer le tableau"
+              disabled={!snapshot.inTable}
+              onSelect={() => run((i) => i.tableCommand("deleteTable"))}
+            />
+          </MenuPanel>
+        </span>
         <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
 
         {/* ------------------------------------------------- alignement */}
@@ -629,8 +794,13 @@ export function EditorToolbar({
           </MenuPanel>
         </span>
 
-        <span className="ml-auto" aria-hidden="true" />
+      </div>
 
+      {/* **Les trois issues.** « + », « Tout » et le compteur ne défilent pas :
+          ils restent collés à droite, où l’on cherche toujours le même geste.
+          Le reste de la barre défile ; c’est ce qui empêche la rangée de
+          boutons de déborder de la colonne et de manger le compteur. */}
+      <div className="editor-bar-tail">
         <button
           type="button"
           aria-label="Ajouter une puce"
@@ -660,13 +830,13 @@ export function EditorToolbar({
         >
           Tout
         </button>
-      </div>
 
-      {snapshot.words > 0 && (
-        <span className="shrink-0 pr-2 text-[11.5px] tabular-nums text-muted">
-          {snapshot.words} mot{snapshot.words > 1 ? "s" : ""}
-        </span>
-      )}
+        {snapshot.words > 0 && (
+          <span className="editor-words shrink-0 pr-2 text-[11.5px] tabular-nums text-muted">
+            {snapshot.words} mot{snapshot.words > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

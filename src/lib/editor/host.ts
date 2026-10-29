@@ -101,6 +101,10 @@ export interface EditorHost {
   toggleMark(mark: MarkName): void;
   /** `null` retire le surlignage */
   highlight(color: string | null): void;
+  /** la couleur du texte au curseur, `null` si c’est la couleur du thème */
+  currentColor(): string | null;
+  /** `null` remet le texte dans la couleur du thème */
+  setColor(color: string | null): void;
   /** `null` retire le lien */
   setLink(href: string | null): void;
   currentHref(): string | undefined;
@@ -121,6 +125,24 @@ export interface EditorHost {
   duplicateBlock(): boolean;
   deleteBlock(): boolean;
   insertRule(): boolean;
+
+  /* --- tableaux ------------------------------------------------------ */
+  /** insère un tableau vide de `rows` × `cols` au curseur */
+  insertTable(rows: number, cols: number): boolean;
+  /** le curseur est-il dans une cellule ? */
+  inTable(): boolean;
+  /** un geste de tableau, sans paramètre : les rangées et colonnes se comptent
+   *  depuis la cellule où se trouve le curseur */
+  tableCommand(
+    action:
+      | "rowAbove"
+      | "rowBelow"
+      | "columnLeft"
+      | "columnRight"
+      | "deleteRow"
+      | "deleteColumn"
+      | "deleteTable",
+  ): boolean;
   /** coupe le bloc au curseur et applique des attributs au nouveau bloc */
   splitBlock(patch?: Partial<BlockAttrs>): boolean;
   toggleCheckedById(blockId: string): boolean;

@@ -72,6 +72,15 @@ export interface Block {
   align?: "center" | "right";
   /** surlignage « réponse » : fond accent doux + soulignement accent */
   marked?: boolean;
+  /**
+   * L’identité de la **rangée** d’un tableau, quand le bloc est une cellule.
+   *
+   * Un bloc reste une ligne : une cellule d’un tableau Quill est une ligne qui
+   * porte l’attribut `table`. Les cellules d’une même rangée partagent donc la
+   * même valeur, et l’ordre des blocs donne l’ordre des colonnes — c’est ce qui
+   * permet à un tableau de traverser l’enregistrement sans être aplati.
+   */
+  table?: string;
 }
 
 export interface Project {

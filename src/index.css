@@ -1300,7 +1300,11 @@
     transform: translateX(var(--panel-drag, 0px));
   }
 
-  @media (min-width: 768px) {
+  /* Le panneau n’entre **dans la colonne** que s’il reste de la place pour le
+     texte : 340 px de panneau sur une fenêtre de 840 px laissaient 300 px de
+     texte, ce qui n’est plus une page. En dessous de 1180 px il redevient ce
+     qu’il est sur téléphone : un tiroir par le bord droit, refermé d’abord. */
+  @media (min-width: 1180px) {
     .editor-aside {
       position: sticky;
       top: 56px;
@@ -1421,7 +1425,27 @@
   padding-right: 20px;
 }
 
+/* **La colonne de lecture**, du titre au dernier mot.
+   Le titre, la barre et la feuille s’arrêtent au même pixel et sur le même
+   axe : `--reading-width` + les 114 px de gouttière (74 à gauche pour la
+   pastille de question, 40 à droite pour respirer). Trois surfaces, une seule
+   mesure — sinon la barre déborde du texte qu’elle commande, et le titre
+   commence vingt pixels plus à gauche que lui. */
+.note-head {
+  padding: 14px 20px 10px;
+}
+
 @media (min-width: 768px) {
+  .note-sheet,
+  .note-head {
+    max-width: calc(var(--reading-width) + 114px);
+    margin-inline: auto;
+  }
+
+  .note-head {
+    padding: 26px 40px 12px 74px;
+  }
+
   .note-sheet {
     padding-left: 74px;
     padding-right: 40px;
@@ -1588,15 +1612,13 @@
     top: 56px;
     bottom: auto;
     z-index: 15;
-    max-width: none;
-    margin-left: 74px;
-    margin-right: 40px;
-    padding: 5px 0;
+    /* Même mesure que `.note-head` et `.note-sheet` : les trois règles vivent
+       ensemble, pour qu’elles ne divergent jamais. */
+    max-width: calc(var(--reading-width) + 114px);
+    margin-inline: auto;
+    padding: 5px 40px 5px 74px;
     border-top: 0;
     border-bottom: 1px solid var(--line);
-  }
-  .editor-bar > .editor-toolbar {
-    max-width: var(--reading-width);
   }
   .note-editor {
     padding-bottom: 80px;
@@ -2892,10 +2914,24 @@
   height: auto;
 }
 
+/* **Aucun cadre.** `quill.snow.css` pose `border: 1px solid #ccc` sur son
+   conteneur et `padding: 12px 15px` sur la zone de texte — les restes de sa
+   barre d’outils, que nous n’utilisons pas. Une note n’est pas un champ de
+   formulaire : ni bordure, ni fond, ni défilement propre. La règle est écrite
+   ici avec trois classes pour battre celle du paquet, quel que soit l’ordre
+   des feuilles dans le fichier construit. */
+.note-prose.ql-container,
+.note-prose.ql-container.ql-snow {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .note-prose .ql-editor {
   padding: 0;
   height: auto;
   min-height: 3em;
+  overflow: visible;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -3205,4 +3241,133 @@
 /* Le canevas lui-même : ni bord, ni marge, ni fond propre. */
 .screen-canvas .react-flow {
   background: transparent;
+}
+
+
+/* ================================================================
+   La page de texte — ce qui l’entoure, et rien de plus
+   ----------------------------------------------------------------
+   Quatre décisions, toutes prises après une capture d’écran de la
+   note « Comprendre » : un cadre autour du texte, une colonne étroite,
+   une barre plus large que le texte et un compteur de mots coupé.
+   ================================================================ */
+
+/* ---------- 1. La colonne, l'axe, et le cadre ----------
+   Le cadre, la largeur de lecture et la gouttière sont posés plus haut, avec
+   `.note-sheet`, `.note-head` et `.editor-bar` : une seule mesure pour trois
+   surfaces. Ici, seulement la barre et ses issues. */
+
+/* ---------- 2. Une barre qui défile, une sortie qui reste ----------
+   Les gestes de mise en forme défilent horizontalement ; les trois issues
+   (« + », « Tout », le compteur) restent collées à droite, toujours atteignables.
+   Sur bureau, la barre passe à la ligne dès qu'elle manque de place : un
+   conteneur qui défile découperait les menus, qui s'ouvrent sous le bouton. */
+.editor-toolbar {
+  flex: 1 1 auto;
+  /* Sans `min-width: 0`, un enfant de flex refuse de rétrécir sous la largeur
+     de son contenu : la rangée de boutons débordait de la colonne, et le
+     compteur de mots sortait de l’écran. */
+  min-width: 0;
+}
+
+.editor-toolbar-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.editor-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Bureau : la barre **passe à la ligne** au lieu de défiler.
+   Un conteneur qui défile découpe tout ce qui dépasse — y compris les menus,
+   qui s’ouvrent sous le bouton. Deux rangées valent mieux qu’un menu invisible
+   ou qu’un bouton hors de la colonne. Sur téléphone, la barre défile et ses
+   menus sont fixés à l’écran : rien n’y est découpé. */
+@media (min-width: 768px) {
+  .editor-toolbar-scroll {
+    flex-wrap: wrap;
+    overflow: visible;
+    row-gap: 2px;
+  }
+}
+
+.editor-bar-tail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Le compteur ne s’affiche que lorsqu’il ne vole pas la place d’un bouton. */
+.editor-words {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .editor-words {
+    display: inline;
+  }
+}
+
+/* ---------- 4. Les tableaux et la couleur, dans la page ----------
+   Un tableau appartient au texte : mêmes marges, mêmes filets que le reste,
+   et il se lit sans zoom. La première rangée n’est **pas** traitée en en-tête :
+   Quill ne distingue pas un titre de colonne d’une cellule, et une mise en
+   forme qui affirme ce que la donnée ne dit pas est un mensonge. */
+.note-prose .ql-editor table {
+  width: 100%;
+  margin: 12px 0 16px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.note-prose .ql-editor td {
+  min-width: 48px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  vertical-align: top;
+  outline: none;
+}
+
+.note-prose .ql-editor tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+
+/* La sélection dans une cellule reste celle du thème. Rien de plus : un
+   tableau n’a pas besoin d’un second système de décoration. */
+.note-prose .ql-editor td::selection,
+.note-prose .ql-editor td *::selection {
+  background: var(--accent-soft);
+}
+
+/* La couleur du texte se pose en `style` sur un fragment : rien à styler ici.
+   On garde seulement la trace, dans les menus, de la couleur choisie. */
+.editor-swatch {
+  height: 26px;
+  width: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.editor-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+.editor-color-free {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* Le tableau du blanc : la planche et le texte se touchent sans filet. */
+.board-pane {
+  border-left: 0;
 }

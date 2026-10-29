@@ -50,6 +50,17 @@ export default function Trash() {
         Les notes supprimées attendent ici leur restauration ou leur effacement.
       </p>
 
+      {/* Un en-tête de colonnes, seulement quand il y a de quoi lire une
+          colonne : deux notes ou plus, et la place d’un bureau. */}
+      {deleted.length > 1 && (
+        <div className="mt-4 hidden items-center gap-4 px-3.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted sm:flex">
+          <span className="flex-1">Note</span>
+          <span className="w-[130px] shrink-0">Méthode</span>
+          <span className="w-[136px] shrink-0">Supprimée</span>
+          <span className="w-[204px] shrink-0 text-right">Gestes</span>
+        </div>
+      )}
+
       {deleted.length > 1 && (
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="text-[12.5px] text-muted">
@@ -102,8 +113,15 @@ export default function Trash() {
           {group.items.map((note) => {
             const Icon = METHODS[note.method].icon;
             return (
-              <li key={note.id} className="rounded-card border border-line bg-surface p-3.5">
-                <div className="flex items-center gap-3">
+              /* Une ligne, pas une fiche : le titre d’un côté, les deux
+                 gestes de l’autre. Sur téléphone la ligne se replie en deux
+                 étages ; sur bureau les gestes passent à droite et gardent
+                 leur taille de pouce (44 px) sans s’étirer d’un bord à l’autre. */
+              <li
+                key={note.id}
+                className="rounded-card border border-line bg-surface p-3.5 sm:flex sm:items-center sm:gap-4 sm:py-3"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <span className="tile" aria-hidden="true">
                     <Icon size={22} />
                   </span>
@@ -111,20 +129,26 @@ export default function Trash() {
                     <div className="truncate font-serif text-[16px] font-semibold">
                       {note.title}
                     </div>
-                    <div className="text-[13px] text-muted">
+                    <div className="text-[13px] text-muted sm:hidden">
                       {METHODS[note.method].label} · supprimée{" "}
                       {note.deletedAt ? timeAgo(note.deletedAt) : ""}
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <span className="hidden w-[130px] shrink-0 text-[13px] text-muted sm:block">
+                  {METHODS[note.method].label}
+                </span>
+                <span className="hidden w-[136px] shrink-0 text-[13px] text-muted sm:block">
+                  supprimée {note.deletedAt ? timeAgo(note.deletedAt) : ""}
+                </span>
+                <div className="mt-3 flex gap-2 sm:mt-0 sm:shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       restoreNote(note.id);
                       toast("Note restaurée", "accent");
                     }}
-                    className="btn-secondary h-11 flex-1 text-[14px]"
+                    className="btn-secondary h-11 flex-1 text-[14px] sm:h-9 sm:flex-none sm:px-3 sm:text-[13px]"
                   >
                     <ArrowCounterClockwise size={16} />
                     Restaurer
@@ -132,7 +156,7 @@ export default function Trash() {
                   <button
                     type="button"
                     onClick={() => setConfirmId(note.id)}
-                    className="h-11 flex-1 rounded-field border border-line text-[14px] font-semibold text-danger"
+                    className="h-11 flex-1 rounded-field border border-line text-[14px] font-semibold text-danger sm:h-9 sm:flex-none sm:px-3 sm:text-[13px]"
                   >
                     Effacer
                   </button>

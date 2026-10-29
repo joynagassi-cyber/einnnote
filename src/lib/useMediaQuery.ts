@@ -37,6 +37,14 @@ export function useMediaQuery(query: string) {
  */
 export const RAIL_QUERY = "(min-width: 768px)";
 export const DESKTOP_QUERY = "(min-width: 1024px)";
+/**
+ * Le seuil où **le texte garde la place d’une page**.
+ *
+ * À 840 px, une colonne de questions de 340 px ne laisse que 300 px de texte :
+ * ce n’est plus une note, c’est une colonne de formulaire. En dessous de
+ * 1180 px, le panneau redevient donc un tiroir, et le texte reprend la largeur.
+ */
+export const WIDE_QUERY = "(min-width: 1180px)";
 
 /** Préférence de mise en page : suivre l’écran, ou forcer l’un des deux. */
 export type LayoutPreference = "auto" | "desktop" | "mobile";
@@ -91,6 +99,11 @@ export function useRail(preference?: LayoutPreference) {
  */
 export function useCompactRail() {
   return !useMediaQuery(DESKTOP_QUERY);
+}
+
+/** Y a-t-il la place pour un **côté** à côté du texte, sans l’écraser ? */
+export function useIsWide() {
+  return useMediaQuery(WIDE_QUERY);
 }
 
 /** Y a-t-il la place pour **deux panneaux** ? (1024 px, ou 768 px si forcé.) */

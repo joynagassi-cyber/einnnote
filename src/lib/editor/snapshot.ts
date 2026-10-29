@@ -32,6 +32,10 @@ export interface EditorSnapshot {
   indent: number;
   align: Align;
   words: number;
+  /** la couleur du texte au curseur, `null` = couleur du thème */
+  color: string | null;
+  /** le curseur est dans une cellule de tableau */
+  inTable: boolean;
 }
 
 /** Un instant vide : utile pour les tests et le premier rendu. */
@@ -56,4 +60,6 @@ export const EMPTY_SNAPSHOT: EditorSnapshot = {
   indent: 0,
   align: "left",
   words: 0,
+  color: null,
+  inTable: false,
 };

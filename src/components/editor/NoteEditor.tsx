@@ -228,7 +228,9 @@ export function NoteEditor({
     element.innerHTML = "";
     const quill = new Quill(element, {
       theme: "snow",
-      modules: { toolbar: false, history: { delay: 600, maxStack: 200 } },
+      /* `table: true` : le module des tableaux est enregistré (voir
+         `registerEinnoteFormats`) mais Quill ne le monte que si on le nomme. */
+      modules: { toolbar: false, table: true, history: { delay: 600, maxStack: 200 } },
       formats: QUILL_FORMATS,
       placeholder: "Écrivez… tapez / pour un titre, une liste, une citation",
     });
@@ -481,6 +483,8 @@ export function NoteEditor({
       indent: attrs.indent,
       align: attrs.align,
       words: host.words(),
+      color: host.currentColor(),
+      inTable: host.inTable(),
     };
   })();
 

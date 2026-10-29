@@ -136,6 +136,30 @@ describe("Canevas — les formes", () => {
   });
 });
 
+/** Simule une fenêtre **large** (≥ 1180 px) le temps d’un test. */
+function withWide<T>(run: () => Promise<T> | T): Promise<T> {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
+    matches:
+      query.includes("min-width: 1180px") ||
+      query.includes("min-width: 1024px") ||
+      query.includes("min-width: 768px") ||
+      query.includes("color-scheme"),
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+  return Promise.resolve()
+    .then(run)
+    .finally(() => {
+      window.matchMedia = original;
+    });
+}
+
 describe("Tableau blanc", () => {
   it("naît avec du texte et une planche, et montre les deux", async () => {
     const note = useContentStore.getState().createNote("whiteboard", {
@@ -178,6 +202,48 @@ describe("Tableau blanc", () => {
       screen.getByRole("button", { name: /panneau des questions/ }),
     ).toBeTruthy();
     expect(screen.queryByRole("toolbar", { name: "Mise en forme" })).toBeNull();
+  });
+
+  it("n’ouvre « Les deux » que si le texte garde sa place, et retire alors le côté", async () => {
+    await withWide(async () => {
+      const user = userEvent.setup();
+      const note = useContentStore.getState().createNote("whiteboard", {
+        title: "Deux vues côte à côte",
+      });
+      open(`/note/${note.id}`);
+
+      const group = await screen.findByRole("group", { name: "Vue du tableau blanc" });
+      const both = within(group).getByRole("button", { name: "Les deux" });
+
+      /* En fenêtre large, la note s’ouvre déjà sur les deux vues — et la
+         planche **est** le côté : le panneau des questions se retire, sinon
+         trois colonnes se partageraient la fenêtre. */
+      await waitFor(() =>
+        expect(screen.getByLabelText(/Planche de la note/)).toBeTruthy(),
+      );
+      expect(
+        screen.queryByRole("complementary", { name: "Questions de la note" }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /panneau des questions/ }),
+      ).toBeNull();
+      // la barre d’édition reste : le texte est toujours affiché
+      expect(screen.getByRole("toolbar", { name: "Mise en forme" })).toBeTruthy();
+
+      await user.click(within(group).getByRole("button", { name: "Texte" }));
+      await waitFor(() =>
+        expect(
+          screen.getByRole("complementary", { name: "Questions de la note" }),
+        ).toBeTruthy(),
+      );
+
+      await user.click(both);
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("complementary", { name: "Questions de la note" }),
+        ).toBeNull(),
+      );
+    });
   });
 });
 
