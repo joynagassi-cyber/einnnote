@@ -1,127 +1,234 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppStore } from "@/stores/useAppStore";
-import { mockLessons } from "@/data/mocks";
-import { PageShell } from "@/components/ui/PageShell";
-import { AppLayoutMobile, DesktopSidebar } from "@/components/layout/AppLayout";
+import { ArrowRight, CaretRight, CheckCircle, Clock } from "@phosphor-icons/react";
+import { Screen } from "@/components/Layout";
+import { SpacesDiagram } from "@/components/learn/SpacesDiagram";
+import { METHODS } from "@/lib/methods";
 import {
-  CheckCircle,
-  Clock,
-  GraduationCap,
-  Trophy,
-  CaretRight,
-} from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+  HUB_LESSON,
+  TOTAL_LESSONS,
+  TRACKS,
+  countDone,
+  isLessonDone,
+  lessonsOf,
+  nextLesson,
+} from "@/lib/learn";
+import { useContentStore } from "@/stores/useContentStore";
 
-type Lesson = {
-  id: string;
-  title: string;
-  description: string;
-  duration: number;
-  completed: boolean;
-  category: "tutorial" | "course";
-};
-
-export default function LearnPage() {
+/**
+ * Apprendre — et rien ne s’apprend avant **où ranger ce qu’on apprend**.
+ *
+ * La page s’ouvre donc sur les espaces, pas sur la liste des méthodes : un
+ * projet contient des notes et plusieurs vaults, un vault contient des
+ * fiches. Le schéma du haut est calculé sur les données réelles — c’est le seul
+ * moyen qu’un schéma d’hierarchie reste vrai le jour où l’on crée son deuxième
+ * vault.
+ *
+ * Trois pistes, dans cet ordre : le socle, les outils, le cours de lecture.
+ * L’ordre est celui de `TRACKS` (`src/lib/learn.ts`) et non l’ordre des
+ * numéros de piste — c’est une décision de parcours, pas un détail de tri.
+ */
+export default function Learn() {
   const navigate = useNavigate();
-  const { settings } = useAppStore();
-  const [lessons, setLessons] = useState<Lesson[]>(mockLessons);
+  const progress = useContentStore((s) => s.progress);
+  const projects = useContentStore((s) => s.projects);
+  const vaults = useContentStore((s) => s.vaults);
+  const notes = useContentStore((s) => s.notes);
+  const zettel = useContentStore((s) => s.zettel);
 
-  const completedCount = lessons.filter((l) => l.completed).length;
-  const totalMinutes = lessons.filter((l) => l.completed).reduce((s, l) => s + l.duration, 0);
+  const doneTotal = TRACKS.reduce((sum, track) => sum + countDone(progress, track.id).done, 0);
 
-  const toggleLesson = (id: string) => {
-    setLessons((prev) =>
-      prev.map((l) =>
-        l.id === id
-          ? { ...l, completed: !l.completed, doneAt: !l.completed ? new Date().toISOString() : undefined }
-          : l
-      )
-    );
-  };
+  /* Le projet montré : celui qui porte le plus de vaults, sinon le premier.
+     C’est celui dont le schéma apprend le plus. */
+  const showcase = useMemo(() => {
+    if (!projects.length) return null;
+    const ranked = [...projects]
+      .map((project) => ({
+        project,
+        vaults: vaults.filter((vault) => vault.projectId === project.id),
+      }))
+      .sort((a, b) => b.vaults.length - a.vaults.length);
+    const { project, vaults: own } = ranked[0];
+    return {
+      id: project.id,
+      name: project.name,
+      noteCount: notes.filter((note) => note.projectId === project.id).length,
+      vaults: own.map((vault) => ({
+        id: vault.id,
+        name: vault.name,
+        noteCount: notes.filter((note) => note.vaultId === vault.id && !note.deletedAt)
+          .length,
+        cardCount: zettel.filter((card) => card.vaultId === vault.id).length,
+      })),
+    };
+  }, [projects, vaults, notes, zettel]);
+
+  const next = nextLesson(progress);
+  const socle = countDone(progress, 3);
+  const firstVisit = progress.length === 0;
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)]">
-      <DesktopSidebar />
-      <PageShell>
-        <div className="mb-6">
-          <h1 className="font-literata text-2xl font-bold text-[var(--ink)]">Apprendre</h1>
-          <p className="font-inter text-sm text-[var(--muted)] mt-1">
-            {completedCount} leçon{completedCount !== 1 ? "s" : ""} complétée{completedCount !== 1 ? "s" : ""} · {totalMinutes} min
-          </p>
-        </div>
+    <Screen withNav className="screen-wide px-5 lg:px-8">
+      <header className="pb-4 pt-7">
+        <h1 className="font-serif text-[30px] font-semibold leading-tight">Apprendre</h1>
+        <p className="mt-1 text-[15px] leading-[22px] text-muted">
+          Leçons de quatre à six minutes : une idée, le geste qui l’applique, le
+          critère qui dit qu’elle est acquise.
+        </p>
+      </header>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[
-            { icon: CheckCircle, label: "Terminées", value: `${completedCount}/${lessons.length}` },
-            { icon: Clock, label: "Temps", value: `${totalMinutes} min` },
-            { icon: Trophy, label: "Niveau", value: completedCount >= 4 ? "Expert" : completedCount >= 2 ? "Intermédiaire" : "Débutant" },
-          ].map(({ icon: I, label, value }) => (
-            <div key={label} className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] text-center">
-              <I weight="fill" className="w-6 h-6 text-[hsl(var(--accent))] mx-auto mb-2" />
-              <div className="font-literata font-bold text-[var(--ink)] text-lg">{value}</div>
-              <div className="font-inter text-xs text-[var(--muted)]">{label}</div>
+      {/* ------------------------------------------------ le centre : Espaces */}
+      <section
+        className="rounded-card border border-line bg-surface p-4 sm:p-5"
+        aria-labelledby="socle"
+      >
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-accent">
+          {firstVisit ? "Commencez ici" : "Le centre de tout"}
+        </p>
+        <h2 id="socle" className="mt-1 font-serif text-[22px] font-semibold leading-snug">
+          Un projet, des vaults, des notes
+        </h2>
+        <p className="mt-1 text-[13.5px] leading-[20px] text-muted">
+          Un projet se découpe en vaults, c’est-à-dire en catégories : chaque vault
+          range les notes d’une partie du sujet, et les fiches qui en sortent pour
+          la révision.
+        </p>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
+          {showcase ? (
+            <SpacesDiagram
+              projectName={showcase.name}
+              noteCount={showcase.noteCount}
+              vaults={showcase.vaults}
+            />
+          ) : (
+            <div className="rounded-card border border-dashed border-line-strong p-4 text-[13px] text-muted">
+              Aucun projet pour l’instant : le premier geste de l’app en crée un.
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Lessons list */}
-        <div className="space-y-3">
-          {lessons.map((lesson) => (
-            <div
-              key={lesson.id}
-              className={cn(
-                "flex items-center gap-4 p-4 rounded-2xl bg-[var(--surface)] border transition-all",
-                lesson.completed ? "border-green-200 dark:border-green-900/30" : "border-[var(--line)] hover:border-[hsl(var(--accent))]/40"
-              )}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[12.5px]">
+              <span className="font-semibold text-muted">Le socle</span>
+              <span className="tabnum font-semibold">
+                {socle.done} / {socle.total}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-line">
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-300"
+                style={{ width: `${socle.total ? (socle.done / socle.total) * 100 : 0}%` }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/learn/${next?.lesson.id ?? HUB_LESSON}`)}
+              className="btn-primary mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-big text-[15.5px]"
             >
-              <button
-                onClick={() => toggleLesson(lesson.id)}
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
-                  lesson.completed
-                    ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-[var(--surface-2)] text-[var(--muted)] hover:bg-[hsl(var(--accent-soft))] hover:text-[hsl(var(--accent))]"
-                )}
-                aria-label={lesson.completed ? "Marquer comme non complété" : "Marquer comme complété"}
-              >
-                <CheckCircle weight="fill" className="w-5 h-5" />
-              </button>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded-full font-inter font-medium",
-                    lesson.category === "tutorial"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                      : "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                  )}>
-                    {lesson.category === "tutorial" ? "Tutoriel" : "Cours"}
-                  </span>
-                  <span className="font-inter text-xs text-[var(--muted)]">{lesson.duration} min</span>
-                </div>
-                <h3 className={cn(
-                  "font-literata font-semibold text-[var(--ink)]",
-                  lesson.completed && "line-through opacity-60"
-                )}>
-                  {lesson.title}
-                </h3>
-                <p className="font-inter text-sm text-[var(--muted)] mt-0.5 line-clamp-1">{lesson.description}</p>
-              </div>
-
-              <CaretRight weight="light" className="w-5 h-5 text-[var(--muted)] flex-shrink-0" />
-            </div>
-          ))}
-        </div>
-
-        {lessons.length === 0 && (
-          <div className="text-center py-12 text-[var(--muted)] font-inter">
-            Aucune leçon disponible.
+              {!next
+                ? "Revoir le socle"
+                : socle.done === 0 && next.track.id === 3
+                  ? "Commencer le socle"
+                  : `Continuer · ${next.lesson.title}`}
+              <ArrowRight size={17} weight="bold" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/spaces")}
+              className="flex h-11 w-full items-center justify-center gap-1.5 rounded-big border border-line text-[14.5px] font-medium"
+            >
+              Ouvrir Espaces
+              <CaretRight size={15} weight="bold" className="text-muted" aria-hidden />
+            </button>
           </div>
-        )}
-      </PageShell>
-      <AppLayoutMobile />
-    </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------ progression globale */}
+      <section className="mt-3 rounded-card border border-line bg-surface p-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[14px] font-semibold text-muted">Votre parcours</span>
+          <span className="text-[14px] font-semibold">
+            {doneTotal} / {TOTAL_LESSONS}
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
+          <div
+            className="h-full rounded-full bg-accent transition-[width] duration-300"
+            style={{ width: `${TOTAL_LESSONS ? (doneTotal / TOTAL_LESSONS) * 100 : 0}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[12px] leading-[17px] text-muted">
+          {next
+            ? `Prochaine leçon · ${next.track.label} : ${next.lesson.title}.`
+            : "Parcours complet. Les leçons restent ouvertes pour les gestes à revoir."}
+        </p>
+      </section>
+
+      {TRACKS.map((track) => {
+        const lessons = lessonsOf(track.id).sort((a, b) => a.index - b.index);
+        const stats = countDone(progress, track.id);
+        return (
+          <section key={track.id} className="mt-5">
+            <div className="mb-1 flex items-baseline justify-between gap-3">
+              <h2 className="text-[14px] font-semibold text-muted">{track.label}</h2>
+              <span className="tabnum shrink-0 text-[12px] text-muted">
+                {stats.done}/{stats.total}
+              </span>
+            </div>
+            <p className="mb-2 text-[12.5px] leading-[18px] text-muted">{track.blurb}</p>
+
+            <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2">
+              {lessons.map((lesson) => {
+                const isDone = isLessonDone(progress, lesson.id);
+                const Icon = lesson.method ? METHODS[lesson.method].icon : CheckCircle;
+                return (
+                  <li key={lesson.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/learn/${lesson.id}`)}
+                      className="row"
+                    >
+                      <span
+                        className={
+                          isDone
+                            ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect bg-accent-soft text-accent"
+                            : "flex h-11 w-11 shrink-0 items-center justify-center rounded-rect border border-line text-muted"
+                        }
+                        aria-hidden="true"
+                      >
+                        {isDone ? (
+                          <CheckCircle size={22} weight="duotone" />
+                        ) : lesson.method ? (
+                          <Icon size={22} />
+                        ) : (
+                          <span className="text-[15px] font-semibold">{lesson.index}</span>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-serif text-[16px] font-semibold leading-snug">
+                          {lesson.title}
+                        </span>
+                        <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
+                          <Clock size={13} aria-hidden="true" />
+                          {lesson.minutes} min · {lesson.steps.length} étapes
+                        </span>
+                        <span className="mt-1 block text-[13px] leading-[19px] text-muted">
+                          {lesson.outcome}
+                        </span>
+                      </span>
+                      <CaretRight size={16} className="text-muted" aria-hidden="true" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+
+      <div className="h-24" />
+    </Screen>
   );
 }

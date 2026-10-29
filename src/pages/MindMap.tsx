@@ -1,353 +1,780 @@
-import { useState, useCallback, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useNoteStore } from "@/stores/useNoteStore";
-import { useAppStore } from "@/stores/useAppStore";
-import { PageShell } from "@/components/ui/PageShell";
-import { AppLayoutMobile, DesktopSidebar } from "@/components/layout/AppLayout";
-import { HeaderBar } from "@/components/ui/HeaderBar";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  Plus,
+  ReactFlow,
+  Background,
+  BackgroundVariant,
+  Controls,
+  Handle,
+  MiniMap,
+  Position,
+  useEdgesState,
+  useNodesState,
+  type Edge,
+  type Node,
+  type NodeProps,
+  type ReactFlowInstance,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import {
+  Broom,
   Circle,
-  Square,
-  Rectangle,
   Diamond,
+  Hexagon,
+  Palette,
+  Plus,
+  Rectangle,
+  Sparkle,
+  Square,
   Trash,
 } from "@phosphor-icons/react";
+import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
+import { MindmapTemplateGallery } from "@/components/TemplateGallery";
+import { useIsDesktop } from "@/lib/useMediaQuery";
+import { useContentStore } from "@/stores/useContentStore";
+import { useAppStore } from "@/stores/useAppStore";
+import { canvasGap, canvasSize, canvasVariant } from "@/lib/graph/background";
+import { useToast } from "@/stores/useToast";
 import { cn } from "@/lib/utils";
+import type {
+  EdgePaint,
+  EdgeStyle,
+  MindEdge,
+  MindMap as MindMapType,
+  MindNode,
+} from "@/types";
+import type { MindDirection } from "@/stores/useContentStore";
+import {
+  ARROWS,
+  EDGE_WIDTHS,
+  PAINT_COLORS,
+  TEXTURES,
+  edgeLook,
+  nodeLook,
+  textureBackground,
+  type ArrowKind,
+} from "@/lib/graph/paint";
+import { MINDMAP_TEMPLATES, type MindmapTemplate } from "@/lib/templates/mindmaps";
+import { mindmapFromTemplate } from "@/lib/templates/apply";
+import { GraphStyleGallery } from "@/components/GraphStyleGallery";
+import {
+  graphStyleById,
+  type GraphEdgeKind,
+  type GraphStyle,
+} from "@/lib/graph/styles";
+import { relayoutMindmap } from "@/lib/graph/mindmapStyle";
+import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
+import { MapDock } from "@/components/canvas/MapDock";
+import { EinnoteNode } from "@/components/canvas/mindFlow";
+import { toFlow, type FlowNode, type FlowNodeData } from "@/components/canvas/flowData";
 
-type Shape = "circle" | "rect" | "square" | "diamond";
-
-interface MMNode {
-  id: string;
-  x: number;
-  y: number;
-  shape: Shape;
-  text: string;
-  color?: string;
-}
-
-interface MMEdge {
-  id: string;
-  source: string;
-  target: string;
-  style: "straight" | "step" | "smoothstep" | "bezier";
-}
-
-const SHAPES: { id: Shape; icon: typeof Circle }[] = [
-  { id: "circle", icon: Circle },
-  { id: "rect", icon: Square },
-  { id: "square", icon: Square },
-  { id: "diamond", icon: Diamond },
-];
-
-type EdgeStyle = "straight" | "step" | "smoothstep" | "bezier";
-
-const EDGE_STYLES: { id: EdgeStyle; label: string }[] = [
-  { id: "straight", label: "Droite" },
-  { id: "step", label: "Step" },
-  { id: "smoothstep", label: "Smooth Step" },
-  { id: "bezier", label: "Bézier" },
-];
-
-export default function MindMapPage() {
-  const { id } = useParams<{ id: string }>();
+export default function MindMap() {
+  const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { getNote, updateNote } = useNoteStore();
+  const map = useContentStore((s) => s.mindmaps.find((m) => m.id === id));
+  const graphStyle = graphStyleById(map?.styleId);
+  /* **Un seul fond.** La page ne peint rien ; c’est le canevas qui dessine sa
+     grille, donc elle suit le déplacement et le zoom. Deux couches de
+     pointillés, c’était deux grilles qui glissaient à des vitesses
+     différentes : le fond « double » qu’on voyait en bougeant. */
+  const canvasPref = useAppStore((s) => s.settings.canvas);
+  const background = canvasVariant(canvasPref);
+  const updateMindMap = useContentStore((s) => s.updateMindMap);
+  const addMindNode = useContentStore((s) => s.addMindNode);
+  const addMindNodeAt = useContentStore((s) => s.addMindNodeAt);
+  const updateMindNode = useContentStore((s) => s.updateMindNode);
+  const updateMindEdge = useContentStore((s) => s.updateMindEdge);
+  const removeMindNode = useContentStore((s) => s.removeMindNode);
+  const setEdgeStyle = useContentStore((s) => s.setEdgeStyle);
+  const toast = useToast((s) => s.show);
 
-  const [nodes, setNodes] = useState<MMNode[]>([
-    { id: "n1", x: 400, y: 250, shape: "circle", text: "Idée centrale", color: "hsl(var(--accent))" },
-  ]);
-  const [edges, setEdges] = useState<MMEdge[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /* Sélection multiple : le canevas doit permettre de ranger un groupe
+     (aligner, répartir, supprimer) sans déplacer les nœuds un par un. */
+  const [selection, setSelection] = useState<string[]>([]);
+  const [snap, setSnap] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-  const [showShapePicker, setShowShapePicker] = useState(false);
-  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
-  const { settings } = useAppStore();
+  const [draftText, setDraftText] = useState("");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
+  const [styleOpen, setStyleOpen] = useState(false);
+  /* Réorganiser = accepter que le style recalcule les positions. Sans cette
+     case, un nœud déplacé à la main le reste : la présentation seule change. */
+  const [keepPositions, setKeepPositions] = useState(false);
+  const [defaultShape, setDefaultShape] = useState<MindNode["shape"]>("rect");
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  /* La barre flottante se replie : dépliée elle porte tous les outils, repliée
+     elle ne laisse qu’une poignée. Sur un canevas, la place est au dessin. */
+  /* Replié au départ : sur un canevas, le premier regard doit aller au dessin. */
+  const [dockOpen, setDockOpen] = useState(false);
+  const [flow, setFlow] = useState<ReactFlowInstance<FlowNode, Edge> | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
-  const note = id ? getNote(id) : null;
+  const openEditor = useCallback((nodeId: string) => {
+    const node = useContentStore
+      .getState()
+      .mindmaps.find((m) => m.id === id)
+      ?.nodes.find((n) => n.id === nodeId);
+    setEditingId(nodeId);
+    setDraftText(node?.text ?? "");
+  }, [id]);
+
+  /**
+   * Le geste qui relie : la poignée `+` d’une forme pose une branche du côté
+   * touché et ouvre son texte. Rien d’autre ne crée de lien.
+   */
+  const addChild = useCallback(
+    (parentId: string, direction: MindDirection, shape?: MindNode["shape"]) => {
+      const createdId = addMindNode(id, parentId, shape ?? defaultShape, direction);
+      if (!createdId) return;
+      setSelectedId(createdId);
+      setEditingId(createdId);
+      setDraftText("Nouvelle idée");
+    },
+    [addMindNode, id, defaultShape],
+  );
+
+  /**
+   * Le geste qui pose : la barre flottante dépose une forme **libre** au centre
+   * du canevas, sans lien. C’est ce qui permet de commencer une carte depuis
+   * une feuille vide, puis de relier à la main.
+   */
+  const createShape = useCallback(
+    (shape: MindNode["shape"]) => {
+      const rect = mapRef.current?.getBoundingClientRect();
+      const center = flow && rect
+        ? flow.screenToFlowPosition({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 })
+        : { x: 0, y: 0 };
+      /* Un léger décalage à chaque pose : deux formes créées d’affilée ne se
+         superposent pas exactement, on les voit toutes les deux. */
+      const drift = (map?.nodes.length ?? 0) * 14;
+      const createdId = addMindNodeAt(id, {
+        x: center.x - 70 + drift,
+        y: center.y - 30 + drift,
+        shape,
+      });
+      setDefaultShape(shape);
+      setSelectedId(createdId);
+      setEditingId(createdId);
+      setDraftText("Nouvelle idée");
+      setSelectedEdgeId(null);
+    },
+    [addMindNodeAt, flow, id, map?.nodes.length],
+  );
+
+  const initial = useMemo(
+    () =>
+      map
+        ? toFlow(
+            map,
+            {
+              onAdd: (nodeId, direction) => addChild(nodeId, direction),
+              onOpen: openEditor,
+              onResize: (nodeId, size) => updateMindNode(id, nodeId, size),
+            },
+            null,
+            graphStyle,
+          )
+        : { nodes: [], edges: [] },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initial.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initial.edges);
+
+  /* Reflète l’état enregistré (texte, forme, ajout, suppression, style) */
+  const nodesKey = (map?.nodes ?? [])
+    .map(
+      (node) =>
+        `${node.id}:${node.text}:${node.shape}:${node.x}:${node.y}:${node.w ?? 0}x${node.h ?? 0}:${JSON.stringify(node.paint ?? null)}`,
+    )
+    .join("|");
+
+  /* L’habillage d’un trait vit dans l’arête, pas dans le style : il faut donc
+     suivre aussi son contenu, sinon une couleur choisie n’arriverait jamais au
+     dessin. */
+  const edgesKey = (map?.edges ?? [])
+    .map((edge) => `${edge.id}:${JSON.stringify(edge.paint ?? null)}`)
+    .join("|");
 
   useEffect(() => {
-    if (note?.contentJson?.nodes) {
-      setNodes(note.contentJson.nodes);
-      setEdges(note.contentJson.edges || []);
-    }
-  }, [note?.id]);
+    if (!map) return;
+    const flow = toFlow(
+      map,
+      {
+        onAdd: (nodeId, direction) => addChild(nodeId, direction),
+        onOpen: openEditor,
+        onResize: (nodeId, size) => updateMindNode(id, nodeId, size),
+      },
+      selectedId,
+      graphStyle,
+    );
+    setNodes(flow.nodes);
+    setEdges(flow.edges);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesKey, edgesKey, map?.edgeStyle, map?.styleId, map?.title, selectedId]);
 
-  const save = useCallback(() => {
-    if (!note) return;
-    updateNote(note.id, {
-      contentJson: { ...note.contentJson, nodes, edges },
-      updatedAt: new Date().toISOString(),
+  /* Un clic sur le fond referme aussi le panneau du trait. */
+
+  /* Affichage des nœuds : la carte reste reine, mais un plan lisible évite
+     de tourner autour du canevas pour retrouver une idée. Les crochets sont
+     déclarés avant la sortie « carte introuvable » : un retour anticipé ne
+     doit jamais changer l’ordre des hooks. */
+  const desktop = useIsDesktop();
+
+  if (!map) {
+  return (
+      <Screen className="px-5">
+        <AppBar back title="" />
+        <EmptyState
+          title="Carte introuvable"
+          description="Cette carte mentale n’existe plus."
+          action={
+            <button className="btn-primary" onClick={() => navigate("/")}>
+              Retour à la bibliothèque
+            </button>
+          }
+        />
+      </Screen>
+    );
+  }
+
+  /* Alignement et répartition : les deux gestes de rangement attendus sur un
+     canevas infini. Ils écrivent des positions entières, donc stables après
+     rechargement. */
+  const alignSelection = (edge: "left" | "top") => {
+    if (!map || selection.length < 2) return;
+    const nodes = map.nodes.filter((node) => selection.includes(node.id));
+    const target =
+      edge === "left"
+        ? Math.min(...nodes.map((node) => node.x))
+        : Math.min(...nodes.map((node) => node.y));
+    nodes.forEach((node) =>
+      updateMindNode(id, node.id, edge === "left" ? { x: target } : { y: target }),
+    );
+  };
+
+  const distributeSelection = () => {
+    if (!map || selection.length < 3) return;
+    const nodes = [...map.nodes]
+      .filter((node) => selection.includes(node.id))
+      .sort((a, b) => a.x - b.x);
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    const step = (last.x - first.x) / (nodes.length - 1);
+    nodes.forEach((node, index) => {
+      if (index === 0 || index === nodes.length - 1) return;
+      updateMindNode(id, node.id, { x: Math.round(first.x + step * index) });
     });
-  }, [note, nodes, edges, updateNote]);
+  };
 
-  useEffect(() => {
-    const t = setTimeout(save, 300);
-    return () => clearTimeout(t);
-  }, [nodes, edges, save]);
-
-  const addNode = (parent?: string) => {
-    const id = `mn-${Date.now()}`;
-    const parentNode = parent ? nodes.find((n) => n.id === parent) : null;
-    const x = parentNode ? parentNode.x + (Math.random() - 0.5) * 200 : 400;
-    const y = parentNode ? parentNode.y + (Math.random() - 0.5) * 150 : 250;
-    const newNode: MMNode = { id, x, y, shape: "rect", text: "Nouveau" };
-    setNodes((prev) => [...prev, newNode]);
-    if (parent) {
-      setEdges((prev) => [...prev, { id: `me-${Date.now()}`, source: parent, target: id, style: "straight" }]);
+  const depthOf = (nodeId: string): number => {
+    let depth = 0;
+    let current = map.nodes.find((node) => node.id === nodeId);
+    const guard = new Set<string>();
+    while (current?.parentId && !guard.has(current.id)) {
+      guard.add(current.id);
+      current = map.nodes.find((node) => node.id === current?.parentId);
+      depth += 1;
     }
-    setEditingId(id);
-    setEditText("Nouveau");
+    return depth;
   };
 
-  const updateNode = (nodeId: string, updates: Partial<MMNode>) => {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, ...updates } : n)));
+  const editing = map.nodes.find((n) => n.id === editingId);
+  const selected = map.nodes.find((n) => n.id === selectedId);
+
+  /**
+   * La barre de formes fait exactement deux choses, et elles sont distinctes :
+   * avec une forme sélectionnée elle la **change** ; sans sélection elle en
+   * **pose une nouvelle**, libre, au centre. L’ancienne version ne faisait que
+   * mémoriser une préférence invisible — d’où l’impression que rien ne se
+   * passait.
+   */
+  const applyShape = (shape: MindNode["shape"]) => {
+    if (selected) {
+      updateMindNode(map.id, selected.id, { shape });
+    } else {
+      createShape(shape);
+    }
   };
 
-  const deleteNode = (nodeId: string) => {
-    setNodes((prev) => prev.filter((n) => n.id !== nodeId));
-    setEdges((prev) => prev.filter((e) => e.source !== nodeId && e.target !== nodeId));
+  const selectedEdge = map.edges.find((edge) => edge.id === selectedEdgeId) ?? null;
+
+  const paintNode = (patch: Partial<NonNullable<MindNode["paint"]>>) => {
+    if (!selected) return;
+    updateMindNode(map.id, selected.id, {
+      paint: { ...(selected.paint ?? {}), ...patch },
+    });
+  };
+
+  const paintEdge = (patch: Partial<EdgePaint>) => {
+    if (!selectedEdge) return;
+    updateMindEdge(map.id, selectedEdge.id, {
+      paint: { ...(selectedEdge.paint ?? {}), ...patch },
+    });
+  };
+
+  /**
+   * Repartir de zéro : plus aucun nœud, plus aucun trait.
+   *
+   * C’est le geste qui manquait pour « corriger une carte à la main » : on vide,
+   * puis on pose les formes une à une avec la barre, et on relie avec les
+   * poignées. Une carte vide reste utilisable — le canevas, lui, est toujours là.
+   */
+  const blankMap = () => {
+    updateMindMap(map.id, { nodes: [], edges: [] });
     setSelectedId(null);
+    setSelectedEdgeId(null);
+    setTemplatesOpen(false);
+    setPickedTemplate(null);
+    toast("Carte vierge : posez votre première forme", "accent");
   };
 
-  const setShape = (nodeId: string, shape: Shape) => {
-    updateNode(nodeId, { shape });
-    setShowShapePicker(false);
+  const deleteNode = () => {
+    if (!editing) return;
+    removeMindNode(map.id, editing.id);
+    setEditingId(null);
+    setSelectedId(null);
+    toast("Branche supprimée");
+  };
+
+  /* Un style ne touche jamais au texte : il applique une disposition (sauf si
+     l’on garde ses positions) et une forme de lien. */
+  const applyStyle = (style: GraphStyle) => {
+    const patch: Partial<MindMapType> = { styleId: style.id };
+    if (!keepPositions) {
+      patch.nodes = relayoutMindmap(map, style.layout);
+    }
+    updateMindMap(map.id, patch);
+    setStyleOpen(false);
+    toast(`Style « ${style.label} » appliqué`, "accent");
+  };
+
+  /* Changer de modèle remplace la carte, mais seulement après un second
+     geste : une carte de 25 nœuds ne doit pas disparaître sur un appui. */
+  const applyTemplate = (template: MindmapTemplate) => {
+    const seed = mindmapFromTemplate(template);
+    updateMindMap(map.id, {
+      nodes: seed.nodes,
+      edges: seed.edges,
+      edgeStyle: seed.edgeStyle,
+      title: map.title,
+    });
+    setSelectedId(null);
+    setEditingId(null);
+    setPickedTemplate(null);
+    setTemplatesOpen(false);
+    toast(`Modèle « ${template.name} » appliqué`, "accent");
   };
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)]">
-      <DesktopSidebar />
-      <PageShell padding="p-0" className="!max-w-none relative overflow-hidden">
-        {/* Toolbar */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="p-2.5 rounded-xl bg-[var(--surface)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]">
-            <ArrowLeft weight="bold" className="w-5 h-5" />
-          </button>
-          {note && (
-            <span className="px-3 py-2 rounded-xl bg-[var(--surface)] border border-[var(--line)] font-literata font-semibold text-[var(--ink)] text-sm">
-              {note.title}
-            </span>
-          )}
-        </div>
-
-        {/* Empty state */}
-        {nodes.length === 0 && (
-          <div className="flex items-center justify-center h-full min-h-[400px]">
-            <EmptyState
-              icon={Plus}
-              title="Créez votre première carte"
-              description="Ajoutez un nœud pour commencer à construire votre carte mentale."
-              actionLabel="Ajouter un nœud"
-              onAction={() => addNode()}
-            />
-          </div>
-        )}
-
-        {/* Canvas area */}
-        <div className={cn("w-full h-screen relative overflow-auto", settings.canvasBg !== "blank" ? `canvas-${settings.canvasBg}` : "")}>
-          <div className="relative min-w-full min-h-full" style={{ minHeight: "800px", minWidth: "800px" }}>
-            {/* Edges (SVG) */}
-            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
-              {edges.map((e) => {
-                const src = nodes.find((n) => n.id === e.source);
-                const tgt = nodes.find((n) => n.id === e.target);
-                if (!src || !tgt) return null;
-                const sx = src.x + 60;
-                const sy = src.y + 24;
-                const tx = tgt.x + 60;
-                const ty = tgt.y + 24;
-                const isSel = selectedEdge === e.id;
-
-                let path: string;
-                switch (e.style) {
-                  case "straight":
-                    path = `M${sx},${sy} L${tx},${ty}`;
-                    break;
-                  case "step": {
-                    const mx = (sx + tx) / 2;
-                    path = `M${sx},${sy} L${mx},${sy} L${mx},${ty} L${tx},${ty}`;
-                    break;
-                  }
-                  case "smoothstep": {
-                    const mx = (sx + tx) / 2;
-                    path = `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
-                    break;
-                  }
-                  case "bezier": {
-                    const dx = tx - sx;
-                    const dy = ty - sy;
-                    path = `M${sx},${sy} C${sx + dx * 0.4},${sy + dy * 0.1} ${tx - dx * 0.4},${ty - dy * 0.1} ${tx},${ty}`;
-                    break;
-                  }
-                  default:
-                    path = `M${sx},${sy} L${tx},${ty}`;
-                }
-
-                return (
-                  <g key={e.id}>
-                    <path
-                      d={path}
-                      fill="none"
-                      stroke={isSel ? "hsl(var(--accent))" : "var(--line)"}
-                      strokeWidth={isSel ? 3 : 2}
-                      strokeLinecap="round"
-                      className="cursor-pointer"
-                      onClick={(ev) => { ev.stopPropagation(); setSelectedEdge(e.id); }}
-                    />
-                    {isSel && (
-                      <>
-                        <circle cx={sx} cy={sy} r={4} fill="hsl(var(--accent))" />
-                        <circle cx={tx} cy={ty} r={4} fill="hsl(var(--accent))" />
-                      </>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-
-            {/* Nodes */}
-            {nodes.map((node) => {
-              const isSelected = selectedId === node.id;
-              const isEditing = editingId === node.id;
-              const ShapeComponent = {
-                circle: Circle,
-                rect: Square,
-                square: Rectangle,
-                diamond: Diamond,
-              }[node.shape] ?? Square;
-
-              return (
-                <div
-                  key={node.id}
-                  onClick={(e) => { e.stopPropagation(); setSelectedId(node.id); setShowShapePicker(false); }}
-                  onDoubleClick={() => { setEditingId(node.id); setEditText(node.text); }}
-                  className={cn(
-                    "absolute cursor-pointer select-none group",
-                    "transition-shadow duration-150",
-                    isSelected && "ring-2 ring-[hsl(var(--accent))] ring-offset-2 rounded-2xl"
-                  )}
-                  style={{ left: node.x, top: node.y, zIndex: 2 }}
-                >
-                  <div className={cn(
-                    "flex flex-col items-center gap-1 px-4 py-3 rounded-2xl min-w-[80px] max-w-[200px]",
-                    "bg-[var(--surface)] border-2 shadow-sm",
-                    isSelected ? "border-[hsl(var(--accent))]" : "border-[var(--line)]",
-                    node.shape === "circle" && "rounded-full",
-                    node.shape === "diamond" && "rotate-45 rounded-xl",
-                    node.shape === "square" && "rounded-lg"
-                  )}>
-                    {node.shape === "diamond" && (
-                      <span className="-rotate-45 font-literata text-sm font-medium text-[var(--ink)] text-center break-words">
-                        {isEditing ? (
-                          <input
-                            autoFocus
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            onBlur={() => { updateNode(node.id, { text: editText }); setEditingId(null); }}
-                            onKeyDown={(e) => { if (e.key === "Enter") { updateNode(node.id, { text: editText }); setEditingId(null); } }}
-                            className="w-full bg-transparent text-center font-literata text-sm outline-none"
-                          />
-                        ) : node.text}
-                      </span>
-                    )}
-                    {node.shape !== "diamond" && isEditing ? (
-                      <input
-                        autoFocus
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        onBlur={() => { updateNode(node.id, { text: editText }); setEditingId(null); }}
-                        onKeyDown={(e) => { if (e.key === "Enter") { updateNode(node.id, { text: editText }); setEditingId(null); } }}
-                        className="w-full bg-transparent text-center font-literata text-sm outline-none text-[var(--ink)]"
-                      />
-                    ) : (
-                      <span className="font-literata text-sm font-medium text-[var(--ink)] text-center break-words">
-                        {node.text}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Add button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); addNode(node.id); }}
-                    className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[hsl(var(--accent))] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] shadow-sm"
-                    aria-label="Ajouter un nœud enfant"
-                  >
-                    <Plus weight="bold" className="w-4 h-4" />
-                  </button>
-
-                  {/* Delete button */}
-                  {isSelected && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
-                      className="absolute -bottom-2 -left-2 w-7 h-7 rounded-full bg-[var(--danger)] text-white flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[var(--danger)] shadow-sm"
-                      aria-label="Supprimer le nœud"
-                    >
-                      <Trash weight="bold" className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-
-                  {/* Shape picker */}
-                  {isSelected && showShapePicker && (
-                    <div className="absolute top-full left-0 mt-2 bg-[var(--surface)] border border-[var(--line)] rounded-xl p-2 shadow-lg z-20 flex gap-1">
-                      {SHAPES.map(({ id: sid, icon: Icon }) => (
-                        <button
-                          key={sid}
-                          onClick={() => setShape(node.id, sid)}
-                          className={cn(
-                            "p-2 rounded-lg hover:bg-[var(--surface-2)] transition-colors focus:outline-none",
-                            node.shape === sid && "bg-[hsl(var(--accent-soft))] text-[hsl(var(--accent))]"
-                          )}
-                        >
-                          <Icon weight="fill" className="w-4 h-4" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Shape toggle hint */}
-        {selectedId && !showShapePicker && (
-          <button
-            onClick={() => setShowShapePicker(true)}
-            className="fixed bottom-20 md:bottom-6 right-6 z-30 flex items-center gap-2 px-4 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-lg font-inter text-sm text-[var(--muted)] hover:text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-          >
-            <Diamond weight="fill" className="w-4 h-4" /> Changer forme
-          </button>
-        )}
-
-        {/* Edge style picker */}
-        {selectedEdge && (
-          <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-lg">
-            <span className="font-inter text-xs font-medium text-[var(--muted)] mr-1">Style :</span>
-            {EDGE_STYLES.map(({ id: sid, label }) => (
+    <div className="paper screen screen-canvas" data-canvas="blank">
+      <div className="sticky top-0 z-20 glass">
+        <AppBar
+          back
+          onBack={() => navigate("/")}
+          center={false}
+          title={map.title}
+          action={
+            <div className="flex items-center gap-1">
               <button
-                key={sid}
-                onClick={() => {
-                  setEdges((prev) => prev.map((e) => (e.id === selectedEdge ? { ...e, style: sid } : e)));
-                  setSelectedEdge(null);
-                }}
+                type="button"
+                aria-label="Modèles de carte"
+                title="Modèles"
+                onClick={() => setTemplatesOpen(true)}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-inter transition-colors focus:outline-none",
-                  edges.find((e) => e.id === selectedEdge)?.style === sid
-                    ? "bg-[hsl(var(--accent))] text-white"
-                    : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--ink)]"
+                  "h-10 text-accent",
+                  desktop
+                    ? "pill gap-1.5 px-3 text-[13.5px] font-semibold"
+                    : "icon-btn w-10",
                 )}
               >
-                {label}
+                <Sparkle size={desktop ? 16 : 20} weight="fill" aria-hidden />
+                {desktop && "Modèles"}
               </button>
-            ))}
+            </div>
+          }
+        />
+      </div>
+
+      <div ref={mapRef} className="relative min-h-0 flex-1">
+        <div className="flow-fill">
+        <ReactFlow
+          onInit={setFlow}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={{ engram: EinnoteNode }}
+          edgeTypes={GRAPH_EDGE_TYPES}
+          fitView
+          /* Sur téléphone, ne pas dézoomer au point que le texte devienne
+             illisible : mieux vaut une carte qu’on fait glisser qu’une carte
+             entière réduite à des taches. */
+          fitViewOptions={{
+            padding: desktop ? 0.3 : 0.08,
+            minZoom: desktop ? 0.5 : 0.6,
+            maxZoom: 1.1,
+          }}
+          /* Un canevas sans limite : on peut s’éloigner jusqu’à voir la carte
+             entière comme une planète, et zoomer jusqu’au détail du texte. */
+          minZoom={0.08}
+          maxZoom={2.4}
+          panOnScroll
+          zoomOnPinch
+          /* Miro et tldraw ont la même grammaire : le glissement déplace le
+             canevas, Maj + glissement trace un rectangle de sélection, et
+             Cmd/Ctrl + clic ajoute un nœud à la sélection. */
+          selectionKeyCode="Shift"
+          multiSelectionKeyCode={["Meta", "Control"]}
+          snapToGrid={snap}
+          snapGrid={[16, 16]}
+          onSelectionChange={({ nodes: selectedNodes }) =>
+            setSelection((previous) => {
+              /* React Flow rappelle cette fonction à chaque rendu avec un
+                 tableau neuf : sans comparaison, on déclencherait un rendu
+                 infini (boucle constatée en test). */
+              const next = selectedNodes.map((node) => node.id);
+              if (
+                next.length === previous.length &&
+                next.every((id, index) => id === previous[index])
+              ) {
+                return previous;
+              }
+              return next;
+            })
+          }
+          onNodeClick={(_, node) => {
+            setSelectedId(node.id);
+            setSelectedEdgeId(null);
+          }}
+          /* Toucher un trait ouvre son habillage : couleur, épaisseur, pointillé,
+             forme de la pointe. */
+          onEdgeClick={(_, edge) => {
+            setSelectedEdgeId(edge.id);
+            setSelectedId(null);
+            setDockOpen(true);
+          }}
+          onNodeDoubleClick={(_, node) => openEditor(node.id)}
+          onNodeDragStop={(_, node) => {
+            updateMindNode(map.id, node.id, {
+              x: Math.round(node.position.x),
+              y: Math.round(node.position.y),
+            });
+          }}
+          onPaneClick={() => {
+            setSelectedId(null);
+            setSelectedEdgeId(null);
+          }}
+          proOptions={{ hideAttribution: true }}
+          nodesFocusable
+          edgesFocusable
+          aria-label={`Carte mentale ${map.title} — ${map.nodes.length} nœuds`}
+          className="[&_.react-flow__pane]:cursor-default"
+        >
+          {background && (
+            <Background
+              variant={background}
+              gap={canvasGap(background)}
+              size={canvasSize(background)}
+              color="var(--canvas-dot)"
+            />
+          )}
+          {desktop && (
+            <>
+              <Controls
+                showInteractive={false}
+                position="bottom-left"
+                className="!bottom-24 !left-4 !rounded-rect !border !border-line !bg-surface !shadow-float [&_button]:!border-line [&_button]:!bg-surface [&_button]:!fill-ink"
+              />
+              <MiniMap
+                pannable
+                zoomable
+                position="bottom-right"
+                ariaLabel="Aperçu de la carte"
+                className="!bottom-24 !right-4 !rounded-rect !border !border-line !bg-surface"
+                maskColor="var(--surface-2)"
+                nodeColor={(node) =>
+                  (node.data as FlowNodeData).root ? "var(--accent)" : "var(--line-strong)"
+                }
+                nodeStrokeWidth={0}
+                nodeBorderRadius={4}
+              />
+            </>
+          )}
+        </ReactFlow>
+        </div>
+
+        {selection.length > 1 && (
+          <div className="absolute inset-x-0 top-3 z-10 mx-auto flex w-fit items-center gap-1 rounded-full border border-line bg-surface px-1.5 py-1 shadow-float">
+            <span className="px-2 text-[12.5px] font-semibold tabnum">
+              {selection.length} nœuds
+            </span>
+            <SelectionAction
+              label="Aligner à gauche"
+              onClick={() => alignSelection("left")}
+            >
+              ⇤
+            </SelectionAction>
+            <SelectionAction label="Aligner en haut" onClick={() => alignSelection("top")}>
+              ⇧
+            </SelectionAction>
+            <SelectionAction label="Répartir horizontalement" onClick={distributeSelection}>
+              ⇹
+            </SelectionAction>
+            <SelectionAction
+              label="Supprimer la sélection"
+              destructive
+              onClick={() => {
+                selection.forEach((nodeId) => removeMindNode(id, nodeId));
+                setSelection([]);
+                setSelectedId(null);
+              }}
+            >
+              ✕
+            </SelectionAction>
           </div>
         )}
-      </PageShell>
-      <AppLayoutMobile />
+
+        {map.nodes.length === 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted shadow-float">
+            Carte vide — la barre du bas pose la première forme
+          </div>
+        )}
+        {map.nodes.length > 0 && map.nodes.length < 3 && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted shadow-float">
+            Touchez un nœud, puis « + » pour créer une liane
+          </div>
+        )}
+      </div>
+
+      <MapDock
+        open={dockOpen}
+        onToggle={() => setDockOpen((value) => !value)}
+        selected={selected}
+        edge={selectedEdge}
+        snap={snap}
+        onSnap={() => setSnap((value) => !value)}
+        onShape={applyShape}
+        onPaintNode={paintNode}
+        onPaintEdge={paintEdge}
+        size={
+          selected
+            ? {
+                w: nodes.find((n) => n.id === selected.id)?.data.w ?? 0,
+                h: nodes.find((n) => n.id === selected.id)?.data.h ?? 0,
+              }
+            : undefined
+        }
+        onSize={(size) => {
+          if (!selected) return;
+          updateMindNode(map.id, selected.id, size ?? { w: undefined, h: undefined });
+        }}
+        onStyle={() => setStyleOpen(true)}
+        styleLabel={graphStyle.label}
+      />
+
+      {/* Édition d’un nœud */}
+      <Sheet
+        open={Boolean(editing)}
+        onClose={() => setEditingId(null)}
+        title="Nœud"
+      >
+        {editing && (
+          <>
+            <label htmlFor="node-text" className="mb-1.5 block text-[14px] font-semibold text-muted">
+              Texte
+            </label>
+            <input
+              id="node-text"
+              value={draftText}
+              onChange={(event) => {
+                setDraftText(event.target.value);
+                updateMindNode(map.id, editing.id, { text: event.target.value });
+              }}
+              autoFocus
+              className="field h-12"
+            />
+            <p className="mb-2 mt-4 text-[14px] font-semibold text-muted">Forme</p>
+            <div className="flex gap-2">
+              {(["circle", "rect", "square", "diamond", "pill", "hex"] as const).map((shape) => (
+                <button
+                  key={shape}
+                  type="button"
+                  onClick={() => updateMindNode(map.id, editing.id, { shape })}
+                  aria-label={shapeLabel(shape)}
+                  aria-pressed={editing.shape === shape}
+                  className={cn(
+                    "flex h-12 flex-1 items-center justify-center rounded-field border",
+                    editing.shape === shape
+                      ? "border-accent bg-accent-soft text-accent-ink"
+                      : "border-line bg-surface text-ink",
+                  )}
+                >
+                  {shapeIcon(shape)}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              {editing.parentId && (
+                <button type="button" onClick={deleteNode} className="btn-secondary flex-1 text-danger">
+                  <Trash size={18} />
+                  Supprimer
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-primary flex-1"
+                onClick={() => {
+                  if (draftText.trim()) {
+                    updateMindNode(map.id, editing.id, { text: draftText.trim() });
+                  }
+                  setEditingId(null);
+                }}
+              >
+                Terminé
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn-quiet mt-2 w-full"
+              onClick={() => {
+                addChild(editing.id, "right");
+              }}
+            >
+              <Plus size={18} weight="bold" /> Ajouter un enfant
+            </button>
+          </>
+        )}
+      </Sheet>
+
+      {/* Styles : la présentation d’un graphe, pas son contenu */}
+      <Sheet
+        open={styleOpen}
+        onClose={() => setStyleOpen(false)}
+        title={`Styles · ${graphStyle.label}`}
+        size="wide"
+      >
+        <p className="mb-2 text-[13.5px] leading-[20px] text-muted">
+          Un style change la disposition et la forme des liens, jamais le texte.
+          Il est mémorisé avec cette carte.
+        </p>
+        <label className="mb-3 flex items-center gap-2.5 rounded-field border border-line bg-surface px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={keepPositions}
+            onChange={(event) => setKeepPositions(event.target.checked)}
+            className="h-4 w-4 accent-[var(--accent)]"
+          />
+          <span className="text-[13px] leading-[18px]">
+            Garder mes positions
+            <span className="block text-[11.5px] text-muted">
+              Décoché, le style range les nœuds selon sa disposition.
+            </span>
+          </span>
+        </label>
+        <GraphStyleGallery
+          scope="mindmap"
+          selectedId={graphStyle.id}
+          onPick={applyStyle}
+        />
+      </Sheet>
+
+      {/* Modèles : 14 manières de penser, une galerie unique */}
+      <Sheet
+        open={templatesOpen}
+        onClose={() => {
+          setTemplatesOpen(false);
+          setPickedTemplate(null);
+        }}
+        title={`Modèles · ${MINDMAP_TEMPLATES.length}`}
+        size="wide"
+      >
+        <p className="mb-3 text-[14px] leading-[21px] text-muted">
+          Chaque modèle encode une méthode réelle : Ishikawa pour les causes,
+          Toulmin pour l’argumentation, croissance de Bloom pour la progression.
+          L’aperçu est la disposition exacte qui sera créée. Remplacer efface les
+          nœuds actuels ; renommer et déplacer reste possible après.
+        </p>
+        <MindmapTemplateGallery
+          templates={MINDMAP_TEMPLATES}
+          selectedId={pickedTemplate}
+          onPick={(template) => setPickedTemplate(template.id)}
+        />
+        <button
+          type="button"
+          onClick={blankMap}
+          className="btn-secondary mt-3 flex w-full items-center justify-center gap-2"
+        >
+          <Broom size={18} aria-hidden /> Partir d’une carte vierge
+        </button>
+        <button
+          type="button"
+          disabled={!pickedTemplate}
+          onClick={() => {
+            const template = MINDMAP_TEMPLATES.find(
+              (item) => item.id === pickedTemplate,
+            );
+            if (template) applyTemplate(template);
+          }}
+          className="btn-primary mt-3 w-full disabled:opacity-50"
+        >
+          {pickedTemplate ? "Remplacer la carte par ce modèle" : "Choisissez un modèle"}
+        </button>
+      </Sheet>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+function shapeLabel(shape: MindNode["shape"]) {
+  return {
+    circle: "Cercle",
+    rect: "Rectangle",
+    square: "Carré",
+    diamond: "Losange",
+    pill: "Pilule",
+    hex: "Hexagone",
+  }[shape];
+}
+
+function shapeIcon(shape: MindNode["shape"]) {
+  if (shape === "circle") return <Circle size={20} />;
+  if (shape === "square") return <Square size={20} />;
+  if (shape === "diamond") return <Diamond size={20} />;
+  if (shape === "hex") return <Hexagon size={20} />;
+  if (shape === "pill") {
+    return <span className="h-[11px] w-[22px] rounded-full border-2 border-current" aria-hidden />;
+  }
+  return <Rectangle size={20} />;
+}
+
+function SelectionAction({
+  label,
+  onClick,
+  destructive = false,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  destructive?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={
+        destructive
+          ? "flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-bold text-danger hover:bg-surface-2"
+          : "flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-bold text-ink hover:bg-surface-2"
+      }
+    >
+      {children}
+    </button>
   );
 }

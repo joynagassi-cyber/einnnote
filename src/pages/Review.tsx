@@ -1,238 +1,333 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useReviewStore } from "@/stores/useReviewStore";
-import { useNoteStore } from "@/stores/useNoteStore";
-import { useAppStore } from "@/stores/useAppStore";
-import { PageShell } from "@/components/ui/PageShell";
-import { AppLayoutMobile, DesktopSidebar } from "@/components/layout/AppLayout";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { HeaderBar } from "@/components/ui/HeaderBar";
 import {
-  ArrowClockwise,
-  ArrowLeft,
   ArrowRight,
-  SmileyMelting,
-  CheckCircle,
-  FlagBanner,
-  XCircle,
+  Books,
+  Cards,
+  ClockCounterClockwise,
+  FolderSimple,
+  Notepad,
+  SlidersHorizontal,
+  Sparkle,
+  Stack,
 } from "@phosphor-icons/react";
-import { ReviewRating } from "@/types";
+import { Screen, Segmented } from "@/components/Layout";
+import { Hint } from "@/components/Hint";
+import { useContentStore } from "@/stores/useContentStore";
+import { useAppStore } from "@/stores/useAppStore";
+import { reviewSettings } from "@/lib/scheduler";
+import { allReviewItems, itemsInTarget, summarize, type ReviewTarget } from "@/lib/review";
+import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
 
-const RATINGS: { value: ReviewRating; label: string; sub: string; icon: typeof XCircle; color: string }[] = [
-  { value: "again", label: "Encore", sub: "Réviser maintenant", icon: XCircle, color: "text-red-500" },
-  { value: "hard", label: "Difficile", sub: "Encore un peu", icon: FlagBanner, color: "text-orange-500" },
-  { value: "good", label: "Bien", sub: "Presque acquis", icon: CheckCircle, color: "text-blue-500" },
-  { value: "easy", label: "Facile", sub: "Très bien", icon: SmileyMelting, color: "text-green-500" },
-];
-
-export default function ReviewPage() {
+/**
+ * Entrée de la révision : on **choisit la portée** avant de commencer.
+ *
+ * Pourquoi un écran d’entrée plutôt qu’une séance automatique : une séance qui
+ * démarre sur « tout ce qui est dû » ne laisse aucune prise. Ici on peut
+ * réviser un projet entier, un vault, ou une seule note Cornell — et voir,
+ * avant de cliquer, combien de cartes cela représente.
+ */
+export default function Review() {
   const navigate = useNavigate();
-  const { reviewCards, getDueToday, review, currentCardIndex, sessionComplete, resetSession } = useReviewStore();
-  const { getQuestionsForNote, getZettelCard } = useNoteStore();
-  const [flipped, setFlipped] = useState(false);
+  const notes = useContentStore((s) => s.notes);
+  const questions = useContentStore((s) => s.questions);
+  const links = useContentStore((s) => s.links);
+  const cards = useContentStore((s) => s.cards);
+  const zettel = useContentStore((s) => s.zettel);
+  const vaults = useContentStore((s) => s.vaults);
+  const projects = useContentStore((s) => s.projects);
+  const settings = reviewSettings(useAppStore((s) => s.settings.review));
+  const desktop = useIsDesktop();
 
-  const dueCards = getDueToday();
-  const card = dueCards[currentCardIndex];
+  const [scope, setScope] = useState<"all" | "project" | "vault" | "note">("all");
 
-  const question = card?.sourceType === "question"
-    ? getQuestionsForNote("").find(q => q.id === card?.sourceId)
-    : null;
+  const items = useMemo(
+    () =>
+      allReviewItems({
+        notes,
+        questions,
+        links,
+        cards,
+        zettel,
+        vaults,
+        projects,
+      }),
+    [notes, questions, links, cards, zettel, vaults, projects],
+  );
 
-  const zettel = card?.sourceType === "zettel"
-    ? getZettelCard(card.sourceId)
-    : null;
+  const now = new Date();
+  /* Le compteur du haut décrit exactement ce que fera le bouton « Tout » :
+     questions dues + fiches déjà travaillées. Les fiches neuves entrent par
+     leur vault, pas par surprise. */
+  const overall = summarize(itemsInTarget(items, { kind: "all" }), now);
 
-  const currentText = card?.sourceType === "question" && question
-    ? question.text
-    : zettel
-      ? zettel.title
-      : "?";
+  const byProject = useMemo(
+    () =>
+      projects
+        .map((project) => ({
+          target: { kind: "project", id: project.id } as ReviewTarget,
+          label: project.name,
+          hint: project.description ?? "",
+          summary: summarize(
+            items.filter((item) => item.projectId === project.id),
+            now,
+          ),
+        }))
+        .filter((row) => row.summary.total > 0),
+    // `now` change à chaque rendu ; les compteurs n’en dépendent qu’au jour.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projects, items],
+  );
 
-  const currentBody = card?.sourceType === "question" && question
-    ? getNotePreview(question.noteId)
-    : zettel
-      ? zettel.sourceRef || "Note issue du Zettelkasten"
-      : "";
+  const byVault = useMemo(
+    () =>
+      vaults
+        .map((vault) => ({
+          target: { kind: "vault", id: vault.id } as ReviewTarget,
+          label: vault.name,
+          hint: vault.note ?? "",
+          summary: summarize(
+            items.filter((item) => item.vaultId === vault.id),
+            now,
+          ),
+        }))
+        // Un vault sans fiche n’a rien à réviser : le montrer serait un
+        // faux bouton. Il reste accessible depuis l’écran Vaults.
+        .filter((row) => row.summary.total > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vaults, items],
+  );
 
-  function getNotePreview(noteId: string): string {
-    const note = useNoteStore.getState().getNote(noteId);
-    return note?.title || "";
-  }
+  const byNote = useMemo(
+    () =>
+      notes
+        .filter((note) => !note.deletedAt)
+        .map((note) => ({
+          target: { kind: "note", id: note.id } as ReviewTarget,
+          label: note.title,
+          hint: note.collection,
+          method: note.method,
+          summary: summarize(
+            items.filter((item) => item.noteId === note.id),
+            now,
+          ),
+        }))
+        .filter((row) => row.summary.total > 0)
+        .sort((a, b) => b.summary.due - a.summary.due || b.summary.total - a.summary.total),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notes, items],
+  );
 
-  const handleRating = (rating: ReviewRating) => {
-    if (!card) return;
-    setFlipped(false);
-    review(card.id, rating, 0);
+  const start = (target: ReviewTarget, mode: "due" | "all" = "due") => {
+    const params = new URLSearchParams({ scope: target.kind });
+    if (target.kind !== "all") params.set("id", target.id);
+    params.set("mode", mode);
+    navigate(`/review/session?${params.toString()}`);
   };
 
-  const handleNext = () => {
-    if (currentCardIndex < dueCards.length - 1) {
-      setFlipped(false);
-      setTimeout(() => useReviewStore.getState().setCurrentCardIndex(currentCardIndex + 1), 150);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentCardIndex > 0) {
-      setFlipped(false);
-      setTimeout(() => useReviewStore.getState().setCurrentCardIndex(currentCardIndex - 1), 150);
-    }
-  };
-
-  if (dueCards.length === 0) {
-    return (
-      <div className="flex min-h-screen bg-[var(--bg)]">
-        <DesktopSidebar />
-        <PageShell>
-          <HeaderBar title="Révision" subtitle="Apprentissage actif" />
-          <EmptyState
-            icon={ArrowClockwise}
-            title="Pas de révision aujourd'hui"
-            description="Vous avez terminé vos révisions du jour. Revenez demain !"
-            actionLabel="Explorer la bibliothèque"
-            onAction={() => navigate("/library")}
-          />
-        </PageShell>
-        <AppLayoutMobile />
-      </div>
-    );
-  }
-
-  if (sessionComplete) {
-    return (
-      <div className="flex min-h-screen bg-[var(--bg)]">
-        <DesktopSidebar />
-        <PageShell>
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--accent-soft))] flex items-center justify-center mb-4">
-              <CheckCircle weight="fill" className="w-8 h-8 text-[hsl(var(--accent))]" />
-            </div>
-            <h2 className="font-literata text-2xl font-bold text-[var(--ink)] mb-2">Séance terminée !</h2>
-            <p className="font-inter text-[var(--muted)] mb-8 max-w-sm">
-              Vous avez révisé {dueCards.length} carte{dueCards.length > 1 ? "s" : ""}. Bon travail !
-            </p>
-            <button
-              onClick={resetSession}
-              className="px-6 py-3 rounded-xl bg-[hsl(var(--accent))] text-white font-inter font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] focus:ring-offset-2"
-            >
-              Nouvelle séance
-            </button>
-          </div>
-        </PageShell>
-        <AppLayoutMobile />
-      </div>
-    );
-  }
+  const scopeOptions = [
+    { value: "all" as const, label: "Tout" },
+    { value: "project" as const, label: "Projet" },
+    { value: "vault" as const, label: "Vault" },
+    { value: "note" as const, label: "Note" },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)]">
-      <DesktopSidebar />
-      <PageShell className="flex flex-col justify-center">
-        <div className="text-center mb-6">
-          <span className="font-inter text-sm text-[var(--muted)]">
-            Carte {currentCardIndex + 1} / {dueCards.length}
-          </span>
-          <div className="w-full h-1.5 bg-[var(--surface-2)] rounded-full mt-3 overflow-hidden">
-            <div
-              className="h-full bg-[hsl(var(--accent))] rounded-full transition-all duration-300"
-              style={{ width: `${((currentCardIndex + 1) / dueCards.length) * 100}%` }}
-            />
-          </div>
-        </div>
+    <Screen withNav className="screen-wide px-5 lg:px-8">
+      <header className="pb-4 pt-7">
+        <p className="text-[12.5px] font-semibold uppercase tracking-[0.14em] text-muted">
+          Révision espacée · FSRS-5
+        </p>
+        <h1 className="mt-1 font-serif text-[32px] font-semibold leading-tight">
+          Réviser
+        </h1>
+        <p className="mt-1.5 max-w-[56ch] text-[15px] leading-[22px] text-muted">
+          {overall.due > 0
+            ? `${overall.due} carte${overall.due > 1 ? "s" : ""} à revoir aujourd’hui, dont ${overall.fresh} jamais vue${overall.fresh > 1 ? "s" : ""}. Choisissez ce que vous voulez travailler.`
+            : "Rien n’est échu aujourd’hui. Vous pouvez tout de même réviser un projet, un vault ou une note — les intervalles seront recalculés normalement."}
+        </p>
+      </header>
 
-        {/* Flashcard */}
-        <div className="perspective-1000 mb-8" style={{ perspective: "1000px" }}>
-          <AnimatePresence mode="wait">
-            {!flipped ? (
-              <motion.div
-                key="front"
-                initial={{ rotateY: 0 }}
-                exit={{ rotateY: -90, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setFlipped(true)}
-                className="w-full max-w-md mx-auto cursor-pointer"
-                role="button"
-                tabIndex={0}
-                aria-label="Retourner la carte"
-                onKeyDown={(e) => e.key === "Enter" && setFlipped(true)}
-              >
-                <div className="aspect-[4/3] rounded-28 bg-[var(--surface)] border border-[var(--line)] flex flex-col items-center justify-center p-8 shadow-sm hover:shadow-md transition-shadow">
-                  <span className="font-inter text-xs uppercase tracking-widest text-[var(--muted)] mb-4">Question</span>
-                  <p className="font-literata text-xl font-semibold text-[var(--ink)] text-center leading-relaxed">
-                    {currentText}
-                  </p>
-                  <span className="font-inter text-xs text-[var(--muted)] mt-6">Appuyez pour voir la réponse</span>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="back"
-                initial={{ rotateY: 90, opacity: 0 }}
-                animate={{ rotateY: 0, opacity: 1 }}
-                exit={{ rotateY: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="w-full max-w-md mx-auto"
-              >
-                <div className="aspect-[4/3] rounded-28 bg-[var(--surface)] border border-[var(--line)] flex flex-col p-8 shadow-sm">
-                  <span className="font-inter text-xs uppercase tracking-widest text-[var(--muted)] mb-3">Réponse</span>
-                  <p className="font-literata text-lg text-[var(--ink)] leading-relaxed flex-1">
-                    {currentBody}
-                  </p>
-                  <button
-                    onClick={() => setFlipped(false)}
-                    className="mt-4 font-inter text-sm text-[var(--muted)] hover:text-[var(--ink)] self-start focus:outline-none"
-                  >
-                    ← Retour à la question
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+      <div
+        className={cn(
+          "gap-6",
+          desktop
+            ? "grid grid-cols-[minmax(0,1fr)_minmax(0,320px)] items-start"
+            : "flex flex-col",
+        )}
+      >
+        <div className="min-w-0">
+          {/* Portée */}
+          <div className="rounded-big border border-line bg-surface p-4 lg:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-[19px] font-semibold">
+                  Portée de la séance
+                </h2>
+                <p className="mt-0.5 text-[13px] leading-[19px] text-muted">
+                  Un projet, un vault, une note — ou toutes les cartes dues.
+                </p>
+              </div>
+              <div className="w-full sm:w-auto">
+                <Segmented
+                  value={scope}
+                  onChange={(value) => setScope(value)}
+                  options={scopeOptions}
+                  label="Portée de la révision"
+                />
+              </div>
+            </div>
 
-        {/* Rating buttons */}
-        <div className="grid grid-cols-4 gap-2 max-w-md mx-auto w-full">
-          {RATINGS.map(({ value, label, sub, icon: Icon, color }) => (
-            <button
-              key={value}
-              onClick={() => handleRating(value)}
-              className={cn(
-                "flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]",
-                "hover:scale-105 active:scale-95 touch-manipulation",
-                value === "again" && "border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/20",
-                value === "hard" && "border-orange-200 bg-orange-50 dark:border-orange-900/30 dark:bg-orange-950/20",
-                value === "good" && "border-blue-200 bg-blue-50 dark:border-blue-900/30 dark:bg-blue-950/20",
-                value === "easy" && "border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-950/20",
+            <div className="mt-4">
+              {scope === "all" && (
+                <button
+                  type="button"
+                  onClick={() => start({ kind: "all" }, overall.due > 0 ? "due" : "all")}
+                  className="btn-primary h-14 w-full justify-between rounded-big px-5 text-[16px]"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkle size={20} weight="duotone" aria-hidden />
+                    {overall.due > 0
+                      ? `Réviser les ${overall.due} cartes dues`
+                      : `Réviser les ${overall.total} cartes`}
+                  </span>
+                  <ArrowRight size={18} weight="bold" aria-hidden />
+                </button>
               )}
-            >
-              <Icon weight="fill" className={cn("w-5 h-5", color)} />
-              <span className="font-inter text-sm font-semibold text-[var(--ink)]">{label}</span>
-              <span className="font-inter text-[10px] text-[var(--muted)]">{sub}</span>
-            </button>
-          ))}
+
+              {scope === "project" && (
+                <ScopeList
+                  rows={byProject}
+                  icon={FolderSimple}
+                  emptyLabel="Aucun projet ne contient encore de carte révisable."
+                  onStart={start}
+                />
+              )}
+              {scope === "vault" && (
+                <ScopeList
+                  rows={byVault}
+                  icon={Stack}
+                  emptyLabel="Aucun vault ne contient de fiche à réviser."
+                  onStart={start}
+                />
+              )}
+              {scope === "note" && (
+                <ScopeList
+                  rows={byNote}
+                  icon={Notepad}
+                  emptyLabel="Aucune note ne contient encore de question."
+                  onStart={start}
+                />
+              )}
+            </div>
+          </div>
+
+          {overall.total > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[12.5px] text-muted">
+              <span className="flex items-center gap-1.5">
+                <Cards size={15} weight="duotone" aria-hidden />
+                {items.filter((item) => item.kind === "question").length} questions de notes
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Books size={15} weight="duotone" aria-hidden />
+                {items.filter((item) => item.kind === "fiche").length} fiches de vault
+              </span>
+              <span className="flex items-center gap-1.5">
+                <ClockCounterClockwise size={15} weight="duotone" aria-hidden />
+                rétention visée {Math.round(settings.retention * 100)} %
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Nav */}
-        <div className="flex justify-between max-w-md mx-auto w-full mt-4">
-          <button
-            onClick={handlePrev}
-            disabled={currentCardIndex === 0}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl font-inter text-sm text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-2)] disabled:opacity-30 transition-colors focus:outline-none"
+        {/* Colonne de droite : ce qui va se passer, et le réglage */}
+        <aside className={cn("flex flex-col gap-3", !desktop && "mt-1")}>
+          <Hint
+            hintId="reviser-deroule"
+            href="/learn/t-reviser"
+            hrefLabel="La leçon"
           >
-            <ArrowLeft weight="bold" className="w-4 h-4" /> Précédent
-          </button>
+            Répondez de mémoire, retournez la carte, notez votre réponse : FSRS
+            recalcule la date de retour.
+          </Hint>
+
           <button
-            onClick={handleNext}
-            disabled={currentCardIndex >= dueCards.length - 1}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl font-inter text-sm text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface-2)] disabled:opacity-30 transition-colors focus:outline-none"
+            type="button"
+            onClick={() => navigate("/settings/review")}
+            className="flex items-center gap-3 rounded-big border border-line bg-surface p-4 text-left transition-colors hover:border-line-strong"
           >
-            Suivant <ArrowRight weight="bold" className="w-4 h-4" />
+            <span className="tile h-10 w-10 shrink-0" aria-hidden>
+              <SlidersHorizontal size={19} weight="duotone" className="text-accent" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14.5px] font-semibold">
+                Réglages de la révision
+              </span>
+              <span className="block text-[12.5px] text-muted">
+                Rétention, plafonds quotidiens, rappel du soir
+              </span>
+            </span>
+            <ArrowRight size={16} weight="bold" className="text-muted" aria-hidden />
           </button>
-        </div>
-      </PageShell>
-      <AppLayoutMobile />
-    </div>
+        </aside>
+      </div>
+
+      <div className="h-8" aria-hidden="true" />
+    </Screen>
+  );
+}
+
+function ScopeList({
+  rows,
+  icon: Icon,
+  emptyLabel,
+  onStart,
+}: {
+  rows: {
+    target: ReviewTarget;
+    label: string;
+    hint?: string;
+    summary: { total: number; due: number; fresh: number };
+  }[];
+  icon: typeof Cards;
+  emptyLabel: string;
+  onStart: (target: ReviewTarget, mode?: "due" | "all") => void;
+}) {
+  if (rows.length === 0) {
+    return <p className="py-6 text-center text-[14px] text-muted">{emptyLabel}</p>;
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {rows.map((row) => {
+        const hasDue = row.summary.due > 0;
+        return (
+          <li key={`${row.target.kind}-${row.target.kind === "all" ? "all" : row.target.id}`}>
+            <div className="flex items-center gap-3 rounded-card border border-line bg-bg px-3 py-2.5">
+              <span className="tile h-9 w-9 shrink-0" aria-hidden>
+                <Icon size={17} weight="duotone" className="text-accent" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-serif text-[15px] font-semibold">
+                  {row.label}
+                </span>
+                <span className="block truncate text-[12.5px] text-muted">
+                  {row.summary.total} carte{row.summary.total > 1 ? "s" : ""}
+                  {hasDue ? ` · ${row.summary.due} due${row.summary.due > 1 ? "s" : ""}` : " · aucune due"}
+                  {row.summary.fresh > 0 ? ` · ${row.summary.fresh} nouvelle${row.summary.fresh > 1 ? "s" : ""}` : ""}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onStart(row.target, hasDue ? "due" : "all")}
+                className="shrink-0 rounded-rect bg-accent px-3 py-2 text-[13px] font-semibold text-on-accent active:opacity-90"
+              >
+                {hasDue ? "Réviser" : "Tout revoir"}
+              </button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

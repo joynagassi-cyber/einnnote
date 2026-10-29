@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="140" />
+    </filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" />
+      <feColorMatrix type="saturate" values="0" />
+    </filter>
+    <radialGradient id="vignette" cx="50%" cy="45%" r="72%">
+      <stop offset="55%" stop-color="#000" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000" stop-opacity="0.32" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="#061422" />
+  <g filter="url(#soft)">
+    <circle cx="300" cy="260" r="520" fill="#12496E" opacity="0.85" />
+    <circle cx="1260" cy="760" r="520" fill="#0B7A8C" opacity="0.85" />
+    <circle cx="820" cy="900" r="420" fill="#1F3D7A" opacity="0.85" />
+    <circle cx="1500" cy="180" r="380" fill="#0A2A44" opacity="0.85" />
+  </g>
+  <rect width="1600" height="1000" filter="url(#grain)" opacity="0.05" style="mix-blend-mode:overlay" />
+  <rect width="1600" height="1000" fill="url(#vignette)" />
+</svg>

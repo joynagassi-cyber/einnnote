@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-28T22:58:20.263Z",
+        "reason": "Face d’interface assumée : Literata porte le texte et les titres, Inter reste neutre pour le mobilier de l’application (barres, listes, formulaires) — lisible, chiffres tabulaires, et identique dans les 23 thèmes."
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "src/index.css"
+        ],
+        "createdAt": "2026-10-28T22:58:24.941Z",
+        "reason": "Le papier quadrillé est une surface d’écriture choisie par l’utilisateur (data-canvas=grid) : le cas canvas explicitement autorisé."
+      }
+    ]
+  }
+}

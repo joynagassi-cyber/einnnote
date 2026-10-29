@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fil de fer — panneau Affichage et tri</title>
+    <style>
+      :root {
+        --ink: #1c1c1f;
+        --muted: #6b6b74;
+        --line: #d8d8de;
+        --paper: #fbfbfa;
+        --panel: #17171b;
+        --panel-2: #202027;
+        --accent: #7c6cf6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 40px 28px 64px;
+        background: var(--paper);
+        color: var(--ink);
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      h1 { font: 600 26px/1.2 ui-serif, Georgia, serif; margin: 0 0 6px; }
+      .lede { margin: 0 0 34px; color: var(--muted); max-width: 68ch; }
+      .grid { display: flex; flex-wrap: wrap; gap: 56px; align-items: flex-start; }
+      figure { margin: 0; }
+      figcaption {
+        margin-top: 14px; font-size: 12.5px; color: var(--muted); max-width: 34ch;
+      }
+      .frame { position: relative; }
+      .label {
+        position: absolute; font-size: 11px; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--muted); white-space: nowrap;
+      }
+      /* --- déclencheur --- */
+      .trigger {
+        display: inline-flex; align-items: center; gap: 6px;
+        height: 40px; padding: 0 12px; border: 1px solid var(--line);
+        border-radius: 999px; background: #fff; font-size: 13.5px; font-weight: 600;
+      }
+      .trigger small { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+      /* --- popover bureau --- */
+      .popover {
+        margin-top: 8px; width: 312px; border-radius: 16px; padding: 14px;
+        background: var(--panel); color: #f2f2f5;
+        box-shadow: 0 24px 48px -18px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+      }
+      .sec { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+        color: rgba(255,255,255,.42); margin: 14px 0 7px; font-weight: 700; }
+      .sec:first-child { margin-top: 2px; }
+      .views { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+      .tile {
+        border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+        padding: 8px; font-size: 12.5px; font-weight: 600; background: var(--panel-2);
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .tile span { font-weight: 400; font-size: 10.5px; color: rgba(255,255,255,.5); }
+      .tile.on { border-color: var(--accent); background: rgba(124,108,246,.16); }
+      .colrow { display: flex; gap: 6px; align-items: center; }
+      .chip {
+        flex: 1; height: 32px; display: flex; align-items: center; gap: 6px;
+        border-radius: 8px; border: 1px solid rgba(255,255,255,.08);
+        background: var(--panel-2); font-size: 12px; padding: 0 9px;
+      }
+      .chip.on { border-color: var(--accent); }
+      .chip b { margin-left: auto; font-weight: 500; color: rgba(255,255,255,.5); }
+      .stepper {
+        display: flex; align-items: center; height: 32px; border-radius: 8px;
+        border: 1px solid rgba(255,255,255,.08); background: var(--panel-2);
+        font-size: 12px; overflow: hidden;
+      }
+      .stepper i { font-style: normal; width: 26px; text-align: center; color: rgba(255,255,255,.6); }
+      .stepper u { text-decoration: none; padding: 0 6px; border-left: 1px solid rgba(255,255,255,.08);
+        border-right: 1px solid rgba(255,255,255,.08); min-width: 54px; text-align: center; }
+      .hint { font-size: 10.5px; color: rgba(255,255,255,.42); margin: 6px 0 0; }
+      .acc {
+        display: flex; align-items: center; justify-content: space-between;
+        height: 34px; padding: 0 9px; border-radius: 8px;
+        border: 1px solid rgba(255,255,255,.08); background: var(--panel-2); font-size: 12.5px;
+      }
+      .acc em { font-style: normal; color: rgba(255,255,255,.55); font-size: 11.5px; }
+      .rows { margin: 6px 0 0; padding: 0; list-style: none;
+        border: 1px solid rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; }
+      .rows li { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px; font-size: 12px; }
+      .rows li + li { border-top: 1px solid rgba(255,255,255,.06); }
+      .rows .on { background: rgba(124,108,246,.16); }
+      .radio { width: 13px; height: 13px; border-radius: 50%;
+        border: 1px solid rgba(255,255,255,.3); display: grid; place-items: center; font-size: 8px; }
+      .rows .on .radio { border-color: var(--accent); background: var(--accent); color: #fff; }
+      .field {
+        display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 9px;
+        border-radius: 8px; border: 1px solid rgba(255,255,255,.08);
+        background: var(--panel-2); font-size: 12px;
+      }
+      .field u { margin-left: auto; text-decoration: none; color: rgba(255,255,255,.5); }
+      .field.ghost b { font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+        color: rgba(255,255,255,.45); font-weight: 700; }
+      /* --- feuille mobile --- */
+      .phone {
+        width: 268px; height: 470px; border-radius: 28px; border: 1px solid var(--line);
+        background: linear-gradient(#fff 0 62%, #ececf1 62% 100%);
+        position: relative; overflow: hidden;
+      }
+      .sheet {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        background: var(--panel); color: #f2f2f5; border-radius: 20px 20px 0 0;
+        padding: 10px 12px 16px;
+      }
+      .grabber { width: 34px; height: 4px; border-radius: 999px;
+        background: rgba(255,255,255,.25); margin: 0 auto 10px; }
+      .dimmer { position: absolute; inset: 0; background: rgba(0,0,0,.35); }
+      .notes { max-width: 34ch; }
+      .notes h2 { font-size: 14px; margin: 24px 0 8px; }
+      .notes ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+      .notes li { margin-bottom: 5px; }
+      code { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #efeff3; padding: 1px 5px; border-radius: 4px; }
+      @media print { body { padding: 0; } .grid { gap: 28px; } }
+    </style>
+  </head>
+  <body>
+    <h1>Fil de fer — panneau « Affichage et tri »</h1>
+    <p class="lede">
+      Une seule anatomie pour toutes les surfaces (bibliothèque, projets, coffre,
+      carte mentale, questions, corbeille). En bureau : un popover sombre ancré au
+      déclencheur. En mobile : la même chose, en feuille basse. Aucun écran ne
+      réinvente l’ordre des sections — c’est ce qui rend le geste appris une fois
+      valable partout.
+    </p>
+
+    <div class="grid">
+      <figure class="frame">
+        <span class="label" style="top: -18px; left: 0">Bureau · popover</span>
+        <div class="trigger">⠿ Affichage <small>Méthode</small></div>
+
+        <div class="popover">
+          <div class="sec">Vue</div>
+          <div class="views">
+            <div class="tile on">Grille <span>Vignettes côte à côte ✓</span></div>
+            <div class="tile">Liste <span>Une ligne par élément</span></div>
+          </div>
+
+          <div class="sec">Colonnes</div>
+          <div class="colrow">
+            <div class="chip">Automatique <b>2</b></div>
+            <div class="stepper"><i>−</i><u>3 col.</u><i>+</i></div>
+          </div>
+          <p class="hint">Automatique : 2 sur téléphone, 3 en bureau.</p>
+
+          <div class="sec">Grouper par… <span style="float: right; text-transform: none; letter-spacing: 0">Méthode ⌄</span></div>
+          <ul class="rows">
+            <li class="on"><span class="radio">✓</span>Méthode</li>
+            <li><span class="radio"></span>Projet</li>
+            <li><span class="radio"></span>Aucun</li>
+          </ul>
+
+          <div class="sec">Trier par…</div>
+          <div class="field">↑↓ Titre A → Z <u>⌄</u></div>
+          <div class="field ghost" style="margin-top: 6px"><b>Puis</b> Modifié <u>⌄</u></div>
+        </div>
+
+        <figcaption>
+          312 px, rayon 16, ombre portée. Toujours sombre, quel que soit le
+          thème : c’est un instrument posé sur le contenu, pas une page de
+          réglages. Une seule section dépliable — le regroupement — parce que
+          c’est la seule liste qui peut s’allonger.
+        </figcaption>
+      </figure>
+
+      <figure class="frame">
+        <span class="label" style="top: -18px; left: 0">Mobile · feuille basse</span>
+        <div class="phone">
+          <div class="dimmer"></div>
+          <div class="sheet">
+            <div class="grabber"></div>
+            <div class="sec">Vue</div>
+            <div class="views">
+              <div class="tile on">Grille <span>✓</span></div>
+              <div class="tile">Liste <span>—</span></div>
+            </div>
+            <div class="sec">Grouper par… <span style="float: right; text-transform: none; letter-spacing: 0">Aucun ⌄</span></div>
+            <div class="sec">Trier par…</div>
+            <div class="field">↑↓ Modifié récemment <u>⌄</u></div>
+            <div class="field ghost" style="margin-top: 6px"><b>Puis</b> Aucun <u>⌄</u></div>
+          </div>
+        </div>
+        <figcaption>
+          La section « Colonnes » disparaît sur les surfaces qui n’en ont pas
+          (questions, corbeille) au lieu d’afficher un réglage sans effet.
+          Fermeture : appui sur le voile, ou sur le déclencheur.
+        </figcaption>
+      </figure>
+
+      <div class="notes">
+        <h2>Règles d’anatomie</h2>
+        <ul>
+          <li>Ordre invariant : Vue → Colonnes → Grouper → Trier → Puis.</li>
+          <li>La vue active porte une coche <em>et</em> <code>aria-pressed</code>.</li>
+          <li>Le compteur de colonnes est un <code>&lt;output aria-live&gt;</code> : il s’annonce en changeant.</li>
+          <li>Grille et colonnes sont liées : régler le compteur bascule en grille.</li>
+          <li>Le tri secondaire exclut la clé déjà choisie en principal.</li>
+          <li>Priorité des valeurs : défauts de l’écran ⊕ préférences enregistrées.</li>
+          <li>Chaque surface persiste ses réglages seule (<code>engram.display.v1</code>).</li>
+        </ul>
+
+        <h2>Ce que le fil de fer refuse</h2>
+        <ul>
+          <li>Une feuille de réglages plein écran : le contenu doit rester visible.</li>
+          <li>Des sections vides « pour la symétrie ».</li>
+          <li>Un bouton « Appliquer » : chaque choix s’applique en direct.</li>
+          <li>Un tri qui ne réordonne que l’affichage sans le dire : ici le rendu suit l’état.</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>
