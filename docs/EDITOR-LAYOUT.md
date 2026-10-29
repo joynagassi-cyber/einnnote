@@ -155,7 +155,7 @@ canevas »** (trois choix), avec la mention « jamais les notes ».
 | --- | --- |
 | `tsc` | 0 erreur |
 | `eslint src` | 0 erreur (2 avertissements préexistants) |
-| `vitest` | 767/767 (dont `src/test/canevas.test.tsx` : forme libre, poignée `+`, habillage, barre repliée, tableau blanc) |
+| `vitest` | 771/771 (dont `src/test/canevas.test.tsx` : forme libre, poignée `+`, habillage, redimensionnement, fond unique, barre repliée, tableau blanc) |
 | `vite build` | ✓ |
 
 Tests qui tiennent cette page :
@@ -262,9 +262,55 @@ un vault, et qui garde son propre espace.
 | Une poignée `+` d’une forme sélectionnée (quatre côtés) | **relie** une nouvelle forme du côté touché |
 | Toucher un **trait** | ouvre son habillage : couleur, épaisseur, pointillé, six pointes |
 | Toucher une **forme** | ouvre son habillage : remplissage, encre, contour (avec épaisseur), texture, surlignage |
-| Poignée de la barre | replie/déplie tous les outils |
+| Chevron au bord gauche | replie/déplie la barre : replié, il ne reste que lui |
 | Pincement / molette | dézoom jusqu’à **0,08** — le canevas n’a pas de limite visible |
 | Plein cadre | `data-canvas` : ni bordure, ni ombre, ni largeur maximale |
+
+### Ce que la barre contient, et où elle vit
+
+| Décision | Détail |
+| --- | --- |
+| **Position** | un rail vertical collé au **bord gauche** (`left: var(--rail)`), du bas de l’en-tête au bas de l’écran |
+| **Replié** | une poignée de 24 px, avec un chevron `›` — rien d’autre |
+| **Déplié** | 308 px : formes, aimant, style, puis taille, remplissage, texte, contour, surlignage, texture ; et pour un trait : couleur, épaisseur, pointillé, pointe |
+| **Pourquoi pas en bas** | une barre basse mangeait la moitié de la hauteur d’un téléphone et recouvrait le canevas qu’on venait dessiner |
+| **Un seul contrôle de repli** | la poignée. Un second bouton « fermer » dans l’en-tête du panneau aurait fait deux gestes pour une action |
+| **Doublons retirés de l’en-tête** | « Style » (il est dans la barre) et la capsule « Nœuds / Profondeur » avec son « Plan » : elle décrivait une liste qu’on ne voyait pas sur le canevas |
+
+### Redimensionner
+
+Quatre **coins** tirent la forme ; le coin opposé reste immobile. Le glissement
+est divisé par le zoom du canevas, sinon redimensionner à 50 % doublerait la
+forme. Bornes : 64 × 36 au plus petit (en deçà le texte n’existe plus),
+520 × 360 au plus grand. Deux **pas de 16 px** dans la barre permettent d’écrire
+la taille exacte — 16 parce que c’est la grille de l’aimant : deux formes
+ajustées au pas s’alignent d’elles-mêmes.
+
+La taille est écrite dans le nœud (`w`, `h`) et **une seule** fonction la rend,
+`nodeSize` : le dessin et l’accroche des traits passent par elle. Deux calculs
+différents donneraient des flèches qui s’arrêtent à quelques pixels du bord.
+
+### Couleurs : trois intentions, trois entrées
+
+| Entrée | Sens |
+| --- | --- |
+| **Automatique** | rien n’est écrit : la forme suit `var(--accent)` du thème |
+| **Sans couleur** | `transparent` : la forme perd son fond et ne garde que son contour |
+| **Jetons du thème** | accent, accent doux, encre, muet, papier, papier ombré, surlignage, alerte — le contraste est déjà garanti |
+| **Nuancier libre** | le sélecteur du système, pour une teinte qu’aucun thème ne connaît |
+
+La pastille du nuancier affiche l’arc-en-ciel quand aucune couleur libre n’est
+posée, et la couleur choisie ensuite. « Automatique » est mi-thème mi-vide,
+« Sans couleur » est barré : on les distingue sans lire l’infobulle.
+
+### Un seul fond
+
+La page ne peint **plus** de motif. C’est `<Background>` de React Flow qui
+dessine la grille, donc elle suit le déplacement et le zoom. Deux couches
+donnaient deux réseaux de pointillés qui glissaient à des vitesses
+différentes — le « double fond » visible dès qu’on bougeait le canevas. La
+préférence **Fond du canevas** (pointillé / ligné / quadrillé / uni) choisit
+maintenant le motif de `<Background>` lui-même, dans les trois graphes.
 
 **Défaut de couleur = accent du thème.** `NodePaint` et `EdgePaint` sont
 **optionnels** : un champ absent suit `var(--accent)`. Changer d’accent recolore
