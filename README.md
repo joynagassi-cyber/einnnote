@@ -6,8 +6,9 @@ cahier des charges **v3.0** et les maquettes mobiles « papier calme ».
 et surligneurs ;
 thème à accent personnalisable dont les contrastes sont mesurés.
 
-Quatre méthodes — **Outline, Cornell, carte mentale, Zettelkasten** — puis des
-cartes de rappel revues à intervalles espacés. Aucun compte, aucun serveur :
+Cinq méthodes — **Outline, Cornell, carte mentale, Zettelkasten, tableau blanc**
+— puis des cartes de rappel revues à intervalles espacés. L’éditeur colore le
+texte et pose des tableaux, dans chaque méthode. Aucun compte, aucun serveur :
 tout reste dans le stockage local de l’appareil.
 
 **Synchronisation optionnelle** (`/settings/cloud`, 10 $/mois) : un backend
@@ -19,13 +20,21 @@ la mise en service : [`docs/CLOUD.md`](docs/CLOUD.md).
 
 ## Lancer
 
+Le dépôt est géré avec **pnpm** (`pnpm-lock.yaml`) : `npm install` casse
+l’installation.
+
 ```bash
-npm install
-npm run dev      # http://localhost:8080
-npm run build    # build de production
-npm test         # tests d’écran (Vitest + Testing Library)
-npm run lint
+npx --yes pnpm@10 install --frozen-lockfile
+npx vite --host 0.0.0.0 --port 5173 --strictPort   # http://localhost:5173
+npx tsc -p tsconfig.app.json --noEmit              # 0 erreur attendue
+npx eslint src                                     # 0 erreur (2 avertissements connus)
+npx vitest run                                     # 794 tests, 73 fichiers
+npx vite build
 ```
+
+Aucun `.env.local` n’est nécessaire : sans les deux valeurs cloud, l’application
+reste **entièrement locale**. Reprise après une pause, ordre de lecture et angle
+mort connu : [`docs/REPRISE.md`](docs/REPRISE.md).
 
 ## Écrans
 

@@ -5,11 +5,13 @@
 - `npx tsc -p tsconfig.app.json --noEmit` : 0 erreur
   (**attention** : `npx tsc --noEmit` à la racine ne vérifie rien, le
   `tsconfig.json` racine n’a que des `references` et `"files": []`)
-- `npm run lint` : 0 erreur, 0 avertissement
-- `npx vitest run` : **110 tests** (9 fichiers) — 11 moteur d’accent, 8 presets
-  CSS↔TS, 10 pont éditeur, 12 filtres, 10 stockage, 10 export Markdown,
-  14 projets et migration, 4 `ErrorBoundary`, 29 parcours d’écran
-- `npm run build` : ✓ — 1,21 Mo de JS (361 kB gzip) et 143 kB de CSS
+- `npx eslint src` : 0 erreur, **2 avertissements connus** (`react-refresh`,
+  `src/lib/graph/edges.tsx`)
+- `npx vitest run` : **794 tests** (73 fichiers) — moteur d’accent, presets
+  CSS↔TS, pont éditeur Quill, tableaux, couleur de texte, filtres, stockage,
+  export Markdown, projets et migration, `ErrorBoundary`, parcours d’écran
+  (bibliothèque, éditeur, corbeille, canevas, révision, apparence)
+- `npx vite build` : ✓
 
 Légende : **[Établi]** vérifié dans le code ou par un test · **[Probable]**
 déduit du code mais non exercé · **[Incertain]** dépend d’une décision produit
@@ -39,7 +41,8 @@ utilité de 1 (confort) à 5 (sans quoi le produit ne tient pas), effort S/M/L/X
 | --- | --- | --- | --- | --- |
 | Listes sémantiques (`<ul>`, `<ol>`) | ✅ **fait** — listes natives de Quill | 3 | — | L’ancrage des questions tient à l’identifiant posé sur la **ligne**, pas à l’absence de nœuds de liste : le HTML exporté est standard. |
 | Images et pièces jointes | absent | 4 | L | Un cours se prend souvent en photo. Demande du stockage (IndexedDB) et une politique de compression. |
-| Tableaux, code multi-lignes, maths | absent | 2 | M | Rare dans des notes de cours littéraires ; les maths demandent KaTeX. |
+| **Tableaux** | ✅ **fait** (tour 42) — 4 tailles, ligne au-dessus/en dessous, colonne à gauche/droite, supprimer ligne/colonne/tableau, filets de la page, pont Delta ↔ blocs | 2 | — | Les gestes sont grisés hors tableau ; une table Quill reste une op par rangée dans le Delta. |
+| Code multi-lignes, maths | absent | 2 | M | Rare dans des notes littéraires ; les maths demandent KaTeX. |
 | Réorganisation par poignée | 🟡 partiel — monter / descendre / dupliquer / supprimer existent (barre, palette) ; le glissement à la souris reste à faire | 3 | M | Le geste direct manque encore, mais aucune opération de déplacement n’est absente. |
 | Rechercher / remplacer | ✅ **fait** — `Ctrl/⌘ F`, compteur `3 / 7`, remplacer un ou tout | 3 | — | La recherche sélectionne l’occurrence au lieu de décorer le texte. |
 | Plan de la note (sommaire) | absent | 2 | S | Les titres existent ; une liste cliquable latérale suffirait. |
