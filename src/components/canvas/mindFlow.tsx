@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Handle, Position, useStore, type NodeProps } from "@xyflow/react";
 import { PencilSimple, Plus } from "@phosphor-icons/react";
 import type { MindNode } from "@/types";
@@ -81,6 +81,13 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
      canevas. Sans diviser par le zoom, redimensionner à 50 % donnerait une
      forme deux fois plus grande que le geste. */
   const zoom = useStore((state) => state.transform[2]) || 1;
+  /* Le geste écrit dans le magasin, mais **au rythme de l’écran** : un
+     `pointermove` peut arriver cent fois par seconde, et le magasin enregistre
+     son état à chaque écriture. Une écriture par image suffit à ce que l’œil
+     voie la forme et ses traits suivre le doigt. */
+  const pending = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const frame = useRef(0);
+  const [live, setLive] = useState<{ w: number; h: number } | null>(null);
   const drag = useRef<{
     x: number;
     y: number;
@@ -94,7 +101,10 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
     event.stopPropagation();
     event.preventDefault();
     drag.current = { x: event.clientX, y: event.clientY, w, h, px: pos.x, py: pos.y };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    /* `?.` : tous les navigateurs ne l’ont pas, et les tests non plus. Sans
+       capture, le geste marche encore — il s’arrête simplement si le doigt
+       sort du bouton. */
+    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const move = (key: string) => (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -125,14 +135,32 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
       w: clamp(nw, MIN_SIZE.w, MAX_SIZE.w),
       h: clamp(nh, MIN_SIZE.h, MAX_SIZE.h),
     };
-    if (size.w === from.w && size.h === from.h) return;
-    onResize(id, size);
+
+    /* La forme suit le doigt immédiatement (état local), le magasin suit à
+       l’image suivante : les traits, eux, se recalculent depuis le magasin. */
+    setLive({ w: size.w, h: size.h });
+    pending.current = size;
+    if (!frame.current) {
+      frame.current = requestAnimationFrame(() => {
+        frame.current = 0;
+        if (pending.current) onResize(id, pending.current);
+      });
+    }
   };
 
   const end = (event: React.PointerEvent<HTMLButtonElement>) => {
     drag.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    setLive(null);
+    if (frame.current) {
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    }
+    if (pending.current) {
+      onResize(id, pending.current);
+      pending.current = null;
+    }
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
     }
   };
 
@@ -156,8 +184,8 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
   /* Le remplissage et le trait passent en style : ils dépendent du nœud, pas
      d’une classe. `backgroundImage` porte la texture par-dessus la couleur. */
   const surface = {
-    width: w,
-    height: h,
+    width: live?.w ?? w,
+    height: live?.h ?? h,
     background: look.fill,
     backgroundImage: texture.image,
     backgroundSize: texture.size,
@@ -258,7 +286,12 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
               onPointerUp={end}
               onPointerCancel={end}
               className={cn(
-                "nodrag absolute z-10 h-2.5 w-2.5 rounded-[2px] border border-accent bg-surface",
+                /* Un carré de 12 px se voit ; la zone qu’on peut saisir fait
+                   12 px de plus de chaque côté, sinon on rate la poignée au
+                   doigt. Le pseudo-élément appartient au bouton : il étend la
+                   cible sans rien ajouter au dessin. */
+                "nodrag absolute z-10 h-3 w-3 rounded-[2px] border border-accent bg-surface",
+                "after:absolute after:-inset-[7px] after:content-['']",
                 corner.at,
               )}
               style={{ cursor: corner.cursor, touchAction: "none" }}

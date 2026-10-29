@@ -43,10 +43,15 @@ export const MAX_SIZE = { w: 520, h: 360 } as const;
 export const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, Math.round(value)));
 
-/** La taille « naturelle » d’une forme, quand personne ne l’a redimensionnée. */
+/**
+ * La taille « naturelle » d’une forme, quand personne ne l’a redimensionnée.
+ *
+ * Seul le **cercle** de tête est plus grand que les autres : c’est le centre de
+ * la carte. Une forme libre — un hexagone, une pilule posée à la main — garde la
+ * taille de sa forme, même sans parent : elle n’est pas une racine pour autant.
+ */
 function naturalSize(shape: MindNode["shape"], depth: number) {
-  if (depth === 0) return { w: 112, h: 112 };
-  if (shape === "circle") return { w: 80, h: 80 };
+  if (shape === "circle") return depth === 0 ? { w: 112, h: 112 } : { w: 80, h: 80 };
   if (shape === "square") return { w: 80, h: 80 };
   if (shape === "diamond") return { w: 124, h: 64 };
   if (shape === "pill") return { w: 148, h: 48 };

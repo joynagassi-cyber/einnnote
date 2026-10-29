@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "@/App";
 import { demoContent } from "@/test/fixtures";
@@ -246,5 +246,88 @@ describe("Fond du canevas", () => {
     expect(canvasVariant("ruled")).toBe(BackgroundVariant.Lines);
     expect(canvasVariant("grid")).toBe(BackgroundVariant.Cross);
     expect(canvasVariant("blank")).toBeNull();
+  });
+});
+
+describe("Le geste de redimensionnement", () => {
+  it("tire un coin et écrit la nouvelle taille", async () => {
+    const user = userEvent.setup();
+    open(`/mindmap/${boardId}`);
+    await waitFor(() =>
+      expect(screen.getAllByText("Système nerveux").length).toBeGreaterThan(0),
+    );
+
+    /* On pose une forme libre : elle est sélectionnée d’office, donc ses quatre
+       coins sont là. (Sélectionner un nœud existant demanderait un vrai clic
+       dans React Flow, que jsdom ne sait pas simuler.) */
+    await user.click(
+      await screen.findByRole("button", { name: "Déplier les outils du canevas" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Pilule" }));
+
+    const created = useContentStore
+      .getState()
+      .mindmaps.find((m) => m.id === boardId)!
+      .nodes.at(-1)!;
+
+    /* jsdom ne fait pas de mise en page : React Flow croit la forme hors champ
+       et la marque `visibility: hidden`. Les requêtes par rôle l’écartent donc ;
+       on vise la poignée par son libellé, qui est bien dans le document. */
+    const corner = await screen.findByLabelText(
+      "Redimensionner la forme, coin bas droit",
+    );
+
+    fireEvent.pointerDown(corner, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(corner, { clientX: 164, clientY: 132, pointerId: 1 });
+    fireEvent.pointerUp(corner, { clientX: 164, clientY: 132, pointerId: 1 });
+
+    await waitFor(() => {
+      const after = useContentStore
+        .getState()
+        .mindmaps.find((m) => m.id === boardId)!
+        .nodes.find((n) => n.id === created.id)!;
+      /* Le zoom vaut 1 sous jsdom : +64 et +32 pixels d’écran deviennent +64
+         et +32 de canevas. Une pilule libre part de 148 × 48. */
+      expect(after.w).toBe(148 + 64);
+      expect(after.h).toBe(48 + 32);
+      // le coin haut gauche ne bouge pas : x et y restent
+      expect(after.x).toBe(created.x);
+      expect(after.y).toBe(created.y);
+    });
+  });
+
+  it("écrit la taille au pas de 16 px, et sait revenir à la naturelle", async () => {
+    const user = userEvent.setup();
+    open(`/mindmap/${boardId}`);
+    await waitFor(() =>
+      expect(screen.getAllByText("Système nerveux").length).toBeGreaterThan(0),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Déplier les outils du canevas" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Pilule" }));
+    const created = useContentStore
+      .getState()
+      .mindmaps.find((m) => m.id === boardId)!
+      .nodes.at(-1)!;
+
+    await user.click(screen.getByRole("button", { name: "Augmenter la largeur" }));
+    await waitFor(() => {
+      const after = useContentStore
+        .getState()
+        .mindmaps.find((m) => m.id === boardId)!
+        .nodes.find((n) => n.id === created.id)!;
+      expect(after.w).toBe(148 + 16);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Taille naturelle" }));
+    await waitFor(() => {
+      const after = useContentStore
+        .getState()
+        .mindmaps.find((m) => m.id === boardId)!
+        .nodes.find((n) => n.id === created.id)!;
+      expect(after.w).toBeUndefined();
+      expect(after.h).toBeUndefined();
+    });
   });
 });
