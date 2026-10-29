@@ -1186,12 +1186,9 @@
     overflow: hidden;
   }
 
-  /* Un canevas n’est pas une feuille : pas de bordure, pas d’ombre portée, pas
-     de largeur maximale. Le cadre d’une page se voit à ses marges ; un canevas
-     n’en a pas — c’est ce qui donne le sentiment qu’il continue au-delà de
-     l’écran. Le sélecteur est doublé pour passer devant les règles de `.screen`
-     en bureau, sans `!important`. */
-  .screen.screen-canvas,
+  /* Un canevas n’est pas une feuille : ni bordure, ni ombre, ni largeur
+     maximale. Voir le bloc « Les canevas, plein cadre » en fin de feuille —
+     il doit passer **après** les règles du fond « verre ». */
   .screen.screen-editor {
     max-width: none;
     border-inline: 0;
@@ -3176,4 +3173,36 @@
 .tag-menu-empty b {
   color: var(--ink);
   font-weight: 600;
+}
+
+/* ============================================================
+   Les canevas, plein cadre et à un seul fond
+
+   Deux défauts corrigés ici, et ils n’en font qu’un :
+
+   1. **Le cadre.** Une page a des marges et une ombre ; un canevas n’en a
+      pas. Il prend toute la largeur disponible à droite du rail, de haut en
+      bas, et rien ne vient dessiner un bord entre lui et la fenêtre.
+   2. **Le fond.** La page ne peint plus de motif : c’est `<Background>` de
+      React Flow qui dessine la grille, donc elle suit le déplacement et le
+      zoom. L’écran, lui, reste opaque — sinon l’image de fond du « verre »
+      apparaîtrait derrière la grille, et l’on verrait deux réseaux de
+      pointillés glisser à des vitesses différentes (le défaut signalé).
+   ============================================================ */
+.screen.screen-canvas {
+  max-width: none;
+  border-inline: 0;
+  box-shadow: none;
+  background: var(--bg);
+}
+
+:root[data-wall]:not([data-wall="none"]) .screen.screen-canvas {
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Le canevas lui-même : ni bord, ni marge, ni fond propre. */
+.screen-canvas .react-flow {
+  background: transparent;
 }

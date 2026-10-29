@@ -37,6 +37,10 @@ export interface PaintChoice {
  */
 export const PAINT_COLORS: PaintChoice[] = [
   { value: null, label: "Automatique", swatch: "var(--accent)" },
+  /* « Sans couleur » n’est pas « aucune préférence » : c’est un choix — la
+     forme perd son fond et ne garde que son contour. Deux idées différentes,
+     donc deux entrées : `null` suit le thème, `transparent` s’en retire. */
+  { value: "transparent", label: "Sans couleur", swatch: "transparent" },
   { value: "var(--accent)", label: "Accent", swatch: "var(--accent)" },
   { value: "var(--accent-soft)", label: "Accent doux", swatch: "var(--accent-soft)" },
   { value: "var(--ink)", label: "Encre", swatch: "var(--ink)" },
@@ -167,6 +171,23 @@ export function edgeLook(
        dessine une, sinon rien. Un choix explicite l’emporte. */
     arrow: paint.arrow ?? (fallback.arrow ? "arrow" : "none"),
   };
+}
+
+/**
+ * Une couleur libre (choisie au sélecteur du système) n’est pas un jeton : elle
+ * ne suivra pas le thème, et c’est voulu. On la reconnaît à sa forme.
+ */
+export function isFreeColor(value: string | undefined): boolean {
+  return Boolean(value && /^#[0-9a-f]{3,8}$/i.test(value));
+}
+
+/** La couleur à préremplir dans le sélecteur libre, quand on en ouvre un. */
+export function seedColor(value: string | undefined): string {
+  if (isFreeColor(value)) return value!;
+  if (!value || value === "transparent") return "#4f6bed";
+  /* Un jeton du thème : on ne peut pas le lire depuis ici sans le DOM, donc on
+     part d’une teinte neutre plutôt que de mentir sur la valeur affichée. */
+  return "#4f6bed";
 }
 
 /** Un nœud « habillé » ? Sert à afficher « Automatique » quand rien n’est posé. */

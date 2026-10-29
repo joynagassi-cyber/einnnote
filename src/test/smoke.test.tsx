@@ -446,7 +446,12 @@ describe("Einnote — écrans", () => {
       .mindmaps.find((map) => map.id === "m-systeme")!;
     const texts = before.nodes.map((node) => node.text).sort();
 
-    await user.click(screen.getByRole("button", { name: "Styles de graphe" }));
+    /* Le style n’a plus de bouton dans l’en-tête : c’est une option du
+       canevas, donc il vit dans la barre latérale — comme les autres. */
+    await user.click(
+      screen.getByRole("button", { name: "Déplier les outils du canevas" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Style actuel/ }));
     await user.click(screen.getByRole("button", { name: "Style Flux" }));
 
     const after = useContentStore

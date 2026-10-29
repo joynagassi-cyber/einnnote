@@ -1,10 +1,17 @@
-import { Handle, Position, type Edge, type Node, type NodeProps } from "@xyflow/react";
+import { useRef } from "react";
+import { Handle, Position, useStore, type NodeProps } from "@xyflow/react";
 import { PencilSimple, Plus } from "@phosphor-icons/react";
-import type { EdgeStyle, MindMap as MindMapType, MindNode } from "@/types";
+import type { MindNode } from "@/types";
 import type { MindDirection } from "@/stores/useContentStore";
-import { edgeLook, nodeLook, textureBackground } from "@/lib/graph/paint";
-import type { GraphEdgeKind, GraphStyle } from "@/lib/graph/styles";
+import { nodeLook, textureBackground } from "@/lib/graph/paint";
 import { cn } from "@/lib/utils";
+import {
+  HIDDEN,
+  MAX_SIZE,
+  MIN_SIZE,
+  clamp,
+  type FlowNode,
+} from "@/components/canvas/flowData";
 
 /**
  * Le dessin d’une carte mentale : la conversion des nœuds en graphe, et la
@@ -16,151 +23,6 @@ import { cn } from "@/lib/utils";
  * implémentation du nœud, donc : un habillage choisi dans l’une se voit dans
  * l’autre, à l’identique.
  */
-
-export type FlowNodeData = {
-  text: string;
-  shape: MindNode["shape"];
-  root: boolean;
-  depth: number;
-  sel: boolean;
-  paint: MindNode["paint"];
-  onAdd: (id: string, direction: MindDirection) => void;
-  onOpen: (id: string) => void;
-};
-
-/* Taille approchée d’un nœud : sert à choisir par quel côté l’arête entre et
-   sort, comme le font les exemples « floating edges » de React Flow. Sans cela,
-   une carte radiale dessine des boucles qui passent sous les nœuds. */
-function nodeSize(shape: MindNode["shape"], depth: number) {
-  if (depth === 0) return { w: 112, h: 112 };
-  if (shape === "circle") return { w: 80, h: 80 };
-  if (shape === "square") return { w: 80, h: 80 };
-  if (shape === "diamond") return { w: 124, h: 64 };
-  if (shape === "pill") return { w: 148, h: 48 };
-  if (shape === "hex") return { w: 136, h: 108 };
-  return { w: depth === 1 ? 136 : 120, h: depth === 1 ? 52 : 44 };
-}
-
-type Side = "top" | "right" | "bottom" | "left";
-
-function sidesFor(
-  from: { x: number; y: number; w: number; h: number },
-  to: { x: number; y: number; w: number; h: number },
-): { source: Side; target: Side } {
-  const dx = to.x + to.w / 2 - (from.x + from.w / 2);
-  const dy = to.y + to.h / 2 - (from.y + from.h / 2);
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx >= 0
-      ? { source: "right", target: "left" }
-      : { source: "left", target: "right" };
-  }
-  return dy >= 0
-    ? { source: "bottom", target: "top" }
-    : { source: "top", target: "bottom" };
-}
-export type FlowNode = Node<FlowNodeData, "engram">;
-
-/** Les arêtes choisissent leur côté : les poignées ne doivent pas se voir. */
-const HIDDEN = { opacity: 0, width: 6, height: 6 } as const;
-
-/** Dessin du trait quand aucun style de graphe n’est choisi sur la carte. */
-const EDGE_KIND: Record<EdgeStyle, GraphEdgeKind> = {
-  curved: "bezier",
-  step: "smoothstep",
-  straight: "straight",
-};
-
-/**
- * Toutes les arêtes de la carte passent par `EinnoteEdge` : un seul composant
- * sait dessiner les cinq familles de trait et accrocher le trait au bord réel
- * des nœuds. Les types intégrés de React Flow ne connaissent que des poignées
- * fixes, ce qui faisait disparaître les liens dès qu’un nœud changeait de
- * forme.
- */
-function edgeKindFor(style: GraphStyle | null, fallback: EdgeStyle): GraphEdgeKind {
-  return style ? style.edge : EDGE_KIND[fallback];
-}
-
-export function toFlow(map: MindMapType, handlers: {
-  onAdd: (id: string, direction: MindDirection) => void;
-  onOpen: (id: string) => void;
-}, selId: string | null = null, style: GraphStyle | null = null): { nodes: FlowNode[]; edges: Edge[] } {
-  const depthOfNode = new Map<string, number>();
-  const byId = new Map(map.nodes.map((node) => [node.id, node]));
-  const walkDepth = (node: MindNode, guard = new Set<string>()): number => {
-    if (!node.parentId || guard.has(node.id)) return 0;
-    const known = depthOfNode.get(node.id);
-    if (known !== undefined) return known;
-    guard.add(node.id);
-    const parent = byId.get(node.parentId);
-    const depth = parent ? walkDepth(parent, guard) + 1 : 0;
-    depthOfNode.set(node.id, depth);
-    return depth;
-  };
-  map.nodes.forEach((node) => walkDepth(node));
-
-  return {
-    nodes: map.nodes.map((node) => ({
-      id: node.id,
-      type: "engram" as const,
-      position: { x: node.x, y: node.y },
-      data: {
-        text: node.text,
-        shape: node.shape,
-        root: !node.parentId,
-        depth: depthOfNode.get(node.id) ?? 0,
-        sel: node.id === selId,
-        paint: node.paint,
-        onAdd: handlers.onAdd,
-        onOpen: handlers.onOpen,
-      },
-    })),
-    edges: map.edges.map((edge) => {
-      const from = byId.get(edge.source);
-      const to = byId.get(edge.target);
-      let handles: { sourceHandle?: string; targetHandle?: string } = {};
-      if (from && to) {
-        const fromDepth = depthOfNode.get(from.id) ?? 0;
-        const toDepth = depthOfNode.get(to.id) ?? 0;
-        const a = { x: from.x, y: from.y, ...nodeSize(from.shape, fromDepth) };
-        const b = { x: to.x, y: to.y, ...nodeSize(to.shape, toDepth) };
-        const sides = sidesFor(a, b);
-        handles = {
-          sourceHandle: `s-${sides.source}`,
-          targetHandle: `t-${sides.target}`,
-        };
-      }
-      const look = edgeLook(edge, {
-        width: style?.weight ?? 2.5,
-        dashed: Boolean(style?.dashed),
-        arrow: style ? Boolean(style.arrow) : map.edgeStyle === "step",
-      });
-      return {
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        ...handles,
-        type: "engram",
-        /* Le trait porte son habillage dans `data` : le composant d’arête s’en
-           sert pour la couleur, l’épaisseur et le pointillé. Sans cela, un
-           trait personnalisé reviendrait à l’accent au premier rendu. */
-        style: {
-          stroke: look.color,
-          strokeWidth: look.width,
-          strokeDasharray: look.dashed ? "6 5" : undefined,
-        },
-        data: {
-          kind: edgeKindFor(style, map.edgeStyle),
-          echo: false,
-          weight: look.width,
-          dashed: look.dashed,
-          color: look.color,
-          arrow: look.arrow,
-        },
-      };
-    }),
-  };
-}
 
 /** Les deux formes à angles : elles demandent un tracé, pas un `border`. */
 const POLY: Partial<Record<MindNode["shape"], string>> = {
@@ -180,40 +42,122 @@ const SIDE_OF: Record<MindDirection, { x: string; y: string; label: string }> = 
   left: { x: "-left-3", y: "top-1/2 -translate-y-1/2", label: "à gauche" },
 };
 
+/** Les quatre coins d’une forme : chacun tire dans deux directions. */
+const CORNERS: {
+  key: "nw" | "ne" | "sw" | "se";
+  at: string;
+  cursor: string;
+  label: string;
+}[] = [
+  { key: "nw", at: "-left-1.5 -top-1.5", cursor: "nwse-resize", label: "coin haut gauche" },
+  { key: "ne", at: "-right-1.5 -top-1.5", cursor: "nesw-resize", label: "coin haut droit" },
+  { key: "sw", at: "-left-1.5 -bottom-1.5", cursor: "nesw-resize", label: "coin bas gauche" },
+  { key: "se", at: "-right-1.5 -bottom-1.5", cursor: "nwse-resize", label: "coin bas droit" },
+];
+
 /**
  * Une forme de la carte.
  *
- * Trois choses s’y décident :
+ * Quatre choses s’y décident :
  * 1. **l’habillage** vient de `nodeLook` : couleur, encre, contour, épaisseur,
  *    surlignage, texture — et, quand rien n’est choisi, l’accent du thème ;
  * 2. **les quatre poignées `+`** n’apparaissent que sur la forme sélectionnée et
  *    posent une branche du côté touché : c’est le seul geste qui relie ;
- * 3. les formes à angles (losange, hexagone) sont tracées en SVG, car un
+ * 3. **les quatre coins** la redimensionnent. Le coin opposé reste immobile :
+ *    c’est ce qu’on attend d’une poignée, et ce qui évite de « pousser » la
+ *    forme quand on la tire vers l’ouest ou le nord ;
+ * 4. les formes à angles (losange, hexagone) sont tracées en SVG, car un
  *    `border` sur un `clip-path` se fait couper aux pointes.
  */
 export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
-  const { text, shape, root, depth, sel, paint, onAdd, onOpen } = data;
+  const { text, shape, root, depth, sel, paint, onAdd, onOpen, onResize } = data;
+  const w = data.w;
+  const h = data.h;
+  const pos = data.pos;
   const look = nodeLook({ paint }, root);
   const texture = textureBackground(look.texture, look.border);
 
-  const base =
-    "relative flex items-center justify-center text-center font-medium leading-[19px] transition-colors";
+  /* Le glissement arrive en pixels d’écran ; la taille vit en coordonnées du
+     canevas. Sans diviser par le zoom, redimensionner à 50 % donnerait une
+     forme deux fois plus grande que le geste. */
+  const zoom = useStore((state) => state.transform[2]) || 1;
+  const drag = useRef<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    px: number;
+    py: number;
+  } | null>(null);
 
+  const begin = (key: string) => (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    drag.current = { x: event.clientX, y: event.clientY, w, h, px: pos.x, py: pos.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const move = (key: string) => (event: React.PointerEvent<HTMLButtonElement>) => {
+    const from = drag.current;
+    if (!from) return;
+    const dx = (event.clientX - from.x) / zoom;
+    const dy = (event.clientY - from.y) / zoom;
+
+    let nw = from.w;
+    let nh = from.h;
+    let nx = from.px;
+    let ny = from.py;
+
+    if (key.includes("e")) nw = from.w + dx;
+    if (key.includes("w")) {
+      nw = from.w - dx;
+      nx = from.px + (from.w - clamp(nw, MIN_SIZE.w, MAX_SIZE.w));
+    }
+    if (key.includes("s")) nh = from.h + dy;
+    if (key.includes("n")) {
+      nh = from.h - dy;
+      ny = from.py + (from.h - clamp(nh, MIN_SIZE.h, MAX_SIZE.h));
+    }
+
+    const size = {
+      x: Math.round(nx),
+      y: Math.round(ny),
+      w: clamp(nw, MIN_SIZE.w, MAX_SIZE.w),
+      h: clamp(nh, MIN_SIZE.h, MAX_SIZE.h),
+    };
+    if (size.w === from.w && size.h === from.h) return;
+    onResize(id, size);
+  };
+
+  const end = (event: React.PointerEvent<HTMLButtonElement>) => {
+    drag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  /* La classe porte le **type** de forme (arrondi, typographie, rembourrage) ;
+     la taille, elle, est écrite en style — c’est la seule façon qu’elle
+     s’accorde au pixel avec l’accroche des traits. */
   const sizing = cn(
-    base,
-    shape === "circle" && (root ? "h-28 w-28 rounded-full p-3 font-serif text-[15px] font-semibold" : "h-20 w-20 rounded-full p-2"),
-    shape === "rect" && depth <= 1 && "min-h-[52px] w-[136px] gap-1.5 rounded-rect px-3 py-2 text-[14.5px]",
-    shape === "rect" && depth > 1 && "min-h-10 w-[120px] rounded-rect px-2.5 py-1.5 text-[13px] leading-[17px]",
-    shape === "square" && "h-20 w-20 rounded-rect p-2",
-    shape === "pill" && "h-12 w-[148px] rounded-full px-4 text-[13.5px]",
-    shape === "diamond" && "h-16 w-[124px] p-2 text-[13px] leading-[17px]",
-    shape === "hex" && "h-[108px] w-[136px] p-3 text-[13px] leading-[17px]",
+    "relative flex items-center justify-center text-center font-medium leading-[19px] transition-colors",
+    shape === "circle" && "rounded-full p-2",
+    shape === "circle" && root && "p-3 font-serif text-[15px] font-semibold",
+    shape === "rect" && "rounded-rect px-3 py-2",
+    shape === "rect" && depth <= 1 && "gap-1.5 text-[14.5px]",
+    shape === "rect" && depth > 1 && "px-2.5 py-1.5 text-[13px] leading-[17px]",
+    shape === "square" && "rounded-rect p-2",
+    shape === "pill" && "rounded-full px-4 text-[13.5px]",
+    shape === "diamond" && "p-2 text-[13px] leading-[17px]",
+    shape === "hex" && "p-3 text-[13px] leading-[17px]",
     !root && shape !== "circle" && "shadow-[0_1px_2px_rgba(0,0,0,.05)]",
   );
 
   /* Le remplissage et le trait passent en style : ils dépendent du nœud, pas
      d’une classe. `backgroundImage` porte la texture par-dessus la couleur. */
   const surface = {
+    width: w,
+    height: h,
     background: look.fill,
     backgroundImage: texture.image,
     backgroundSize: texture.size,
@@ -290,7 +234,7 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
                 onAdd(id, direction);
               }}
               className={cn(
-                "absolute flex h-6 w-6 items-center justify-center rounded-full border border-accent bg-surface text-accent shadow-float",
+                "nodrag absolute flex h-6 w-6 items-center justify-center rounded-full border border-accent bg-surface text-accent shadow-float",
                 "opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
                 sel && "opacity-100",
                 SIDE_OF[direction].x,
@@ -300,6 +244,27 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
               <Plus size={13} weight="bold" />
             </button>
           ))}
+
+          {/* Les quatre coins : redimensionner. `nodrag` empêche React Flow de
+              lire le geste comme un déplacement du nœud. */}
+          {CORNERS.map((corner) => (
+            <button
+              key={corner.key}
+              type="button"
+              aria-label={`Redimensionner la forme, ${corner.label}`}
+              title="Tirer pour redimensionner"
+              onPointerDown={begin(corner.key)}
+              onPointerMove={move(corner.key)}
+              onPointerUp={end}
+              onPointerCancel={end}
+              className={cn(
+                "nodrag absolute z-10 h-2.5 w-2.5 rounded-[2px] border border-accent bg-surface",
+                corner.at,
+              )}
+              style={{ cursor: corner.cursor, touchAction: "none" }}
+            />
+          ))}
+
           <button
             type="button"
             aria-label="Modifier la forme"
@@ -308,7 +273,7 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
               event.stopPropagation();
               onOpen(id);
             }}
-            className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-float"
+            className="nodrag absolute -right-2 -top-6 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-float"
           >
             <PencilSimple size={12} weight="bold" />
           </button>
@@ -317,4 +282,3 @@ export function EinnoteNode({ id, data }: NodeProps<FlowNode>) {
     </div>
   );
 }
-

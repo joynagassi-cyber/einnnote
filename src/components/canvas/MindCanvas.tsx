@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
-  BackgroundVariant,
   ReactFlow,
   useEdgesState,
   useNodesState,
@@ -12,10 +11,13 @@ import "@xyflow/react/dist/style.css";
 import type { EdgePaint, MindNode } from "@/types";
 import type { MindDirection } from "@/stores/useContentStore";
 import { useContentStore } from "@/stores/useContentStore";
+import { useAppStore } from "@/stores/useAppStore";
 import { graphStyleById } from "@/lib/graph/styles";
 import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
+import { canvasGap, canvasSize, canvasVariant } from "@/lib/graph/background";
 import { MapDock } from "@/components/canvas/MapDock";
-import { EinnoteNode, toFlow, type FlowNode } from "@/components/canvas/mindFlow";
+import { EinnoteNode } from "@/components/canvas/mindFlow";
+import { toFlow, type FlowNode } from "@/components/canvas/flowData";
 
 /**
  * La planche — un canevas de carte mentale, sans la page autour.
@@ -46,10 +48,13 @@ export function MindCanvas({
   const updateMindEdge = useContentStore((s) => s.updateMindEdge);
 
   const style = graphStyleById(map?.styleId);
+  /* Même règle que la page Carte mentale : un seul fond, porté par le canevas. */
+  const background = canvasVariant(useAppStore((s) => s.settings.canvas));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [snap, setSnap] = useState(true);
-  const [dockOpen, setDockOpen] = useState(true);
+  /* Replié au départ : sur un canevas, le premier regard doit aller au dessin. */
+  const [dockOpen, setDockOpen] = useState(false);
   const [defaultShape, setDefaultShape] = useState<MindNode["shape"]>("rect");
   const [flow, setFlow] = useState<ReactFlowInstance<FlowNode, Edge> | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -86,8 +91,13 @@ export function MindCanvas({
   );
 
   const handlers = useMemo(
-    () => ({ onAdd: addChild, onOpen: (nodeId: string) => setSelectedId(nodeId) }),
-    [addChild],
+    () => ({
+      onAdd: addChild,
+      onOpen: (nodeId: string) => setSelectedId(nodeId),
+      onResize: (nodeId: string, size: { x: number; y: number; w: number; h: number }) =>
+        updateMindNode(mapId, nodeId, size),
+    }),
+    [addChild, mapId, updateMindNode],
   );
 
   const initial = useMemo(
@@ -101,7 +111,7 @@ export function MindCanvas({
   const nodesKey = (map?.nodes ?? [])
     .map(
       (node) =>
-        `${node.id}:${node.text}:${node.shape}:${node.x}:${node.y}:${JSON.stringify(node.paint ?? null)}`,
+        `${node.id}:${node.text}:${node.shape}:${node.x}:${node.y}:${node.w ?? 0}x${node.h ?? 0}:${JSON.stringify(node.paint ?? null)}`,
     )
     .join("|");
   const edgesKey = (map?.edges ?? [])
@@ -169,7 +179,14 @@ export function MindCanvas({
         aria-label={`Planche de la note — ${map.nodes.length} formes`}
         className="[&_.react-flow__pane]:cursor-default"
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.4} color="var(--canvas-dot)" />
+        {background && (
+          <Background
+            variant={background}
+            gap={canvasGap(background)}
+            size={canvasSize(background)}
+            color="var(--canvas-dot)"
+          />
+        )}
       </ReactFlow>
 
       {onOpenFull && (
@@ -193,6 +210,18 @@ export function MindCanvas({
         onPaintNode={(patch: Partial<NonNullable<MindNode["paint"]>>) => {
           if (!selected) return;
           updateMindNode(mapId, selected.id, { paint: { ...(selected.paint ?? {}), ...patch } });
+        }}
+        size={
+          selected
+            ? {
+                w: nodes.find((n) => n.id === selected.id)?.data.w ?? 0,
+                h: nodes.find((n) => n.id === selected.id)?.data.h ?? 0,
+              }
+            : undefined
+        }
+        onSize={(size) => {
+          if (!selected) return;
+          updateMindNode(mapId, selected.id, size ?? { w: undefined, h: undefined });
         }}
         onPaintEdge={(patch: Partial<EdgePaint>) => {
           if (!selectedEdge) return;

@@ -21,7 +21,6 @@ import {
   Circle,
   Diamond,
   Hexagon,
-  ListBullets,
   Palette,
   Plus,
   Rectangle,
@@ -30,18 +29,11 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
-import { DisplayMenu } from "@/components/DisplayMenu";
 import { MindmapTemplateGallery } from "@/components/TemplateGallery";
-import {
-  columnsFor,
-  gridStyle,
-  groupItems,
-  sortItems,
-  type DisplayFields,
-} from "@/lib/display";
-import { useSurfacePrefs } from "@/stores/useDisplayStore";
 import { useIsDesktop } from "@/lib/useMediaQuery";
 import { useContentStore } from "@/stores/useContentStore";
+import { useAppStore } from "@/stores/useAppStore";
+import { canvasGap, canvasSize, canvasVariant } from "@/lib/graph/background";
 import { useToast } from "@/stores/useToast";
 import { cn } from "@/lib/utils";
 import type {
@@ -73,18 +65,20 @@ import {
 import { relayoutMindmap } from "@/lib/graph/mindmapStyle";
 import { GRAPH_EDGE_TYPES } from "@/lib/graph/edges";
 import { MapDock } from "@/components/canvas/MapDock";
-import {
-  EinnoteNode,
-  toFlow,
-  type FlowNode,
-  type FlowNodeData,
-} from "@/components/canvas/mindFlow";
+import { EinnoteNode } from "@/components/canvas/mindFlow";
+import { toFlow, type FlowNode, type FlowNodeData } from "@/components/canvas/flowData";
 
 export default function MindMap() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const map = useContentStore((s) => s.mindmaps.find((m) => m.id === id));
   const graphStyle = graphStyleById(map?.styleId);
+  /* **Un seul fond.** La page ne peint rien ; c’est le canevas qui dessine sa
+     grille, donc elle suit le déplacement et le zoom. Deux couches de
+     pointillés, c’était deux grilles qui glissaient à des vitesses
+     différentes : le fond « double » qu’on voyait en bougeant. */
+  const canvasPref = useAppStore((s) => s.settings.canvas);
+  const background = canvasVariant(canvasPref);
   const updateMindMap = useContentStore((s) => s.updateMindMap);
   const addMindNode = useContentStore((s) => s.addMindNode);
   const addMindNodeAt = useContentStore((s) => s.addMindNodeAt);
@@ -111,7 +105,8 @@ export default function MindMap() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   /* La barre flottante se replie : dépliée elle porte tous les outils, repliée
      elle ne laisse qu’une poignée. Sur un canevas, la place est au dessin. */
-  const [dockOpen, setDockOpen] = useState(true);
+  /* Replié au départ : sur un canevas, le premier regard doit aller au dessin. */
+  const [dockOpen, setDockOpen] = useState(false);
   const [flow, setFlow] = useState<ReactFlowInstance<FlowNode, Edge> | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -175,6 +170,7 @@ export default function MindMap() {
             {
               onAdd: (nodeId, direction) => addChild(nodeId, direction),
               onOpen: openEditor,
+              onResize: (nodeId, size) => updateMindNode(id, nodeId, size),
             },
             null,
             graphStyle,
@@ -191,7 +187,7 @@ export default function MindMap() {
   const nodesKey = (map?.nodes ?? [])
     .map(
       (node) =>
-        `${node.id}:${node.text}:${node.shape}:${node.x}:${node.y}:${JSON.stringify(node.paint ?? null)}`,
+        `${node.id}:${node.text}:${node.shape}:${node.x}:${node.y}:${node.w ?? 0}x${node.h ?? 0}:${JSON.stringify(node.paint ?? null)}`,
     )
     .join("|");
 
@@ -209,6 +205,7 @@ export default function MindMap() {
       {
         onAdd: (nodeId, direction) => addChild(nodeId, direction),
         onOpen: openEditor,
+        onResize: (nodeId, size) => updateMindNode(id, nodeId, size),
       },
       selectedId,
       graphStyle,
@@ -224,9 +221,7 @@ export default function MindMap() {
      de tourner autour du canevas pour retrouver une idée. Les crochets sont
      déclarés avant la sortie « carte introuvable » : un retour anticipé ne
      doit jamais changer l’ordre des hooks. */
-  const { prefs: display } = useSurfacePrefs("mindmap", { view: "list", sortBy: "depth" });
   const desktop = useIsDesktop();
-  const [nodesOpen, setNodesOpen] = useState(false);
 
   if (!map) {
   return (
@@ -285,23 +280,6 @@ export default function MindMap() {
     }
     return depth;
   };
-
-  const nodeFields: DisplayFields<MindNode> = {
-    text: { label: "Texte", value: (node) => node.text },
-    depth: { label: "Profondeur", value: (node) => depthOf(node.id), type: "number" },
-    shape: { label: "Forme", value: (node) => node.shape },
-    children: {
-      label: "Enfants",
-      value: (node) =>
-        map.nodes.filter((child) => child.parentId === node.id).length,
-      type: "number",
-    },
-  };
-  const nodeGroups = groupItems(
-    sortItems(map.nodes, nodeFields, [display.sortBy, display.thenBy]),
-    nodeFields,
-    display.groupBy,
-  );
 
   const editing = map.nodes.find((n) => n.id === editingId);
   const selected = map.nodes.find((n) => n.id === selectedId);
@@ -391,7 +369,7 @@ export default function MindMap() {
   };
 
   return (
-    <div className="paper screen screen-canvas" data-canvas="dots">
+    <div className="paper screen screen-canvas" data-canvas="blank">
       <div className="sticky top-0 z-20 glass">
         <AppBar
           back
@@ -400,21 +378,6 @@ export default function MindMap() {
           title={map.title}
           action={
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Styles de graphe"
-                title="Style"
-                onClick={() => setStyleOpen(true)}
-                className={cn(
-                  "h-10 text-accent",
-                  desktop
-                    ? "pill gap-1.5 px-3 text-[13.5px] font-semibold"
-                    : "icon-btn w-10",
-                )}
-              >
-                <Palette size={desktop ? 16 : 20} weight="fill" aria-hidden />
-                {desktop && "Style"}
-              </button>
               <button
                 type="button"
                 aria-label="Modèles de carte"
@@ -430,106 +393,10 @@ export default function MindMap() {
                 <Sparkle size={desktop ? 16 : 20} weight="fill" aria-hidden />
                 {desktop && "Modèles"}
               </button>
-              <DisplayMenu
-                surface="mindmap"
-                views={[
-                  { value: "list", label: "Liste", hint: "Plan linéaire" },
-                  { value: "grid", label: "Grille", hint: "Vignettes" },
-                ]}
-                defaults={{ view: "list", sortBy: "depth" }}
-                columns={{
-                  min: 1,
-                  max: 3,
-                  fallback: desktop ? 3 : 2,
-                  autoHint: "Automatique : 2 sur téléphone, 3 en bureau.",
-                }}
-                groupOptions={[
-                  { value: "depth", label: "Profondeur" },
-                  { value: "shape", label: "Forme" },
-                ]}
-                sortOptions={[
-                  { value: "depth", label: "Profondeur" },
-                  { value: "text", label: "Texte A → Z" },
-                  { value: "children", label: "Nombre d’enfants" },
-                  { value: "shape", label: "Forme" },
-                ]}
-                label="Nœuds"
-              />
-              <button
-                type="button"
-                className="icon-btn h-10 w-10"
-                aria-label="Plan des nœuds"
-                title="Plan"
-                onClick={() => setNodesOpen(true)}
-              >
-                <ListBullets size={19} />
-              </button>
             </div>
           }
         />
       </div>
-
-      <Sheet
-        open={nodesOpen}
-        onClose={() => setNodesOpen(false)}
-        title={`Nœuds · ${map.nodes.length}`}
-      >
-        {nodeGroups.map((group) => {
-          const columns = columnsFor(display, {
-            fallback: desktop ? 3 : 2,
-            min: 1,
-            max: 3,
-          });
-          return (
-            <div key={group.key} className="mb-3">
-              {group.label && (
-                <h3 className="mb-1.5 flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-wide text-muted">
-                  {group.label}
-                  <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-bold">
-                    {group.items.length}
-                  </span>
-                </h3>
-              )}
-              <ul
-                className={
-                  display.view === "grid"
-                    ? "grid gap-2"
-                    : "flex flex-col gap-1.5"
-                }
-                style={display.view === "grid" ? gridStyle(columns) : undefined}
-              >
-                {group.items.map((node) => (
-                  <li key={node.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(node.id);
-                        setNodesOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-field border border-line bg-surface px-3 py-2 text-left hover:border-line-strong"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: "var(--accent)" }}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 truncate text-[14px]">
-                        {node.text}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-muted">
-                        {depthOf(node.id) === 0 ? "racine" : `niv. ${depthOf(node.id)}`}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-        <p className="mt-3 text-[12.5px] leading-[18px] text-muted">
-          Touchez un nœud pour le sélectionner sur le canevas.
-        </p>
-      </Sheet>
 
       <div ref={mapRef} className="relative min-h-0 flex-1">
         <div className="flow-fill">
@@ -606,12 +473,14 @@ export default function MindMap() {
           aria-label={`Carte mentale ${map.title} — ${map.nodes.length} nœuds`}
           className="[&_.react-flow__pane]:cursor-default"
         >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={24}
-            size={1.4}
-            color="var(--canvas-dot)"
-          />
+          {background && (
+            <Background
+              variant={background}
+              gap={canvasGap(background)}
+              size={canvasSize(background)}
+              color="var(--canvas-dot)"
+            />
+          )}
           {desktop && (
             <>
               <Controls
@@ -690,6 +559,18 @@ export default function MindMap() {
         onShape={applyShape}
         onPaintNode={paintNode}
         onPaintEdge={paintEdge}
+        size={
+          selected
+            ? {
+                w: nodes.find((n) => n.id === selected.id)?.data.w ?? 0,
+                h: nodes.find((n) => n.id === selected.id)?.data.h ?? 0,
+              }
+            : undefined
+        }
+        onSize={(size) => {
+          if (!selected) return;
+          updateMindNode(map.id, selected.id, size ?? { w: undefined, h: undefined });
+        }}
         onStyle={() => setStyleOpen(true)}
         styleLabel={graphStyle.label}
       />

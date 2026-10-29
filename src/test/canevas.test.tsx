@@ -7,6 +7,9 @@ import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useDisplayStore } from "@/stores/useDisplayStore";
 import { useSessionStore } from "@/stores/useSessionStore";
+import { BackgroundVariant } from "@xyflow/react";
+import { nodeSize } from "@/components/canvas/flowData";
+import { canvasVariant } from "@/lib/graph/background";
 
 /**
  * Le canevas — les gestes du tour 39.
@@ -44,8 +47,12 @@ describe("Canevas — les formes", () => {
     const nodes = before!.nodes.length;
     const edges = before!.edges.length;
 
-    /* Rien n’est sélectionné : « Cercle » doit **créer**, pas mémoriser une
+    /* La barre démarre repliée : on déplie d’un chevron, puis on pose.
+       Rien n’est sélectionné : « Cercle » doit **créer**, pas mémoriser une
        préférence. C’est exactement le bug d’origine. */
+    await user.click(
+      await screen.findByRole("button", { name: "Déplier les outils du canevas" }),
+    );
     await user.click(screen.getByRole("button", { name: "Cercle" }));
 
     const after = useContentStore.getState().mindmaps.find((m) => m.id === boardId)!;
@@ -114,14 +121,18 @@ describe("Canevas — les formes", () => {
     const user = userEvent.setup();
     open(`/mindmap/${boardId}`);
 
-    const toggle = await screen.findByRole("button", {
-      name: "Replier les outils du canevas",
-    });
-    await user.click(toggle);
+    /* Replié au départ : la poignée seule, aucun outil dans l’arbre
+       d’accessibilité. */
     expect(screen.queryByRole("button", { name: "Cercle" })).toBeNull();
-    const deploy = screen.getByRole("button", { name: "Déplier les outils du canevas" });
+
+    const deploy = await screen.findByRole("button", {
+      name: "Déplier les outils du canevas",
+    });
     await user.click(deploy);
     expect(screen.getByRole("button", { name: "Cercle" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Replier les outils du canevas" }));
+    expect(screen.queryByRole("button", { name: "Cercle" })).toBeNull();
   });
 });
 
@@ -185,9 +196,55 @@ describe("Carte vierge", () => {
     expect(empty.edges).toHaveLength(0);
 
     // la barre reste le seul moyen de commencer — et elle commence
+    await user.click(
+      await screen.findByRole("button", { name: "Déplier les outils du canevas" }),
+    );
     await user.click(screen.getByRole("button", { name: "Rectangle" }));
     const after = useContentStore.getState().mindmaps.find((m) => m.id === boardId)!;
     expect(after.nodes).toHaveLength(1);
     expect(after.edges).toHaveLength(0);
+  });
+});
+
+describe("Redimensionner une forme", () => {
+  it("écrit la taille choisie, et l’accroche des traits la suit", () => {
+    const store = useContentStore.getState();
+    const map = store.mindmaps.find((m) => m.id === boardId)!;
+    const node = map.nodes[0];
+
+    store.updateMindNode(boardId, node.id, { w: 220, h: 140 });
+    const after = useContentStore
+      .getState()
+      .mindmaps.find((m) => m.id === boardId)!
+      .nodes.find((n) => n.id === node.id)!;
+    expect(after.w).toBe(220);
+    expect(after.h).toBe(140);
+
+    /* `nodeSize` est la seule source de vérité : le dessin **et** le point
+       d’accroche des traits passent par elle. Deux calculs différents
+       donneraient des flèches qui s’arrêtent à côté du bord. */
+    expect(nodeSize("rect", 1, after)).toEqual({ w: 220, h: 140 });
+    // bornes : jamais plus petit que lisible, jamais plus grand que l’écran
+    expect(nodeSize("rect", 1, { w: 4, h: 2 })).toEqual({ w: 64, h: 36 });
+    expect(nodeSize("rect", 1, { w: 9999, h: 9999 })).toEqual({ w: 520, h: 360 });
+  });
+});
+
+describe("Fond du canevas", () => {
+  it("ne peint qu’une seule grille : la page n’a plus de motif CSS", async () => {
+    open(`/mindmap/${boardId}`);
+    await screen.findByLabelText(/Carte mentale/);
+    /* La page ne peint plus rien : c’est `<Background>` qui dessine la
+       grille, donc elle suit le déplacement. Deux couches = deux vitesses,
+       le « double pointillé » qu’on voyait en bougeant. */
+    const page = document.querySelector(".screen-canvas");
+    expect(page?.getAttribute("data-canvas")).toBe("blank");
+  });
+
+  it("suit le réglage « Fond du canevas »", () => {
+    expect(canvasVariant("dots")).toBe(BackgroundVariant.Dots);
+    expect(canvasVariant("ruled")).toBe(BackgroundVariant.Lines);
+    expect(canvasVariant("grid")).toBe(BackgroundVariant.Cross);
+    expect(canvasVariant("blank")).toBeNull();
   });
 });

@@ -202,7 +202,11 @@ export interface ZettelCard {
  * intact.
  */
 export interface NodePaint {
-  /** remplissage, en `#rrggbb` ou en jeton (`var(--accent)`) */
+  /**
+   * Remplissage : un jeton du thème (`var(--accent)`), une couleur libre
+   * (`#rrggbb`) ou `transparent` — la forme n’a alors plus de fond, seulement
+   * son contour.
+   */
   fill?: string;
   /** texture posée **sur** le remplissage */
   texture?: "none" | "dots" | "grid" | "diagonal" | "cross";
@@ -232,6 +236,14 @@ export interface MindNode {
   shape: "circle" | "rect" | "square" | "diamond" | "hex" | "pill";
   x: number;
   y: number;
+  /**
+   * Taille choisie à la main, en pixels. Absente : la forme garde sa taille
+   * naturelle (cercle 80, rectangle 136 × 52, etc.). Dès qu’on tire un coin,
+   * les deux dimensions sont écrites — c’est ce qui rend le redimensionnement
+   * durable après rechargement.
+   */
+  w?: number;
+  h?: number;
   parentId?: string;
   /** habillage ; vide = tout suit l’accent du thème */
   paint?: NodePaint;

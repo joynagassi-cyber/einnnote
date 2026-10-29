@@ -213,7 +213,7 @@ export default function ZettelGraph() {
   const dashed = Boolean(style.dashed);
 
   return (
-    <div className="paper screen screen-wide screen-canvas" data-canvas="dots">
+    <div className="paper screen screen-wide screen-canvas" data-canvas="blank">
       <div className="sticky top-0 z-20 glass">
         <AppBar
           back
