@@ -32,3 +32,19 @@ export function caretAtEndOfNote(): void {
     quill.setSelection(Math.max(0, quill.getLength() - 1), 0, "api");
   });
 }
+
+/** Sélectionner un passage, comme le ferait un glissement de souris. */
+export function selectInNote(from: number, to: number): void {
+  const quill = editingEngine();
+  if (!quill) throw new Error("L’éditeur n’est pas monté.");
+  act(() => {
+    quill.setSelection(from, Math.max(0, to - from), "api");
+  });
+}
+
+/** Le nombre de caractères du document, hors saut de ligne final. */
+export function noteLength(): number {
+  const quill = editingEngine();
+  if (!quill) throw new Error("L’éditeur n’est pas monté.");
+  return quill.getLength() - 1;
+}
