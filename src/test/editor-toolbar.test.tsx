@@ -8,7 +8,7 @@ import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useLibraryFilters } from "@/stores/useLibraryFilters";
 import { useDisplayStore } from "@/stores/useDisplayStore";
 import { useSessionStore } from "@/stores/useSessionStore";
-import { caretAtEndOfNote } from "@/test/typing";
+import { caretAtEndOfNote, typeInNote } from "@/test/typing";
 import { DEFAULT_FILTERS } from "@/lib/libraryFilters";
 
 /**
@@ -168,6 +168,17 @@ describe("Barre de mise en forme", () => {
       expect(screen.queryByRole("search", { name: "Rechercher dans la note" })).toBeNull();
     });
     expect(prose.textContent).toBeTruthy();
+  });
+
+  it("ouvre la palette d’insertion avec « / » seul sur une ligne", async () => {
+    open("/note/n-plan");
+    caretAtEndOfNote();
+    typeInNote("\n/");
+
+    const palette = await screen.findByRole("dialog", { name: "Insérer" });
+    expect(palette).toBeTruthy();
+    /* Le caractère déclencheur ne reste pas dans la note. */
+    expect(document.querySelector(".ql-editor")?.textContent).not.toMatch(/\/\s*$/);
   });
 
   it("aligne un bloc à droite par attribut", async () => {

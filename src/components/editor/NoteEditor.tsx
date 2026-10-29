@@ -26,7 +26,13 @@ import type { Block } from "@/types";
 import type { EditorHost } from "@/lib/editor/host";
 import { EMPTY_SNAPSHOT, type EditorSnapshot } from "@/lib/editor/snapshot";
 import { FORMAT, blocksToDelta, deltaToBlocks } from "@/lib/editor/quill/delta";
-import { createQuillHost, ensureBlockIds } from "@/lib/editor/quill/adapt";
+import {
+  createQuillHost,
+  ensureBlockIds,
+  QUILL_FORMATS,
+  registerEinnoteFormats,
+  resetHistory,
+} from "@/lib/editor/quill/adapt";
 import { registerEditingEngine } from "@/lib/editor/quill/bridge";
 import { Palette } from "@/components/commands/Palette";
 import { Pupitre } from "@/components/commands/Pupitre";
@@ -44,68 +50,6 @@ import { normalizeTitle, resolveLink, type NoteRef } from "@/lib/links/notes";
    relire », et le filet de séparation. Le reste vient de Quill — on ne
    réinvente ni le gras ni les listes, sinon Entrée, annulation et
    copier-coller cesseraient d’être ceux de la bibliothèque. */
-let formatsReady = false;
-
-function ensureFormats() {
-  if (formatsReady) return;
-
-  /* Quill 2 s’appuie sur Parchment 3 : la classe `Attributor` y est concrète
-     pour les **attributs** HTML, et `ClassAttributor` pour les classes. On
-     déclare donc cinq formats maison, avec la portée qui convient — sans eux,
-     `data-block-id` serait effacé au premier rechargement du document. */
-  const parchment = Quill.import("parchment") as {
-    Attributor: new (name: string, key: string, options?: { scope?: number }) => unknown;
-    ClassAttributor: new (
-      name: string,
-      key: string,
-      options?: { scope?: number },
-    ) => unknown;
-    Scope: { BLOCK: number; INLINE: number };
-  };
-
-  Quill.register(
-    {
-      [`formats/${FORMAT.blockId}`]: new parchment.Attributor(FORMAT.blockId, "data-block-id", {
-        scope: parchment.Scope.BLOCK,
-      }),
-      [`formats/${FORMAT.marked}`]: new parchment.Attributor(FORMAT.marked, "data-marked", {
-        scope: parchment.Scope.BLOCK,
-      }),
-      [`formats/${FORMAT.rule}`]: new parchment.Attributor(FORMAT.rule, "data-rule", {
-        scope: parchment.Scope.BLOCK,
-      }),
-      /* Un seul attribut pour les deux états du renvoi : `note-link` et
-         `note-link--broken`. Parchment compose toujours « clé-valeur », donc la
-         clé est `note` et la valeur porte la fin du nom de classe. */
-      "formats/notelink": new parchment.ClassAttributor("notelink", "note", {
-        scope: parchment.Scope.INLINE,
-      }),
-    },
-    true,
-  );
-  formatsReady = true;
-}
-
-const QUILL_FORMATS = [
-  "bold",
-  "italic",
-  "underline",
-  "strike",
-  "code",
-  "background",
-  "link",
-  "script",
-  "header",
-  "list",
-  "indent",
-  "align",
-  "blockquote",
-  FORMAT.blockId,
-  FORMAT.marked,
-  FORMAT.rule,
-  "notelink",
-];
-
 /* ------------------------------------------------------------------ */
 /* Liens de notes                                                      */
 /* ------------------------------------------------------------------ */
@@ -261,7 +205,7 @@ export function NoteEditor({
   /* ---------------------------- MONTAGE -------------------------------- */
 
   useEffect(() => {
-    ensureFormats();
+    registerEinnoteFormats();
     const element = holder.current;
     if (!element) return;
 
@@ -275,6 +219,7 @@ export function NoteEditor({
     quill.root.setAttribute("spellcheck", "true");
     quill.root.setAttribute("aria-label", "Contenu de la note");
     quill.setContents(blocksToDelta(blocks), "silent");
+    resetHistory(quill);
 
     const editor = createQuillHost(quill, (next) => onChangeRef.current(next));
     quillRef.current = quill;
@@ -315,9 +260,17 @@ export function NoteEditor({
 
       /* « / » seul sur une ligne vide : on retire le caractère et on ouvre la
          palette sur les gestes d’insertion. Un seul catalogue pour toutes les
-         surfaces — palette, pupitre, fiche. */
-      if (line && line.text === "/" && range && range.length === 0) {
-        quill.deleteText(line.start, 1, "api");
+         surfaces — palette, pupitre, fiche.
+         Le curseur n’est pas toujours lisible à cet instant (le moteur vient
+         d’écrire) : on retient donc la ligne dont le texte est **exactement**
+         « / », et seulement si le curseur connu s’y trouve. */
+      const slashLine = lines.find(
+        (candidate) =>
+          candidate.text === "/" &&
+          (!range || (range.index >= candidate.start && range.index <= candidate.start + 1)),
+      );
+      if (slashLine) {
+        quill.deleteText(slashLine.start, 1, "api");
         setPaletteMode("insert");
         setPaletteOpen(true);
       }

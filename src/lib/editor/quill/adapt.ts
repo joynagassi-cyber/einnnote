@@ -1,4 +1,4 @@
-import type Quill from "quill";
+import Quill from "quill";
 import type { Delta, DeltaAttributes, DeltaOp, Range } from "quill";
 import type { Block } from "@/types";
 import type { Align, BlockAttrs, BlockTarget, CaseMode, EditorHost, MarkName } from "@/lib/editor/host";
@@ -152,9 +152,84 @@ function listFormat(attrs: Pick<BlockAttrs, "task" | "checked" | "bullet" | "ord
   return false;
 }
 
+let formatsReady = false;
+
+export function registerEinnoteFormats() {
+  if (formatsReady) return;
+
+  /* Quill 2 s’appuie sur Parchment 3 : la classe `Attributor` y est concrète
+     pour les **attributs** HTML, et `ClassAttributor` pour les classes. On
+     déclare donc cinq formats maison, avec la portée qui convient — sans eux,
+     `data-block-id` serait effacé au premier rechargement du document. */
+  const parchment = Quill.import("parchment") as {
+    Attributor: new (name: string, key: string, options?: { scope?: number }) => unknown;
+    ClassAttributor: new (
+      name: string,
+      key: string,
+      options?: { scope?: number },
+    ) => unknown;
+    Scope: { BLOCK: number; INLINE: number };
+  };
+
+  Quill.register(
+    {
+      [`formats/${FORMAT.blockId}`]: new parchment.Attributor(FORMAT.blockId, "data-block-id", {
+        scope: parchment.Scope.BLOCK,
+      }),
+      [`formats/${FORMAT.marked}`]: new parchment.Attributor(FORMAT.marked, "data-marked", {
+        scope: parchment.Scope.BLOCK,
+      }),
+      [`formats/${FORMAT.rule}`]: new parchment.Attributor(FORMAT.rule, "data-rule", {
+        scope: parchment.Scope.BLOCK,
+      }),
+      /* Un seul attribut pour les deux états du renvoi : `note-link` et
+         `note-link--broken`. Parchment compose toujours « clé-valeur », donc la
+         clé est `note` et la valeur porte la fin du nom de classe. */
+      "formats/notelink": new parchment.ClassAttributor("notelink", "note", {
+        scope: parchment.Scope.INLINE,
+      }),
+    },
+    true,
+  );
+  formatsReady = true;
+}
+
+export const QUILL_FORMATS = [
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "code",
+  "background",
+  "link",
+  "script",
+  "header",
+  "list",
+  "indent",
+  "align",
+  "blockquote",
+  FORMAT.blockId,
+  FORMAT.marked,
+  FORMAT.rule,
+  "notelink",
+];
+
 /* ------------------------------------------------------------------ */
 /* L’adaptateur                                                        */
 /* ------------------------------------------------------------------ */
+
+/** Toutes les marques en ligne éteintes : un fragment sans style ne doit pas
+ *  hériter du style voisin quand on le réinsère. */
+const NO_FORMAT = {
+  bold: false,
+  italic: false,
+  underline: false,
+  strike: false,
+  code: false,
+  background: false,
+  link: false,
+  script: false,
+} as const;
 
 const MARK_FORMAT: Record<Exclude<MarkName, "highlight" | "link" | "superscript" | "subscript">, string> = {
   bold: "bold",
@@ -184,6 +259,20 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
     const all = lines();
     const clamped = Math.max(0, Math.min(index, quill.getLength() - 1));
     return all.find((line) => clamped >= line.start && clamped <= line.start + line.text.length) ?? all[all.length - 1];
+  };
+
+  /**
+   * La ligne où se trouve le curseur.
+   *
+   * On la retrouve **par ses bornes**, jamais par l’identité de l’objet : chaque
+   * appel à `lines()` reconstruit la liste, donc deux appels rendent deux objets
+   * différents — une comparaison d’identité échouait toujours.
+   */
+  const lineIndexAt = (all: Line[], index: number): number => {
+    const found = all.findIndex(
+      (line) => index >= line.start && index <= line.start + line.text.length,
+    );
+    return found >= 0 ? found : all.length - 1;
   };
 
   /** Les lignes touchées par la sélection. */
@@ -406,7 +495,7 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
 
     moveBlock(direction) {
       const all = lines();
-      const at = all.findIndex((line) => line === lineAt(selection().index));
+      const at = lineIndexAt(all, selection().index);
       const target = at + direction;
       if (at < 0 || target < 0 || target >= all.length) return false;
 
@@ -425,7 +514,7 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
 
     duplicateBlock() {
       const all = lines();
-      const at = all.findIndex((line) => line === lineAt(selection().index));
+      const at = lineIndexAt(all, selection().index);
       if (at < 0) return false;
 
       const copy: Line = {
@@ -444,7 +533,7 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
 
     deleteBlock() {
       const all = lines();
-      const at = all.findIndex((line) => line === lineAt(selection().index));
+      const at = lineIndexAt(all, selection().index);
       if (at < 0) return false;
 
       if (all.length === 1) {
@@ -465,7 +554,7 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
 
     insertRule() {
       const all = lines();
-      const at = all.findIndex((line) => line === lineAt(selection().index));
+      const at = lineIndexAt(all, selection().index);
       if (at < 0) return false;
 
       const rule: Line = { start: 0, text: "", length: 1, attrs: { [FORMAT.rule]: true }, ops: [] };
@@ -535,7 +624,7 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
       quill.deleteText(index, length, "api");
       let at = index;
       for (const piece of replaced) {
-        quill.insertText(at, piece.text, piece.attributes ?? {}, "api");
+        quill.insertText(at, piece.text, { ...NO_FORMAT, ...(piece.attributes ?? {}) }, "api");
         at += piece.text.length;
       }
       quill.setSelection(index, length, "api");
@@ -554,11 +643,20 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
     },
 
     blocks() {
+      /* On garantit les identifiants **avant** de rendre les blocs : sinon une
+         ligne créée par Entrée repartirait sans id et en recevrait un nouveau
+         à chaque lecture — deux questions ne seraient plus ancrées au même
+         endroit. */
+      ensureBlockIds(quill);
       return deltaToBlocks(quill.getContents(), newId);
     },
 
     setBlocks(blocks) {
       quill.setContents(blocksToDelta(blocks), "silent");
+      /* Le chargement d’une note n’est pas une action de l’utilisateur : le
+         document chargé devient la borne de l’historique, sinon « annuler »
+         ramènerait au document vide. */
+      resetHistory(quill);
     },
 
     replaceAll(query, replacement) {
@@ -609,6 +707,15 @@ export function createQuillHost(quill: Quill, onChange?: (blocks: Block[]) => vo
  * apparaître dans l’historique d’annulation, ni déclencher un enregistrement en
  * boucle.
  */
+/**
+ * Le chargement d’une note n’est pas une action de l’utilisateur : il devient la
+ * borne de l’historique. Sans cela, « annuler » après la première frappe
+ * ramènerait la note au document vide.
+ */
+export function resetHistory(quill: Quill): void {
+  (quill.getModule("history") as { clear?: () => void } | undefined)?.clear?.();
+}
+
 export function ensureBlockIds(quill: Quill): void {
   for (const line of linesOf(quill.getContents())) {
     if (typeof line.attrs[FORMAT.blockId] === "string") continue;
