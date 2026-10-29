@@ -36,6 +36,16 @@ export const FORMAT = {
   rule: "hr",
 } as const;
 
+/**
+ * Un attribut de bloc est « posé » dès qu’il vaut `true` **ou** `"true"` :
+ * Parchment relit ses attributs dans le DOM, donc un booléen écrit revient
+ * sous forme de chaîne. Sans ce test, « à relire » et le filet seraient
+ * oubliés au premier rechargement.
+ */
+export function isSet(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
 /** Couleurs de surlignage : Quill renvoie du `rgb()`, on garde de l’hexa. */
 function toHexColor(value: unknown): string | undefined {
   if (typeof value !== "string" || value === "") return undefined;
@@ -339,12 +349,12 @@ function splitLines(delta: Delta): RawLine[] {
 }
 
 function kindOf(attributes: DeltaAttributes, hasText: boolean): Block["kind"] {
-  if (attributes[FORMAT.rule] === true) return "rule";
+  if (isSet(attributes[FORMAT.rule])) return "rule";
   const header = Number(attributes.header ?? 0);
   if (header === 1) return "h1";
   if (header === 2) return "h2";
   if (header === 3) return "h3";
-  if (attributes.blockquote === true) return "quote";
+  if (isSet(attributes.blockquote)) return "quote";
   return hasText ? "p" : "p";
 }
 
@@ -372,7 +382,7 @@ export function deltaToBlocks(delta: Delta, makeId: () => string = fallbackId): 
       ...(attributes.align === "center" || attributes.align === "right"
         ? { align: attributes.align as "center" | "right" }
         : {}),
-      ...(attributes[FORMAT.marked] === true ? { marked: true } : {}),
+      ...(isSet(attributes[FORMAT.marked]) ? { marked: true } : {}),
     });
   }
 

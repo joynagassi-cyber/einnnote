@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { Editor } from "@tiptap/core";
+import type { EditorHost } from "@/lib/editor/host";
 import {
   ArrowDown,
   ArrowUUpLeft,
@@ -43,22 +43,8 @@ import {
   BookOpen,
 } from "@phosphor-icons/react";
 import type { EditorSnapshot } from "@/lib/editor/snapshot";
-import {
-  changeIndent,
-  clearBlockFormatting,
-  currentBlockAttrs,
-  deleteBlock,
-  duplicateBlock,
-  moveBlock,
-  setAlign,
-  setBlockAttrs,
-  toggleMeta,
-  toggleQuote,
-  toggleTask,
-  toggleChecked,
-  turnInto,
-} from "@/lib/editor/extensions";
-import { CASE_MODES, changeCase, todayLabel } from "@/lib/editor/transform";
+import { CASE_MODES } from "@/lib/editor/host";
+import { todayLabel } from "@/lib/editor/transform";
 import { HIGHLIGHTS } from "@/lib/editor/highlights";
 
 /**
@@ -85,7 +71,7 @@ export type Moment = "texte" | "selection" | "liste" | "tableau" | "note";
 export type CommandId = string;
 
 export interface CommandContext {
-  editor: Editor | null;
+  editor: EditorHost | null;
   snapshot: EditorSnapshot;
   toast: (message: string, tone?: "neutral" | "accent" | "danger") => void;
   /** ouvre « Chercher » dans la note */
@@ -137,18 +123,18 @@ export const GROUPS = [
 /* ------------------------------------------------------------------ */
 
 const withEditor =
-  (action: (editor: Editor) => void) =>
+  (action: (editor: EditorHost) => void) =>
   (ctx: CommandContext): void => {
     if (!ctx.editor) return;
     action(ctx.editor);
   };
 
 const chain =
-  (action: (editor: Editor) => void) =>
+  (action: (editor: EditorHost) => void) =>
   (ctx: CommandContext): void => {
     if (!ctx.editor) return;
     action(ctx.editor);
-    ctx.editor.commands.focus();
+    ctx.editor.focus();
   };
 
 const HIGHLIGHT_COMMANDS: Command[] = HIGHLIGHTS.map((highlight) => ({
@@ -160,7 +146,7 @@ const HIGHLIGHT_COMMANDS: Command[] = HIGHLIGHTS.map((highlight) => ({
   icon: Highlighter,
   keywords: ["surligneur", "marqueur", "couleur"],
   run: chain((editor) =>
-    editor.chain().focus().toggleHighlight({ color: highlight.color }).run(),
+    editor.highlight(highlight.color),
   ),
 }));
 
@@ -177,7 +163,7 @@ export const COMMANDS: Command[] = [
     group: "Modifier",
     moment: "texte",
     icon: ArrowUUpLeft,
-    run: chain((editor) => editor.chain().focus().undo().run()),
+    run: chain((editor) => editor.undo()),
   },
   {
     id: "redo",
@@ -186,7 +172,7 @@ export const COMMANDS: Command[] = [
     group: "Modifier",
     moment: "texte",
     icon: ArrowCounterClockwise,
-    run: chain((editor) => editor.chain().focus().redo().run()),
+    run: chain((editor) => editor.redo()),
   },
   {
     id: "bold",
@@ -196,7 +182,7 @@ export const COMMANDS: Command[] = [
     moment: "selection",
     icon: TextB,
     keywords: ["gras", "audace"],
-    run: chain((editor) => editor.chain().focus().toggleBold().run()),
+    run: chain((editor) => editor.toggleMark("bold")),
   },
   {
     id: "italic",
@@ -206,7 +192,7 @@ export const COMMANDS: Command[] = [
     moment: "selection",
     icon: TextItalic,
     keywords: ["penché"],
-    run: chain((editor) => editor.chain().focus().toggleItalic().run()),
+    run: chain((editor) => editor.toggleMark("italic")),
   },
   {
     id: "underline",
@@ -215,7 +201,7 @@ export const COMMANDS: Command[] = [
     group: "Modifier",
     moment: "selection",
     icon: TextUnderline,
-    run: chain((editor) => editor.chain().focus().toggleUnderline().run()),
+    run: chain((editor) => editor.toggleMark("underline")),
   },
   {
     id: "strike",
@@ -225,7 +211,7 @@ export const COMMANDS: Command[] = [
     moment: "selection",
     icon: TextStrikethrough,
     keywords: ["barré", "rayé"],
-    run: chain((editor) => editor.chain().focus().toggleStrike().run()),
+    run: chain((editor) => editor.toggleMark("strike")),
   },
   {
     id: "code",
@@ -234,7 +220,7 @@ export const COMMANDS: Command[] = [
     group: "Modifier",
     moment: "selection",
     icon: Code,
-    run: chain((editor) => editor.chain().focus().toggleCode().run()),
+    run: chain((editor) => editor.toggleMark("code")),
   },
   ...HIGHLIGHT_COMMANDS,
   {
@@ -246,7 +232,7 @@ export const COMMANDS: Command[] = [
     icon: Eraser,
     available: (snapshot) => snapshot.marks.highlight,
     unavailable: "Aucun surlignage sous le curseur",
-    run: chain((editor) => editor.chain().focus().unsetHighlight().run()),
+    run: chain((editor) => editor.highlight(null)),
   },
   {
     id: "superscript",
@@ -255,7 +241,7 @@ export const COMMANDS: Command[] = [
     group: "Modifier",
     moment: "selection",
     icon: TextSuperscript,
-    run: chain((editor) => editor.chain().focus().toggleSuperscript().run()),
+    run: chain((editor) => editor.toggleMark("superscript")),
   },
   {
     id: "subscript",
@@ -264,7 +250,7 @@ export const COMMANDS: Command[] = [
     group: "Modifier",
     moment: "selection",
     icon: TextSubscript,
-    run: chain((editor) => editor.chain().focus().toggleSubscript().run()),
+    run: chain((editor) => editor.toggleMark("subscript")),
   },
   {
     id: "link",
@@ -277,14 +263,10 @@ export const COMMANDS: Command[] = [
     run: (ctx) => {
       if (!ctx.editor) return;
       const editor = ctx.editor;
-      const previous = editor.getAttributes("link").href as string | undefined;
+      const previous = editor.currentHref();
       const href = window.prompt("Adresse du lien", previous ?? "https://");
       if (href === null) return;
-      if (href.trim() === "") {
-        editor.chain().focus().unsetLink().run();
-        return;
-      }
-      editor.chain().focus().extendMarkRange("link").setLink({ href: href.trim() }).run();
+      editor.setLink(href.trim() === "" ? null : href.trim());
     },
   },
   {
@@ -295,7 +277,7 @@ export const COMMANDS: Command[] = [
     moment: "selection",
     icon: Eraser,
     keywords: ["nettoyer", "remettre à zéro"],
-    run: withEditor((editor) => clearBlockFormatting(editor)),
+    run: withEditor((editor) => editor.clearFormatting()),
   },
   ...CASE_MODES.map<Command>((mode) => ({
     id: `case-${mode.mode}`,
@@ -305,7 +287,7 @@ export const COMMANDS: Command[] = [
     moment: "selection",
     icon: TextB,
     keywords: ["majuscules", "minuscules", "capitale"],
-    run: withEditor((editor) => changeCase(editor, mode.mode)),
+    run: withEditor((editor) => editor.changeCase(mode.mode)),
   })),
 
   /* --------------------------------------------------------------- Blocs */
@@ -316,7 +298,7 @@ export const COMMANDS: Command[] = [
     group: "Blocs",
     moment: "texte",
     icon: TextAlignLeft,
-    run: withEditor((editor) => turnInto(editor, "p")),
+    run: withEditor((editor) => editor.turnInto("p")),
   },
   {
     id: "h1",
@@ -326,7 +308,7 @@ export const COMMANDS: Command[] = [
     moment: "texte",
     icon: TextHOne,
     keywords: ["entête", "section"],
-    run: withEditor((editor) => turnInto(editor, "h1")),
+    run: withEditor((editor) => editor.turnInto("h1")),
   },
   {
     id: "h2",
@@ -336,7 +318,7 @@ export const COMMANDS: Command[] = [
     moment: "texte",
     icon: TextHTwo,
     keywords: ["entête", "sous-section"],
-    run: withEditor((editor) => turnInto(editor, "h2")),
+    run: withEditor((editor) => editor.turnInto("h2")),
   },
   {
     id: "h3",
@@ -346,7 +328,7 @@ export const COMMANDS: Command[] = [
     moment: "texte",
     icon: TextHThree,
     keywords: ["entête", "détail"],
-    run: withEditor((editor) => turnInto(editor, "h3")),
+    run: withEditor((editor) => editor.turnInto("h3")),
   },
   {
     id: "quote",
@@ -356,7 +338,7 @@ export const COMMANDS: Command[] = [
     moment: "texte",
     icon: Quotes,
     keywords: ["citation", "citer"],
-    run: withEditor((editor) => toggleQuote(editor)),
+    run: withEditor((editor) => editor.toggleQuote()),
   },
   {
     id: "rule",
@@ -365,7 +347,7 @@ export const COMMANDS: Command[] = [
     group: "Blocs",
     moment: "texte",
     icon: Minus,
-    run: withEditor((editor) => turnInto(editor, "rule")),
+    run: withEditor((editor) => editor.turnInto("rule")),
   },
   {
     id: "align-left",
@@ -374,7 +356,7 @@ export const COMMANDS: Command[] = [
     group: "Blocs",
     moment: "texte",
     icon: TextAlignLeft,
-    run: withEditor((editor) => setAlign(editor, "left")),
+    run: withEditor((editor) => editor.setAlign("left")),
   },
   {
     id: "align-center",
@@ -383,7 +365,7 @@ export const COMMANDS: Command[] = [
     group: "Blocs",
     moment: "texte",
     icon: TextAlignCenter,
-    run: withEditor((editor) => setAlign(editor, "center")),
+    run: withEditor((editor) => editor.setAlign("center")),
   },
   {
     id: "align-right",
@@ -392,7 +374,7 @@ export const COMMANDS: Command[] = [
     group: "Blocs",
     moment: "texte",
     icon: TextAlignRight,
-    run: withEditor((editor) => setAlign(editor, "right")),
+    run: withEditor((editor) => editor.setAlign("right")),
   },
   {
     id: "marked",
@@ -403,8 +385,8 @@ export const COMMANDS: Command[] = [
     icon: NotePencil,
     keywords: ["signet", "marque"],
     run: withEditor((editor) => {
-      const attrs = currentBlockAttrs(editor);
-      setBlockAttrs(editor, { marked: attrs.marked !== true });
+      const attrs = editor.attrs();
+      editor.setAttrs({ marked: attrs.marked !== true });
     }),
   },
   {
@@ -414,7 +396,7 @@ export const COMMANDS: Command[] = [
     group: "Blocs",
     moment: "texte",
     icon: CopySimple,
-    run: withEditor((editor) => duplicateBlock(editor)),
+    run: withEditor((editor) => editor.duplicateBlock()),
   },
   {
     id: "delete-block",
@@ -424,7 +406,7 @@ export const COMMANDS: Command[] = [
     moment: "texte",
     icon: Trash,
     keywords: ["effacer", "paragraphe"],
-    run: withEditor((editor) => deleteBlock(editor)),
+    run: withEditor((editor) => editor.deleteBlock()),
   },
 
   /* -------------------------------------------------------------- Listes */
@@ -436,7 +418,7 @@ export const COMMANDS: Command[] = [
     moment: "liste",
     icon: ListBullets,
     keywords: ["puces", "points"],
-    run: withEditor((editor) => toggleMeta(editor, "bullet")),
+    run: withEditor((editor) => editor.toggleMeta("bullet")),
   },
   {
     id: "ordered",
@@ -446,7 +428,7 @@ export const COMMANDS: Command[] = [
     moment: "liste",
     icon: ListNumbers,
     keywords: ["numéros", "1."],
-    run: withEditor((editor) => toggleMeta(editor, "ordered")),
+    run: withEditor((editor) => editor.toggleMeta("ordered")),
   },
   {
     id: "task",
@@ -456,7 +438,7 @@ export const COMMANDS: Command[] = [
     moment: "liste",
     icon: ListChecks,
     keywords: ["coche", "checklist", "todo"],
-    run: withEditor((editor) => toggleTask(editor)),
+    run: withEditor((editor) => editor.toggleTask()),
   },
   {
     id: "checked",
@@ -467,7 +449,7 @@ export const COMMANDS: Command[] = [
     icon: Square,
     available: (snapshot) => snapshot.task,
     unavailable: "Le bloc courant n’est pas une case à cocher",
-    run: withEditor((editor) => toggleChecked(editor)),
+    run: withEditor((editor) => editor.toggleChecked()),
   },
   {
     id: "indent",
@@ -478,7 +460,7 @@ export const COMMANDS: Command[] = [
     icon: TextIndent,
     available: (snapshot) => snapshot.indent < 3,
     unavailable: "Trois niveaux au maximum",
-    run: withEditor((editor) => changeIndent(editor, 1)),
+    run: withEditor((editor) => editor.changeIndent(1)),
   },
   {
     id: "outdent",
@@ -489,7 +471,7 @@ export const COMMANDS: Command[] = [
     icon: TextOutdent,
     available: (snapshot) => snapshot.indent > 0,
     unavailable: "Le bloc est déjà au niveau zéro",
-    run: withEditor((editor) => changeIndent(editor, -1)),
+    run: withEditor((editor) => editor.changeIndent(-1)),
   },
 
   /* -------------------------------------------------------------- Insérer */
@@ -503,7 +485,7 @@ export const COMMANDS: Command[] = [
     keywords: ["modèle", "date du jour"],
     run: (ctx) => {
       if (!ctx.editor) return;
-      ctx.editor.chain().focus().insertContent(todayLabel()).run();
+      ctx.editor.insertText(todayLabel());
     },
   },
   {
@@ -538,7 +520,7 @@ export const COMMANDS: Command[] = [
       if (!ctx.editor) return;
       const now = new Date();
       const label = `${`${now.getHours()}`.padStart(2, "0")}:${`${now.getMinutes()}`.padStart(2, "0")}`;
-      ctx.editor.chain().focus().insertContent(label).run();
+      ctx.editor.insertText(label);
     },
   },
 
@@ -550,7 +532,7 @@ export const COMMANDS: Command[] = [
     group: "Se déplacer",
     moment: "texte",
     icon: ArrowUp,
-    run: withEditor((editor) => moveBlock(editor, -1)),
+    run: withEditor((editor) => editor.moveBlock(-1)),
   },
   {
     id: "move-down",
@@ -559,7 +541,7 @@ export const COMMANDS: Command[] = [
     group: "Se déplacer",
     moment: "texte",
     icon: ArrowDown,
-    run: withEditor((editor) => moveBlock(editor, 1)),
+    run: withEditor((editor) => editor.moveBlock(1)),
   },
   {
     id: "start",
@@ -568,7 +550,7 @@ export const COMMANDS: Command[] = [
     group: "Se déplacer",
     moment: "note",
     icon: CaretDoubleUp,
-    run: withEditor((editor) => editor.commands.focus("start")),
+    run: withEditor((editor) => editor.focusAt("start")),
   },
   {
     id: "end",
@@ -577,7 +559,7 @@ export const COMMANDS: Command[] = [
     group: "Se déplacer",
     moment: "note",
     icon: CaretDoubleDown,
-    run: withEditor((editor) => editor.commands.focus("end")),
+    run: withEditor((editor) => editor.focusAt("end")),
   },
 
   /* ------------------------------------------------------------- Document */

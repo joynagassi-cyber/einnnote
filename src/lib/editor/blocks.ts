@@ -1,48 +1,15 @@
 import type { Block } from "@/types";
 
 /**
- * Pont entre le document TipTap et le modèle `Block[]`.
+ * Le stockage d’une note — échappement, nettoyage, export.
  *
- * Le produit stocke une note comme une liste de blocs : c’est ce qui permet à
- * une question d’être ancrée sur un bloc précis (`blockId`) et de survivre à la
- * réédition. L’éditeur, lui, travaille sur un document ProseMirror.
- *
- * Règle du pont : **un bloc = un nœud de premier niveau** (paragraphe ou
- * titre). Les puces, la numérotation, le retrait et la citation sont des
- * attributs du bloc, pas des nœuds de liste : le retour de l’éditeur vers le
- * stockage est donc exact, sans heuristique.
+ * Une note est une **liste de blocs** : c’est ce qui permet à une question
+ * d’être ancrée sur un bloc précis (`blockId`) et de survivre à la réédition.
+ * La conversion entre ces blocs et le document de l’éditeur a quitté ce fichier
+ * avec ProseMirror : elle vit désormais dans `lib/editor/quill/delta.ts`, à côté
+ * du seul moteur qui la comprend. Ici ne restent que des fonctions qui ne
+ * connaissent aucun éditeur — donc testables seules.
  */
-
-export type BlockKind = Block["kind"] | "h3";
-
-export interface BlockMeta {
-  bullet?: boolean;
-  ordered?: boolean;
-  indent?: number;
-  marked?: boolean;
-  quote?: boolean;
-}
-
-/* ------------------------------------------------------------------ */
-/* Types ProseMirror minimalistes (ce que l’éditeur produit)           */
-/* ------------------------------------------------------------------ */
-
-export interface PmMark {
-  type: string;
-  attrs?: Record<string, unknown>;
-}
-
-export interface PmNode {
-  type: string;
-  attrs?: Record<string, unknown>;
-  content?: PmNode[];
-  marks?: PmMark[];
-  text?: string;
-}
-
-/* ------------------------------------------------------------------ */
-/* Échappement et marques                                              */
-/* ------------------------------------------------------------------ */
 
 const ESCAPES: Record<string, string> = {
   "&": "&amp;",
@@ -57,9 +24,10 @@ export function escapeHtml(text: string): string {
 
 /**
  * Nettoyage du HTML stocké avant qu’il n’entre dans l’éditeur.
- * Le schéma TipTap rejette déjà l’inconnu, mais un contenu importé
- * (sauvegarde restaurée, collage, vieille donnée) ne doit jamais pouvoir
- * exécuter quoi que ce soit si on l’injecte un jour hors de l’éditeur.
+ *
+ * L’éditeur n’accepte que les formats qu’on lui a déclarés, mais un contenu
+ * importé (sauvegarde restaurée, collage, vieille donnée) ne doit jamais
+ * pouvoir exécuter quoi que ce soit si on l’injecte un jour hors de l’éditeur.
  */
 export function sanitizeHtml(html: string): string {
   return html
@@ -73,183 +41,6 @@ export function sanitizeHtml(html: string): string {
       /(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
       '$1="#"',
     );
-}
-
-function markTag(mark: PmMark): string {
-  switch (mark.type) {
-    case "bold":
-      return "strong";
-    case "italic":
-      return "em";
-    case "underline":
-      return "u";
-    case "strike":
-      return "s";
-    case "code":
-      return "code";
-    case "highlight":
-      return "mark";
-    case "link":
-      return "a";
-    case "superscript":
-      return "sup";
-    case "subscript":
-      return "sub";
-    default:
-      return "";
-  }
-}
-
-function openTag(mark: PmMark): string {
-  const tag = markTag(mark);
-  if (!tag) return "";
-  if (tag === "mark" && mark.attrs?.color) {
-    return `<mark data-color="${escapeHtml(String(mark.attrs.color))}">`;
-  }
-  if (tag === "a") {
-    const href = escapeHtml(String(mark.attrs?.href ?? ""));
-    const title = mark.attrs?.title
-      ? ` title="${escapeHtml(String(mark.attrs.title))}"`
-      : "";
-    return `<a href="${href}"${title} rel="noopener noreferrer" target="_blank">`;
-  }
-  return `<${tag}>`;
-}
-
-function closeTag(mark: PmMark): string {
-  const tag = markTag(mark);
-  return tag ? `</${tag}>` : "";
-}
-
-/** Ordre d’imbrication stable, sinon `<em><strong>` et `<strong><em>` divergent. */
-const MARK_ORDER = [
-  "link",
-  "bold",
-  "italic",
-  "underline",
-  "strike",
-  "code",
-  "highlight",
-  "superscript",
-  "subscript",
-];
-
-function sortMarks(marks: PmMark[] = []): PmMark[] {
-  return [...marks].sort(
-    (a, b) => MARK_ORDER.indexOf(a.type) - MARK_ORDER.indexOf(b.type),
-  );
-}
-
-function renderInline(nodes: PmNode[] = []): string {
-  return nodes
-    .map((node) => {
-      if (node.type === "hardBreak") return "<br>";
-      if (node.type === "text") {
-        const marks = sortMarks(node.marks);
-        return (
-          marks.map(openTag).join("") +
-          escapeHtml(node.text ?? "") +
-          [...marks].reverse().map(closeTag).join("")
-        );
-      }
-      // Nœud inconnu (image, tableau…) : on garde son texte, jamais son HTML.
-      return renderInline(node.content);
-    })
-    .join("");
-}
-
-/** Texte brut d’un nœud, sans mise en forme. */
-export function nodeText(node: PmNode): string {
-  if (node.type === "text") return node.text ?? "";
-  if (node.type === "hardBreak") return " ";
-  return (node.content ?? []).map(nodeText).join("");
-}
-
-/* ------------------------------------------------------------------ */
-/* Bloc → nœud (chargement de l’éditeur)                               */
-/* ------------------------------------------------------------------ */
-
-function blockAttributes(block: Block, meta: BlockMeta): string {
-  const attrs = [`data-block-id="${escapeHtml(block.id)}"`];
-  const kind = meta.quote ? "quote" : block.kind;
-  if (kind === "quote" || kind === "rule") attrs.push(`data-kind="${kind}"`);
-  if (block.bullet) attrs.push('data-bullet="true"');
-  if (block.ordered || meta.ordered) attrs.push('data-ordered="true"');
-  if (block.task) attrs.push('data-task="true"');
-  if (block.task && block.checked) attrs.push('data-checked="true"');
-  if (block.indent) attrs.push(`data-indent="${block.indent}"`);
-  if (block.align) attrs.push(`data-align="${block.align}"`);
-  if (block.marked) attrs.push('data-marked="true"');
-  return attrs.join(" ");
-}
-
-/** HTML inséré dans TipTap pour une liste de blocs. */
-export function blocksToHtml(blocks: Block[]): string {
-  return blocks
-    .map((block) => {
-      const tag =
-        block.kind === "h1"
-          ? "h1"
-          : block.kind === "h2"
-            ? "h2"
-            : block.kind === "h3"
-              ? "h3"
-              : "p";
-      return `<${tag} ${blockAttributes(block, {})}>${sanitizeHtml(block.html)}</${tag}>`;
-    })
-    .join("");
-}
-
-/* ------------------------------------------------------------------ */
-/* Nœud → bloc (enregistrement)                                        */
-/* ------------------------------------------------------------------ */
-
-const KIND_BY_LEVEL: Record<number, Block["kind"]> = {
-  1: "h1",
-  2: "h2",
-  3: "h3",
-};
-
-let fallbackCounter = 0;
-function fallbackId() {
-  fallbackCounter += 1;
-  return `b-auto-${Date.now().toString(36)}-${fallbackCounter}`;
-}
-
-export function docToBlocks(
-  doc: PmNode,
-  makeId: () => string = fallbackId,
-): Block[] {
-  return (doc.content ?? []).map((node) => {
-    const attrs = node.attrs ?? {};
-    const level = Number(attrs.level ?? 2);
-    const isHeading = node.type === "heading";
-    const kind: Block["kind"] = isHeading
-      ? (KIND_BY_LEVEL[level] ?? "h2")
-      : attrs.kind === "quote"
-        ? "quote"
-        : attrs.kind === "rule"
-          ? "rule"
-          : "p";
-
-    /* Les attributs facultatifs ne sont écrits **que s’ils existent** : un
-       bloc inchangé doit traverser l’éditeur sans gagner de clés, sinon
-       chaque aller-retour gonflerait les sauvegardes et les exports. */
-    return {
-      id: typeof attrs.blockId === "string" && attrs.blockId ? attrs.blockId : makeId(),
-      html: sanitizeHtml(renderInline(node.content)),
-      kind,
-      bullet: Boolean(attrs.bullet),
-      ...(attrs.ordered ? { ordered: true } : {}),
-      ...(attrs.task ? { task: true } : {}),
-      ...(attrs.task && attrs.checked ? { checked: true } : {}),
-      indent: Number(attrs.indent ?? 0) || 0,
-      ...(attrs.align === "center" || attrs.align === "right"
-        ? { align: attrs.align as "center" | "right" }
-        : {}),
-      ...(attrs.marked ? { marked: true } : {}),
-    };
-  });
 }
 
 /** Texte brut de chaque bloc, utile pour l’export et les passages de question. */

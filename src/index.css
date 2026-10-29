@@ -1745,119 +1745,6 @@
   line-height: 0;
 }
 
-/* Filet : un bloc à part entière, donc ancrable à une question */
-.note-prose [data-kind="rule"] {
-  height: 0;
-  margin: 16px 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  overflow: hidden;
-  color: transparent;
-}
-
-/* Alignement du bloc — attribut, jamais un nœud */
-.note-prose [data-align="center"] {
-  text-align: center;
-}
-.note-prose [data-align="right"] {
-  text-align: right;
-}
-
-/* Case à cocher : attribut de bloc, pas une liste de tâches */
-.note-prose [data-task] {
-  padding-left: 26px;
-}
-.note-prose [data-task]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.28em;
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid var(--muted);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-}
-.note-prose [data-task][data-checked]::before {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-.note-prose [data-task][data-checked]::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: calc(0.28em + 3px);
-  width: 6px;
-  height: 9px;
-  border: solid var(--on-accent);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-  pointer-events: none;
-}
-.note-prose [data-task][data-checked] {
-  text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
-}
-
-/* Puces, numéros, retraits : des attributs de bloc, pas des listes */
-.note-prose [data-bullet] {
-  padding-left: 18px;
-}
-.note-prose [data-bullet]::before {
-  content: "•";
-  position: absolute;
-  left: 2px;
-  top: 0;
-  color: var(--muted);
-}
-.note-prose [data-ordered] {
-  counter-increment: engram-item;
-  padding-left: 22px;
-}
-.note-prose [data-ordered]::before {
-  content: counter(engram-item) ".";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.note-prose [data-indent="1"] {
-  padding-left: calc(18px + 20px * 1);
-}
-.note-prose [data-indent="2"] {
-  padding-left: calc(18px + 20px * 2);
-}
-.note-prose [data-indent="3"] {
-  padding-left: calc(18px + 20px * 3);
-}
-
-/* La citation ne porte plus une barre d’accent sur un côté — le tic de
-   carte générée. Elle porte un guillemet suspendu et un retrait : c’est la
-   convention typographique, et elle tient dans les 23 thèmes sans dépendre
-   d’une couleur d’accent. */
-.note-prose [data-kind="quote"] {
-  position: relative;
-  padding-left: 24px;
-  color: color-mix(in srgb, var(--ink) 74%, var(--bg));
-  font-family: var(--font-note);
-  font-style: italic;
-}
-
-.note-prose [data-kind="quote"]::before {
-  content: "«";
-  position: absolute;
-  left: 2px;
-  top: -0.22em;
-  font-family: var(--font-note);
-  font-style: normal;
-  font-size: 1.5em;
-  line-height: 1;
-  color: color-mix(in srgb, var(--ink) 34%, transparent);
-  pointer-events: none;
-}
-
 /* Lien de note : on écrit `[[Titre]]`, on lit un lien. La décoration ne
    remplace pas le texte — l’export Markdown garde la syntaxe. */
 .note-prose .note-link {
@@ -1907,13 +1794,6 @@
   color: var(--accent-ink);
   text-decoration: underline;
   text-underline-offset: 2px;
-}
-.note-prose .is-empty::before {
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  color: var(--muted);
-  pointer-events: none;
 }
 .note-prose ::selection {
   background: var(--accent-soft);
@@ -2896,4 +2776,236 @@
 /* Le toast reste au-dessus d’une fenêtre ouverte : un message doit se voir. */
 .toast {
   z-index: 80;
+}
+
+/* ================================================================
+   Le document tel que Quill le rend
+   ----------------------------------------------------------------
+   Quill n’écrit pas nos anciens attributs : il produit du HTML
+   **natif** — `<ul>`, `<ol>`, `<blockquote>`, `<h1>` — et marque ses
+   retraits et alignements par des classes (`ql-indent-2`,
+   `ql-align-center`). On habille donc ces nœuds-là plutôt que de
+   combattre la bibliothèque : c’est ce qui garde Entrée, Tabulation,
+   l’annulation et le copier-coller du navigateur.
+
+   Trois attributs seulement restent les nôtres, parce qu’ils portent
+   du **sens produit** : `data-block-id` (l’identité d’un bloc),
+   `data-marked` (« à relire ») et `data-rule` (le filet).
+   ================================================================ */
+
+/* Le conteneur : Quill y ajoute ses classes, on garde notre typographie */
+.note-prose.ql-container {
+  font-family: var(--font-note);
+  font-size: var(--note-size);
+  line-height: var(--note-leading);
+  height: auto;
+}
+
+.note-prose .ql-editor {
+  padding: 0;
+  height: auto;
+  min-height: 3em;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  outline: none;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* La barre d’outils et les info-bulles de Quill ne sont jamais affichées :
+   le pupitre et la barre de mise en forme les remplacent. */
+.note-prose .ql-toolbar,
+.note-prose .ql-tooltip,
+.ql-editor .ql-ui {
+  display: none;
+}
+
+/* Le texte de remplacement d’une note vide */
+.note-prose .ql-editor.ql-blank::before {
+  left: 0;
+  right: 0;
+  padding: 0;
+  color: var(--muted);
+  font-style: normal;
+  pointer-events: none;
+}
+
+.note-prose .ql-editor > * {
+  position: relative;
+  margin: 0 0 6px;
+}
+
+/* Filet : un bloc à part entière, donc ancrable à une question */
+.note-prose [data-rule] {
+  height: 0;
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  overflow: hidden;
+  color: transparent;
+}
+
+/* Alignement du bloc — une classe Quill, jamais un nœud */
+.note-prose .ql-editor .ql-align-center {
+  text-align: center;
+}
+.note-prose .ql-editor .ql-align-right {
+  text-align: right;
+}
+
+/* ---- Listes : Quill marque chaque <li> par `data-list` ---- */
+.note-prose .ql-editor ul,
+.note-prose .ql-editor ol {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.note-prose .ql-editor li {
+  position: relative;
+  margin: 0 0 4px;
+  padding-left: 18px;
+}
+
+.note-prose .ql-editor li[data-list="bullet"]::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  top: 0;
+  color: var(--muted);
+}
+
+.note-prose .ql-editor ol {
+  counter-reset: engram-item;
+}
+
+.note-prose .ql-editor li[data-list="ordered"] {
+  counter-increment: engram-item;
+  padding-left: 22px;
+}
+
+.note-prose .ql-editor li[data-list="ordered"]::before {
+  content: counter(engram-item) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Cases à cocher : une case, pas une puce ---- */
+.note-prose .ql-editor li[data-list="checked"],
+.note-prose .ql-editor li[data-list="unchecked"] {
+  padding-left: 26px;
+}
+
+.note-prose .ql-editor li[data-list="checked"]::before,
+.note-prose .ql-editor li[data-list="unchecked"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.28em;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--muted);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.note-prose .ql-editor li[data-list="checked"]::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.note-prose .ql-editor li[data-list="checked"]::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: calc(0.28em + 3px);
+  width: 6px;
+  height: 9px;
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.note-prose .ql-editor li[data-list="checked"] {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+/* ---- Retrait : `ql-indent-1..5`, la limite que le produit autorise ---- */
+.note-prose .ql-editor .ql-indent-1 {
+  padding-left: calc(18px + 20px * 1);
+}
+.note-prose .ql-editor .ql-indent-2 {
+  padding-left: calc(18px + 20px * 2);
+}
+.note-prose .ql-editor .ql-indent-3 {
+  padding-left: calc(18px + 20px * 3);
+}
+.note-prose .ql-editor .ql-indent-4 {
+  padding-left: calc(18px + 20px * 4);
+}
+.note-prose .ql-editor .ql-indent-5 {
+  padding-left: calc(18px + 20px * 5);
+}
+
+/* La citation ne porte plus une barre d’accent sur un côté — le tic de
+   carte générée. Elle porte un guillemet suspendu et un retrait : c’est la
+   convention typographique, et elle tient dans les 23 thèmes sans dépendre
+   d’une couleur d’accent. */
+.note-prose .ql-editor blockquote {
+  position: relative;
+  margin: 0 0 6px;
+  padding-left: 24px;
+  border: 0;
+  color: color-mix(in srgb, var(--ink) 74%, var(--bg));
+  font-family: var(--font-note);
+  font-style: italic;
+}
+
+.note-prose .ql-editor blockquote::before {
+  content: "«";
+  position: absolute;
+  left: 2px;
+  top: -0.22em;
+  font-family: var(--font-note);
+  font-style: normal;
+  font-size: 1.5em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ink) 34%, transparent);
+  pointer-events: none;
+}
+
+/* ---- Renvois de notes : `[[Titre]]` reste du texte, pas un nœud ----
+   La décoration ne remplace jamais le texte : l’export Markdown garde la
+   syntaxe, et la note se relit sans l’application. */
+.note-prose .note-link {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+  color: var(--accent-ink);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  cursor: pointer;
+}
+
+.note-prose .note-link:hover {
+  background: var(--accent-soft);
+}
+
+/* Renvoi mort : pointillé, donc visible sans dépendre de la couleur seule. */
+.note-prose .note-link--broken {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  cursor: help;
+  text-decoration: underline dashed color-mix(in srgb, var(--danger) 65%, transparent);
+  text-underline-offset: 3px;
 }

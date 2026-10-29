@@ -147,7 +147,10 @@ export function Palette({
   /* Un groupe par titre, dans l’ordre du produit : on lit une famille de
      gestes, pas une liste alphabétique de quarante lignes. */
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-6">
+    <div
+      data-overlay-top="true"
+      className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-6"
+    >
       <button
         type="button"
         aria-label="Fermer la palette"

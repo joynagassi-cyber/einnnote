@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS, useAppStore } from "@/stores/useAppStore";
 import { useContentStore } from "@/stores/useContentStore";
 import { useDisplayStore } from "@/stores/useDisplayStore";
 import { useSessionStore } from "@/stores/useSessionStore";
+import { typeInNote } from "@/test/typing";
 
 /**
  * Les liens de notes, vus depuis l’écran.
@@ -67,21 +68,26 @@ describe("Liens de notes", () => {
     const user = userEvent.setup();
     open("/note/n-plan");
     await user.click(screen.getByLabelText("Contenu de la note"));
-    await user.keyboard("[[[[Contrats commerciaux]] et [[[[Note disparue]]");
+    typeInNote("[[Contrats commerciaux]] et [[Note disparue]]");
 
     await waitFor(() => {
-      expect(document.querySelectorAll(".note-link").length).toBe(2);
+      expect(
+        document.querySelectorAll(".note-link, .note-link--broken").length,
+      ).toBe(2);
     });
     const broken = document.querySelector(".note-link--broken");
     expect(broken?.textContent).toBe("[[Note disparue]]");
-    expect(broken?.getAttribute("aria-label")).toContain("Lien mort");
+    /* Un lecteur d’écran n’entend pas une classe : le résumé des renvois
+       morts est annoncé à côté du texte, sans toucher au DOM de l’éditeur. */
+    const status = document.querySelector('[role="status"]');
+    expect(status?.textContent).toContain("Note disparue");
   });
 
   it("ouvre la note liée au clic", async () => {
     const user = userEvent.setup();
     open("/note/n-plan");
     await user.click(screen.getByLabelText("Contenu de la note"));
-    await user.keyboard("[[[[Contrats commerciaux]]");
+    typeInNote("[[Contrats commerciaux]]");
 
     const link = await waitFor(() => {
       const element = document.querySelector(".note-link");
@@ -100,7 +106,7 @@ describe("Liens de notes", () => {
     /* « n-contrats » est citée depuis « n-plan ». */
     open("/note/n-plan");
     await user.click(screen.getByLabelText("Contenu de la note"));
-    await user.keyboard("[[[[Contrats commerciaux]]");
+    typeInNote("[[Contrats commerciaux]]");
     await waitFor(() => expect(textOf("n-plan")).toContain("[[Contrats"));
 
     cleanup();

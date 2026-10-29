@@ -1,4 +1,4 @@
-import type { BlockTarget } from "@/lib/editor/extensions";
+import type { BlockTarget } from "@/lib/editor/host";
 
 /**
  * L’état de la sélection, vu par les surfaces de commande.

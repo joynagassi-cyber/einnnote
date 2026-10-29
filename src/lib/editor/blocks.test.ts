@@ -1,46 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { Editor } from "@tiptap/core";
-import StarterKit from "@tiptap/starter-kit";
-import Highlight from "@tiptap/extension-highlight";
-import Superscript from "@tiptap/extension-superscript";
-import Subscript from "@tiptap/extension-subscript";
-import { BlockMeta } from "@/lib/editor/extensions";
 import {
-  blocksToHtml,
   blocksToMarkdown,
   blocksToPlainText,
-  docToBlocks,
   escapeHtml,
-  nodeText,
-  type PmNode,
+  sanitizeHtml,
 } from "@/lib/editor/blocks";
 import type { Block } from "@/types";
 
-/** Même schéma que l’éditeur réel, sans interface. */
-function parse(blocks: Block[]): PmNode {
-  const editor = new Editor({
-    extensions: [
-      StarterKit.configure({
-        codeBlock: false,
-        horizontalRule: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        blockquote: false,
-      }),
-      BlockMeta,
-      Highlight.configure({ multicolor: true }),
-      Superscript,
-      Subscript,
-    ],
-    content: blocksToHtml(blocks),
-  });
-  const json = editor.getJSON() as PmNode;
-  editor.destroy();
-  return json;
-}
-
-const roundTrip = (blocks: Block[]) => docToBlocks(parse(blocks));
+/**
+ * Ce fichier ne teste plus le pont vers l’éditeur : ce pont est dans
+ * `quill/delta.test.ts`, avec le seul moteur qui le comprend. Ici on tient les
+ * fonctions qui survivent à tous les changements d’éditeur — nettoyage et
+ * export — parce qu’elles décident de ce qui entre et de ce qui sort du produit.
+ */
 
 const block = (patch: Partial<Block> & Pick<Block, "id" | "html">): Block => ({
   kind: "p",
@@ -49,154 +21,110 @@ const block = (patch: Partial<Block> & Pick<Block, "id" | "html">): Block => ({
   ...patch,
 });
 
-describe("pont blocs ↔ éditeur", () => {
-  it("conserve identifiants, types, puces et retraits", () => {
-    const blocks: Block[] = [
-      block({ id: "b1", html: "Conditions de validité", kind: "h2" }),
-      block({ id: "b2", html: "Consentement", bullet: true }),
-      block({ id: "b3", html: "Capacité", bullet: true, indent: 1 }),
-      block({ id: "b4", html: "Une citation", kind: "quote" }),
-      block({ id: "b5", html: "Effets du contrat" }),
-    ];
-    expect(roundTrip(blocks)).toEqual(blocks);
-  });
-
-  it("conserve gras, italique, souligné, barré, code", () => {
-    const blocks = [
-      block({
-        id: "b1",
-        html: "Un <strong>mot</strong> <em>important</em> <u>souligné</u> <s>barré</s> <code>code</code>",
-      }),
-    ];
-    expect(roundTrip(blocks)[0].html).toBe(blocks[0].html);
-  });
-
-  it("conserve la couleur d’un surlignage", () => {
-    const blocks = [
-      block({ id: "b1", html: '<mark data-color="#F6E3A1">passage</mark>' }),
-    ];
-    const result = roundTrip(blocks)[0].html;
-    expect(result).toContain("<mark");
-    expect(result).toContain("passage");
-    expect(result).toMatch(/#F6E3A1/i);
-  });
-
-  it("conserve un lien et son adresse", () => {
-    const blocks = [
-      block({
-        id: "b1",
-        html: 'Voir <a href="https://example.org" rel="noopener noreferrer" target="_blank">le cours</a>',
-      }),
-    ];
-    const html = roundTrip(blocks)[0].html;
-    expect(html).toContain('href="https://example.org"');
-    expect(html).toContain("le cours");
-  });
-
-  it("donne un identifiant neuf à un bloc créé dans l’éditeur", () => {
-    const parsed = parse([block({ id: "b1", html: "Première ligne" })]);
-    // simule la frappe : un second paragraphe sans data-block-id
-    parsed.content = [
-      ...(parsed.content ?? []),
-      { type: "paragraph", attrs: { blockId: null }, content: [{ type: "text", text: "Seconde ligne" }] },
-    ];
-    const result = docToBlocks(parsed);
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe("b1");
-    expect(result[1].id).toMatch(/^b-auto-/);
-    expect(result[1].html).toBe("Seconde ligne");
-  });
-
-  it("conserve un titre de niveau 3, un filet et un exposant", () => {
-    const blocks = [
-      block({ id: "b1", html: "Détail", kind: "h3" }),
-      block({ id: "b2", html: "E = mc<sup>2</sup> et H<sub>2</sub>O" }),
-      block({ id: "b3", html: "", kind: "rule" }),
-    ];
-    expect(roundTrip(blocks)).toEqual(blocks);
-  });
-
-  it("conserve liste numérotée, case à cocher et alignement", () => {
-    const blocks: Block[] = [
-      block({ id: "b1", html: "Premier", ordered: true }),
-      block({ id: "b2", html: "À faire", task: true }),
-      block({ id: "b3", html: "Fait", task: true, checked: true }),
-      block({ id: "b4", html: "Centré", align: "center" }),
-    ];
-    expect(roundTrip(blocks)).toEqual(blocks);
-  });
-
-  it("n’écrit pas de clés facultatives sur un bloc nu", () => {
-    const [result] = roundTrip([block({ id: "b1", html: "Texte" })]);
-    expect(result).toEqual({ id: "b1", html: "Texte", kind: "p", bullet: false, indent: 0 });
-  });
-
-  it("ne laisse pas passer de HTML actif", () => {
-    const html = blocksToHtml([
-      block({ id: "b1", html: 'Bonjour <script>alert("x")</script> <img src=x onerror=alert(1)>' }),
-    ]);
-    expect(html).not.toContain("<script");
-    expect(html).not.toContain("onerror");
-    expect(html).toContain("Bonjour");
-  });
-
-  it("échappe les caractères réservés du texte", () => {
-    expect(escapeHtml('a & b < c > d "e"')).toBe(
-      "a &amp; b &lt; c &gt; d &quot;e&quot;",
+describe("escapeHtml", () => {
+  it("neutralise les quatre caractères dangereux", () => {
+    expect(escapeHtml('<a href="x"> & </a>')).toBe(
+      "&lt;a href=&quot;x&quot;&gt; &amp; &lt;/a&gt;",
     );
   });
 
-  it("extrait le texte brut d’un nœud", () => {
-    expect(
-      nodeText({
-        type: "paragraph",
-        content: [
-          { type: "text", text: "a" },
-          { type: "hardBreak" },
-          { type: "text", text: "b" },
-        ],
-      }),
-    ).toBe("a b");
+  it("laisse le texte français intact", () => {
+    expect(escapeHtml("l’élève — « déjà »")).toBe("l’élève — « déjà »");
   });
 });
 
-describe("exports", () => {
-  const blocks: Block[] = [
-    block({ id: "b1", html: "Titre", kind: "h1" }),
-    block({ id: "b2", html: "Sous-titre", kind: "h2" }),
-    block({ id: "b3", html: "<strong>Puce</strong>", bullet: true }),
-    block({ id: "b4", html: "Puce décalée", bullet: true, indent: 1 }),
-    block({ id: "b5", html: "Citation", kind: "quote" }),
-    block({ id: "b6", html: "Texte avec <mark>surlignage</mark>" }),
-  ];
-
-  it("produit du Markdown lisible par Obsidian", () => {
-    const markdown = blocksToMarkdown(blocks);
-    expect(markdown).toContain("# Titre");
-    expect(markdown).toContain("## Sous-titre");
-    expect(markdown).toContain("- **Puce**");
-    expect(markdown).toContain("  - Puce décalée");
-    expect(markdown).toContain("> Citation");
-    expect(markdown).toContain("==surlignage==");
+describe("sanitizeHtml", () => {
+  it("supprime les balises actives et leur contenu", () => {
+    const html = sanitizeHtml('Bonjour <script>alert("x")</script> monde');
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("alert");
+    expect(html).toContain("Bonjour");
   });
 
-  it("exporte le filet, la case et l’exposant en syntaxe étendue", () => {
+  it("supprime les gestionnaires d’événements en ligne", () => {
+    const html = sanitizeHtml('<img src="x" onerror="alert(1)">');
+    expect(html).not.toContain("onerror");
+  });
+
+  it("neutralise un href javascript:", () => {
+    const html = sanitizeHtml('<a href="javascript:alert(1)">lien</a>');
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain('href="#"');
+  });
+
+  it("conserve les balises de mise en forme autorisées", () => {
+    const html = "<strong>gras</strong> <em>italique</em> <mark>surligné</mark>";
+    expect(sanitizeHtml(html)).toBe(html);
+  });
+});
+
+describe("blocksToPlainText", () => {
+  it("rend une ligne par bloc, sans balise", () => {
+    expect(
+      blocksToPlainText([
+        block({ id: "b1", html: "Un <strong>mot</strong>" }),
+        block({ id: "b2", html: "Deux<br>lignes" }),
+      ]),
+    ).toBe("Un mot\nDeux lignes");
+  });
+
+  it("décode les entités qu’il a lui-même produites", () => {
+    expect(blocksToPlainText([block({ id: "b1", html: "A &amp; B&nbsp;;" })])).toBe(
+      "A & B ;",
+    );
+  });
+});
+
+describe("blocksToMarkdown", () => {
+  it("rend chaque type de bloc dans sa syntaxe", () => {
+    expect(
+      blocksToMarkdown([
+        block({ id: "b1", html: "Titre", kind: "h1" }),
+        block({ id: "b2", html: "Sous-titre", kind: "h2" }),
+        block({ id: "b3", html: "Détail", kind: "h3" }),
+        block({ id: "b4", html: "Une citation", kind: "quote" }),
+        block({ id: "b5", html: "", kind: "rule" }),
+        block({ id: "b6", html: "Puce", bullet: true }),
+        block({ id: "b7", html: "Numéroté", ordered: true }),
+        block({ id: "b8", html: "Fait", task: true, checked: true }),
+        block({ id: "b9", html: "À faire", task: true }),
+      ]),
+    ).toBe(
+      [
+        "# Titre",
+        "## Sous-titre",
+        "### Détail",
+        "> Une citation",
+        "---",
+        "- Puce",
+        "1. Numéroté",
+        "- [x] Fait",
+        "- [ ] À faire",
+      ].join("\n\n"),
+    );
+  });
+
+  it("traduit les marques en syntaxe Markdown", () => {
     const markdown = blocksToMarkdown([
-      block({ id: "b1", html: "Détail", kind: "h3" }),
-      block({ id: "b2", html: "À faire", task: true }),
-      block({ id: "b3", html: "Fait", task: true, checked: true }),
-      block({ id: "b4", html: "", kind: "rule" }),
-      block({ id: "b5", html: "E = mc<sup>2</sup>" }),
+      block({
+        id: "b1",
+        html: '<strong>gras</strong> <em>italique</em> <mark>surligné</mark> <a href="https://exemple.org">lien</a>',
+      }),
     ]);
-    expect(markdown).toContain("### Détail");
-    expect(markdown).toContain("- [ ] À faire");
-    expect(markdown).toContain("- [x] Fait");
-    expect(markdown).toContain("---");
-    expect(markdown).toContain("^2^");
+    expect(markdown).toBe(
+      "**gras** *italique* ==surligné== [lien](https://exemple.org)",
+    );
   });
 
-  it("produit du texte brut pour les passages de question", () => {
-    expect(blocksToPlainText(blocks).split("\n")[0]).toBe("Titre");
-    expect(blocksToPlainText(blocks)).toContain("Texte avec surlignage");
+  it("indente de deux espaces par niveau de retrait", () => {
+    expect(
+      blocksToMarkdown([block({ id: "b1", html: "Puce", bullet: true, indent: 2 })]),
+    ).toBe("    - Puce");
+  });
+
+  it("conserve un renvoi de note tel quel", () => {
+    expect(blocksToMarkdown([block({ id: "b1", html: "Voir [[Contrats]]" })])).toBe(
+      "Voir [[Contrats]]",
+    );
   });
 });

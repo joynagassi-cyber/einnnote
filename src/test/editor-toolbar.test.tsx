@@ -8,6 +8,7 @@ import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useLibraryFilters } from "@/stores/useLibraryFilters";
 import { useDisplayStore } from "@/stores/useDisplayStore";
 import { useSessionStore } from "@/stores/useSessionStore";
+import { caretAtEndOfNote } from "@/test/typing";
 import { DEFAULT_FILTERS } from "@/lib/libraryFilters";
 
 /**
@@ -121,7 +122,7 @@ describe("Barre de mise en forme", () => {
       expect(blocksOf("n-plan").some((block) => block.task)).toBe(true);
     });
 
-    const task = document.querySelector("[data-task]") as HTMLElement;
+    const task = document.querySelector('li[data-list="unchecked"]') as HTMLElement;
     expect(task).not.toBeNull();
     await user.click(task);
 
@@ -151,15 +152,21 @@ describe("Barre de mise en forme", () => {
     await waitFor(() => {
       expect(within(barre).getByText(/\d+ \/ \d+/)).toBeTruthy();
     });
-    // Le texte est décoré, jamais réécrit.
-    expect(document.querySelectorAll(".search-hit").length).toBeGreaterThan(0);
+
+    /* La recherche ne réécrit pas le document : elle **sélectionne** la
+       première occurrence. C’est la sélection du moteur qui montre où l’on
+       est, pas une décoration ajoutée au texte — donc rien à nettoyer en
+       fermant. */
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(window.getSelection()?.toString().toLowerCase()).toBe("article");
+    });
     expect(prose.textContent).toContain("article");
 
     await user.click(within(barre).getByLabelText("Fermer la recherche"));
     await waitFor(() => {
       expect(screen.queryByRole("search", { name: "Rechercher dans la note" })).toBeNull();
     });
-    expect(document.querySelectorAll(".search-hit").length).toBe(0);
     expect(prose.textContent).toBeTruthy();
   });
 

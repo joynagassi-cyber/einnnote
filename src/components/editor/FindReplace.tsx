@@ -1,34 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import type { Editor } from "@tiptap/core";
 import { CaretDown, CaretUp, MagnifyingGlass, X } from "@phosphor-icons/react";
-import {
-  currentSearch,
-  findMatches,
-  replaceAll,
-  replaceCurrent,
-  setSearchQuery,
-  stepMatch,
-} from "@/lib/editor/search";
+import type { EditorHost } from "@/lib/editor/host";
+import { findMatches, stepMatch } from "@/lib/editor/search";
 
 /**
  * Chercher et remplacer **dans la note ouverte**.
  *
  * Le panneau vit au-dessus du document, pas dans une fenêtre : on veut voir
- * l’occurrence surlignée pendant qu’on tape la requête. Il compte les
- * occurrences, dit laquelle on regarde, et laisse `Entrée` enchaîner — trois
- * choses qu’une simple boîte de dialogue du navigateur ne fait pas.
+ * l’occurrence pendant qu’on tape la requête. Il compte les occurrences, dit
+ * laquelle on regarde, et laisse `Entrée` enchaîner — trois choses qu’une
+ * simple boîte de dialogue du navigateur ne fait pas.
  *
- * `Échap` ferme et rend le curseur au texte, sans laisser de décoration
- * derrière : la recherche n’écrit jamais dans le document.
+ * Ce composant ne connaît pas l’éditeur : il demande son texte à l’hôte,
+ * calcule les occurrences, et **sélectionne** celle qu’on regarde. La
+ * recherche n’écrit jamais dans le document d’elle-même.
  */
 export function FindReplace({
-  editor,
+  host,
+  version,
   open,
   onClose,
   onDone,
   focusField = "query",
 }: {
-  editor: Editor | null;
+  host: EditorHost | null;
+  /** change à chaque frappe dans la note : le compteur doit suivre */
+  version: number;
   open: boolean;
   onClose: () => void;
   /** relance l’enregistrement après un remplacement */
@@ -38,7 +35,7 @@ export function FindReplace({
 }) {
   const [query, setQuery] = useState("");
   const [replacement, setReplacement] = useState("");
-  const [, force] = useState(0);
+  const [active, setActive] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef<HTMLInputElement>(null);
 
@@ -46,55 +43,46 @@ export function FindReplace({
     if (!open) {
       setQuery("");
       setReplacement("");
-      /* Fermer la recherche efface aussi ses décorations : aucune occurrence
-         ne doit rester surlignée derrière une barre refermée. */
-      if (editor && !editor.isDestroyed) setSearchQuery(editor, "");
+      setActive(-1);
       return;
     }
     const target = focusField === "replacement" ? replaceRef.current : inputRef.current;
     const focus = window.setTimeout(() => target?.focus(), 30);
     return () => window.clearTimeout(focus);
-  }, [open, editor, focusField]);
+  }, [open, focusField]);
 
-  /* Le nombre d’occurrences change aussi quand on tape dans le document. */
-  useEffect(() => {
-    if (!open || !editor) return;
-    const handler = () => force((value) => value + 1);
-    editor.on("transaction", handler);
-    return () => {
-      editor.off("transaction", handler);
-    };
-  }, [editor, open]);
+  if (!open || !host) return null;
 
-  if (!open || !editor) return null;
-
-  const matches = findMatches(editor.state.doc, query);
-  const { active } = currentSearch(editor);
+  /* Le texte est relu à chaque frappe (`version`) : aucune copie, donc aucun
+     compteur périmé après une correction. */
+  const matches = findMatches(host.text(), query);
   const total = matches.length;
-  const position = total === 0 ? 0 : active < 0 ? 0 : active + 1;
+  const position = total === 0 ? 0 : active < 0 ? 1 : active + 1;
 
-  const change = (value: string) => {
-    setQuery(value);
-    setSearchQuery(editor, value);
+  const show = (index: number) => {
+    setActive(index);
+    const match = matches[index];
+    if (match) host.selectRange(match.from, match.to);
   };
 
   const step = (direction: 1 | -1) => {
-    stepMatch(editor, direction);
-    force((value) => value + 1);
+    const next = stepMatch(matches, active, direction);
+    if (next >= 0) show(next);
   };
 
   const doReplace = () => {
-    if (!total) return;
-    replaceCurrent(editor, replacement);
+    const match = matches[active] ?? matches[0];
+    if (!match) return;
+    host.replaceOne(match, replacement);
     onDone();
-    force((value) => value + 1);
+    setActive(-1);
   };
 
   const doReplaceAll = () => {
-    if (!total) return;
-    replaceAll(editor, replacement);
+    if (total === 0) return;
+    host.replaceAll(query, replacement);
     onDone();
-    force((value) => value + 1);
+    setActive(-1);
   };
 
   return (
@@ -106,7 +94,10 @@ export function FindReplace({
       <input
         ref={inputRef}
         value={query}
-        onChange={(event) => change(event.target.value)}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActive(-1);
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
@@ -122,7 +113,11 @@ export function FindReplace({
         className="h-9 min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
       />
 
-      <span className="tabnum shrink-0 px-1 text-[12px] text-muted" aria-live="polite">
+      <span
+        key={version}
+        className="tabnum shrink-0 px-1 text-[12px] text-muted"
+        aria-live="polite"
+      >
         {query.trim() ? `${position} / ${total}` : "—"}
       </span>
 

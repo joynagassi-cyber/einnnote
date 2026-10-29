@@ -5,7 +5,6 @@ import {
   type ComponentType,
   type ReactNode,
 } from "react";
-import type { Editor } from "@tiptap/core";
 import {
   ArrowCounterClockwise,
   ArrowLineDown,
@@ -46,27 +45,10 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { Align, EditorSnapshot } from "@/lib/editor/snapshot";
-import {
-  changeIndent,
-  clearBlockFormatting,
-  deleteBlock,
-  duplicateBlock,
-  insertRule,
-  moveBlock,
-  setAlign,
-  setBlockAttrs,
-  toggleMeta,
-  toggleTask,
-  turnInto,
-  type BlockTarget,
-} from "@/lib/editor/extensions";
+import type { BlockTarget, EditorHost } from "@/lib/editor/host";
 import { HIGHLIGHTS } from "@/lib/editor/highlights";
-import {
-  CASE_MODES,
-  changeCase,
-  currentBlockText,
-  todayLabel,
-} from "@/lib/editor/transform";
+import { CASE_MODES } from "@/lib/editor/host";
+import { todayLabel } from "@/lib/editor/transform";
 
 /**
  * La barre d’outils de la note — **toute la mise en forme, à un endroit**.
@@ -258,35 +240,29 @@ export function EditorToolbar({
   onRun,
   onFind,
 }: {
-  editor: Editor | null;
+  editor: EditorHost | null;
   snapshot: EditorSnapshot;
   /** exécute une action puis enregistre (l’appelant décide comment) */
-  onRun: (action: (instance: Editor) => void) => void;
+  onRun: (action: (instance: EditorHost) => void) => void;
   onFind: () => void;
 }) {
   const [menu, setMenu] = useState<null | "block" | "more" | "highlight">(null);
   const close = () => setMenu(null);
-  const run = (action: (instance: Editor) => void) => {
+  const run = (action: (instance: EditorHost) => void) => {
     setMenu(null);
     onRun(action);
   };
 
-  const chain = (action: (instance: Editor) => void) => () => run(action);
+  const chain = (action: (instance: EditorHost) => void) => () => run(action);
 
   const setLink = () => {
     if (!editor) return;
-    const previous = editor.getAttributes("link").href as string | undefined;
+    const previous = editor.currentHref();
     const href = window.prompt("Adresse du lien", previous ?? "https://");
     if (href === null) return;
     run((instance) => {
-      if (href.trim() === "") instance.chain().focus().unsetLink().run();
-      else
-        instance
-          .chain()
-          .focus()
-          .extendMarkRange("link")
-          .setLink({ href: href.trim() })
-          .run();
+      instance.focus();
+      instance.setLink(href.trim() === "" ? null : href.trim());
     });
   };
 
@@ -295,10 +271,10 @@ export function EditorToolbar({
       <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-1">
         {/* ------------------------------------------------- historique */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <ToolButton label="Annuler" hint="Ctrl+Z" onClick={chain((i) => i.chain().focus().undo().run())}>
+          <ToolButton label="Annuler" hint="Ctrl+Z" onClick={chain((i) => i.undo())}>
             <ArrowUUpLeft size={18} />
           </ToolButton>
-          <ToolButton label="Rétablir" hint="Ctrl+Maj+Z" onClick={chain((i) => i.chain().focus().redo().run())}>
+          <ToolButton label="Rétablir" hint="Ctrl+Maj+Z" onClick={chain((i) => i.redo())}>
             <ArrowCounterClockwise size={18} />
           </ToolButton>
         </div>
@@ -331,7 +307,7 @@ export function EditorToolbar({
                 hint={choice.hint}
                 shortcut={choice.shortcut}
                 checked={snapshot.kind === choice.target}
-                onSelect={() => run((i) => turnInto(i, choice.target))}
+                onSelect={() => run((i) => i.turnInto(choice.target))}
               />
             ))}
           </MenuPanel>
@@ -340,19 +316,19 @@ export function EditorToolbar({
 
         {/* ------------------------------------------------- marques */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <ToolButton label="Gras" hint="Ctrl+B" active={snapshot.marks.bold} onClick={chain((i) => i.chain().focus().toggleBold().run())}>
+          <ToolButton label="Gras" hint="Ctrl+B" active={snapshot.marks.bold} onClick={chain((i) => i.toggleMark("bold"))}>
             <TextB size={18} weight={snapshot.marks.bold ? "bold" : "regular"} />
           </ToolButton>
-          <ToolButton label="Italique" hint="Ctrl+I" active={snapshot.marks.italic} onClick={chain((i) => i.chain().focus().toggleItalic().run())}>
+          <ToolButton label="Italique" hint="Ctrl+I" active={snapshot.marks.italic} onClick={chain((i) => i.toggleMark("italic"))}>
             <TextItalic size={18} />
           </ToolButton>
-          <ToolButton label="Souligné" hint="Ctrl+U" active={snapshot.marks.underline} onClick={chain((i) => i.chain().focus().toggleUnderline().run())}>
+          <ToolButton label="Souligné" hint="Ctrl+U" active={snapshot.marks.underline} onClick={chain((i) => i.toggleMark("underline"))}>
             <TextUnderline size={18} />
           </ToolButton>
-          <ToolButton label="Barré" hint="Ctrl+Maj+X" active={snapshot.marks.strike} onClick={chain((i) => i.chain().focus().toggleStrike().run())}>
+          <ToolButton label="Barré" hint="Ctrl+Maj+X" active={snapshot.marks.strike} onClick={chain((i) => i.toggleMark("strike"))}>
             <TextStrikethrough size={18} />
           </ToolButton>
-          <ToolButton label="Code en ligne" hint="Ctrl+E" active={snapshot.marks.code} onClick={chain((i) => i.chain().focus().toggleCode().run())}>
+          <ToolButton label="Code en ligne" hint="Ctrl+E" active={snapshot.marks.code} onClick={chain((i) => i.toggleMark("code"))}>
             <Code size={18} />
           </ToolButton>
 
@@ -374,7 +350,7 @@ export function EditorToolbar({
                     aria-label={`Surligner en ${highlight.label.toLowerCase()}`}
                     title={highlight.label}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => run((i) => i.chain().focus().toggleHighlight({ color: highlight.color }).run())}
+                    onClick={() => run((i) => i.highlight(highlight.color))}
                     className="h-7 w-7 rounded-full border border-line"
                     style={{ background: highlight.color }}
                   />
@@ -383,7 +359,7 @@ export function EditorToolbar({
                   type="button"
                   aria-label="Retirer le surlignage"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => run((i) => i.chain().focus().unsetHighlight().run())}
+                  onClick={() => run((i) => i.highlight(null))}
                   className="flex h-7 w-7 items-center justify-center rounded-full border border-line text-muted"
                 >
                   <Eraser size={14} />
@@ -400,19 +376,19 @@ export function EditorToolbar({
 
         {/* ------------------------------------------------- listes */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <ToolButton label="Liste à puces" hint="Ctrl+Maj+8" active={snapshot.bullet} onClick={chain((i) => toggleMeta(i, "bullet"))}>
+          <ToolButton label="Liste à puces" hint="Ctrl+Maj+8" active={snapshot.bullet} onClick={chain((i) => i.toggleMeta("bullet"))}>
             <ListBullets size={18} />
           </ToolButton>
-          <ToolButton label="Liste numérotée" hint="Ctrl+Maj+7" active={snapshot.ordered} onClick={chain((i) => toggleMeta(i, "ordered"))}>
+          <ToolButton label="Liste numérotée" hint="Ctrl+Maj+7" active={snapshot.ordered} onClick={chain((i) => i.toggleMeta("ordered"))}>
             <ListNumbers size={18} />
           </ToolButton>
-          <ToolButton label="Case à cocher" hint="Ctrl+Maj+4" active={snapshot.task} onClick={chain((i) => toggleTask(i))}>
+          <ToolButton label="Case à cocher" hint="Ctrl+Maj+4" active={snapshot.task} onClick={chain((i) => i.toggleTask())}>
             <ListChecks size={18} />
           </ToolButton>
-          <ToolButton label="Décaler à droite" hint="Tab" onClick={chain((i) => changeIndent(i, 1))} disabled={snapshot.indent >= 3}>
+          <ToolButton label="Décaler à droite" hint="Tab" onClick={chain((i) => i.changeIndent(1))} disabled={snapshot.indent >= 3}>
             <TextIndent size={18} />
           </ToolButton>
-          <ToolButton label="Décaler à gauche" hint="Maj+Tab" onClick={chain((i) => changeIndent(i, -1))} disabled={snapshot.indent <= 0}>
+          <ToolButton label="Décaler à gauche" hint="Maj+Tab" onClick={chain((i) => i.changeIndent(-1))} disabled={snapshot.indent <= 0}>
             <TextOutdent size={18} />
           </ToolButton>
         </div>
@@ -420,13 +396,13 @@ export function EditorToolbar({
 
         {/* ------------------------------------------------- alignement */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <ToolButton label="Aligner à gauche" active={snapshot.align === "left"} onClick={chain((i) => setAlign(i, "left"))}>
+          <ToolButton label="Aligner à gauche" active={snapshot.align === "left"} onClick={chain((i) => i.setAlign("left"))}>
             <TextAlignLeft size={18} />
           </ToolButton>
-          <ToolButton label="Centrer" active={snapshot.align === "center"} onClick={chain((i) => setAlign(i, "center"))}>
+          <ToolButton label="Centrer" active={snapshot.align === "center"} onClick={chain((i) => i.setAlign("center"))}>
             <TextAlignCenter size={18} />
           </ToolButton>
-          <ToolButton label="Aligner à droite" active={snapshot.align === "right"} onClick={chain((i) => setAlign(i, "right"))}>
+          <ToolButton label="Aligner à droite" active={snapshot.align === "right"} onClick={chain((i) => i.setAlign("right"))}>
             <TextAlignRight size={18} />
           </ToolButton>
         </div>
@@ -451,23 +427,23 @@ export function EditorToolbar({
               label="Exposant"
               shortcut="Ctrl+."
               checked={snapshot.marks.superscript}
-              onSelect={() => run((i) => i.chain().focus().toggleSuperscript().run())}
+              onSelect={() => run((i) => i.toggleMark("superscript"))}
             />
             <MenuItem
               icon={TextSubscript}
               label="Indice"
               shortcut="Ctrl+,"
               checked={snapshot.marks.subscript}
-              onSelect={() => run((i) => i.chain().focus().toggleSubscript().run())}
+              onSelect={() => run((i) => i.toggleMark("subscript"))}
             />
             <MenuItem
               icon={BookmarkSimple}
               label="Marquer comme réponse"
               hint="Surligne le passage qui répond à une question"
               checked={snapshot.marked}
-              onSelect={() => run((i) => setBlockAttrs(i, { marked: !snapshot.marked }))}
+              onSelect={() => run((i) => i.setAttrs({ marked: !snapshot.marked }))}
             />
-            <MenuItem icon={Minus} label="Insérer un filet" hint="Séparateur horizontal" onSelect={() => run((i) => insertRule(i))} />
+            <MenuItem icon={Minus} label="Insérer un filet" hint="Séparateur horizontal" onSelect={() => run((i) => i.insertRule())} />
 
             <span className="editor-menu-sep" role="separator" />
 
@@ -475,11 +451,11 @@ export function EditorToolbar({
               icon={CopySimple}
               label="Dupliquer le bloc"
               shortcut="Ctrl+Maj+D"
-              onSelect={() => run((i) => duplicateBlock(i))}
+              onSelect={() => run((i) => i.duplicateBlock())}
             />
-            <MenuItem icon={ArrowLineUp} label="Monter le bloc" shortcut="Alt+↑" onSelect={() => run((i) => moveBlock(i, -1))} />
-            <MenuItem icon={ArrowLineDown} label="Descendre le bloc" shortcut="Alt+↓" onSelect={() => run((i) => moveBlock(i, 1))} />
-            <MenuItem icon={Trash} label="Supprimer le bloc" onSelect={() => run((i) => deleteBlock(i))} />
+            <MenuItem icon={ArrowLineUp} label="Monter le bloc" shortcut="Alt+↑" onSelect={() => run((i) => i.moveBlock(-1))} />
+            <MenuItem icon={ArrowLineDown} label="Descendre le bloc" shortcut="Alt+↓" onSelect={() => run((i) => i.moveBlock(1))} />
+            <MenuItem icon={Trash} label="Supprimer le bloc" onSelect={() => run((i) => i.deleteBlock())} />
 
             <span className="editor-menu-sep" role="separator" />
 
@@ -489,7 +465,7 @@ export function EditorToolbar({
               hint="Texte du bloc courant"
               onSelect={() => {
                 if (!editor) return;
-                const text = currentBlockText(editor);
+                const text = editor.blockText();
                 setMenu(null);
                 if (!text) return;
                 void navigator.clipboard?.writeText(text);
@@ -499,15 +475,7 @@ export function EditorToolbar({
               icon={CalendarBlank}
               label="Insérer la date"
               hint={todayLabel()}
-              onSelect={() =>
-                run((i) =>
-                  i
-                    .chain()
-                    .focus()
-                    .insertContent({ type: "text", text: todayLabel() })
-                    .run(),
-                )
-              }
+              onSelect={() => run((i) => i.insertText(todayLabel()))}
             />
 
             <span className="editor-menu-sep" role="separator" />
@@ -518,14 +486,14 @@ export function EditorToolbar({
                 icon={TextAa}
                 label={`Casse : ${item.label}`}
                 hint={item.hint}
-                onSelect={() => run((i) => changeCase(i, item.mode))}
+                onSelect={() => run((i) => i.changeCase(item.mode))}
               />
             ))}
 
             <span className="editor-menu-sep" role="separator" />
 
             <MenuItem icon={MagnifyingGlass} label="Rechercher dans la note" shortcut="Ctrl+F" onSelect={() => { setMenu(null); onFind(); }} />
-            <MenuItem icon={Eraser} label="Effacer la mise en forme" hint="Marques et type de bloc" onSelect={() => run((i) => clearBlockFormatting(i))} />
+            <MenuItem icon={Eraser} label="Effacer la mise en forme" hint="Marques et type de bloc" onSelect={() => run((i) => i.clearFormatting())} />
           </MenuPanel>
         </span>
 
@@ -536,12 +504,7 @@ export function EditorToolbar({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() =>
             run((i) =>
-              i
-                .chain()
-                .focus()
-                .splitBlock()
-                .updateAttributes("paragraph", { bullet: true, ordered: false, task: false })
-                .run(),
+              i.splitBlock({ kind: "p", bullet: true, ordered: false, task: false }),
             )
           }
           className="editor-tool shrink-0 text-accent"

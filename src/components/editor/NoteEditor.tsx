@@ -7,13 +7,8 @@ import {
   useState,
   type Ref,
 } from "react";
-import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Highlight from "@tiptap/extension-highlight";
-import Placeholder from "@tiptap/extension-placeholder";
-import CharacterCount from "@tiptap/extension-character-count";
-import Superscript from "@tiptap/extension-superscript";
-import Subscript from "@tiptap/extension-subscript";
+import Quill from "quill";
+import "quill/dist/quill.snow.css";
 import {
   Code,
   Copy,
@@ -26,36 +21,152 @@ import {
 } from "@phosphor-icons/react";
 import { useToast } from "@/stores/useToast";
 import { useAppStore } from "@/stores/useAppStore";
-import { blocksToHtml, docToBlocks, type PmNode } from "@/lib/editor/blocks";
-import {
-  BlockMeta,
-  QuestionBadges,
-  blockIdAt,
-  blockKindOf,
-  currentBlockAttrs,
-  selectedText,
-        type BlockTarget,
-} from "@/lib/editor/extensions";
-import { NoteLinks } from "@/lib/editor/note-links";
-import { NotePicker } from "@/components/note/NotePicker";
-import { normalizeTitle, resolveLink, type NoteRef } from "@/lib/links/notes";
-import { SearchHighlight } from "@/lib/editor/search";
 import { HIGHLIGHTS } from "@/lib/editor/highlights";
-import {
-  EditorToolbar,
-  type Align,
-  type EditorSnapshot,
-} from "@/components/editor/EditorToolbar";
-import { FindReplace } from "@/components/editor/FindReplace";
+import type { Block } from "@/types";
+import type { EditorHost } from "@/lib/editor/host";
+import { EMPTY_SNAPSHOT, type EditorSnapshot } from "@/lib/editor/snapshot";
+import { FORMAT, blocksToDelta, deltaToBlocks } from "@/lib/editor/quill/delta";
+import { createQuillHost, ensureBlockIds } from "@/lib/editor/quill/adapt";
+import { registerEditingEngine } from "@/lib/editor/quill/bridge";
 import { Palette } from "@/components/commands/Palette";
 import { Pupitre } from "@/components/commands/Pupitre";
+import { EditorToolbar } from "@/components/editor/EditorToolbar";
+import { FindReplace } from "@/components/editor/FindReplace";
+import { NotePicker } from "@/components/note/NotePicker";
 import type { Command, CommandContext } from "@/lib/commands/registry";
-import type { Block } from "@/types";
+import { normalizeTitle, resolveLink, type NoteRef } from "@/lib/links/notes";
 
-/* Les cinq surligneurs vivent dans `lib/editor/highlights` : la feuille « / »
-   et la barre de sélection s’en servent aussi. Ré-export pour les appelants
-   historiques. */
-export { HIGHLIGHTS };
+/* ------------------------------------------------------------------ */
+/* Les formats maison                                                  */
+/* ------------------------------------------------------------------ */
+
+/* Trois attributs nous appartiennent : l’identité du bloc, le marquage « à
+   relire », et le filet de séparation. Le reste vient de Quill — on ne
+   réinvente ni le gras ni les listes, sinon Entrée, annulation et
+   copier-coller cesseraient d’être ceux de la bibliothèque. */
+let formatsReady = false;
+
+function ensureFormats() {
+  if (formatsReady) return;
+
+  /* Quill 2 s’appuie sur Parchment 3 : la classe `Attributor` y est concrète
+     pour les **attributs** HTML, et `ClassAttributor` pour les classes. On
+     déclare donc cinq formats maison, avec la portée qui convient — sans eux,
+     `data-block-id` serait effacé au premier rechargement du document. */
+  const parchment = Quill.import("parchment") as {
+    Attributor: new (name: string, key: string, options?: { scope?: number }) => unknown;
+    ClassAttributor: new (
+      name: string,
+      key: string,
+      options?: { scope?: number },
+    ) => unknown;
+    Scope: { BLOCK: number; INLINE: number };
+  };
+
+  Quill.register(
+    {
+      [`formats/${FORMAT.blockId}`]: new parchment.Attributor(FORMAT.blockId, "data-block-id", {
+        scope: parchment.Scope.BLOCK,
+      }),
+      [`formats/${FORMAT.marked}`]: new parchment.Attributor(FORMAT.marked, "data-marked", {
+        scope: parchment.Scope.BLOCK,
+      }),
+      [`formats/${FORMAT.rule}`]: new parchment.Attributor(FORMAT.rule, "data-rule", {
+        scope: parchment.Scope.BLOCK,
+      }),
+      /* Un seul attribut pour les deux états du renvoi : `note-link` et
+         `note-link--broken`. Parchment compose toujours « clé-valeur », donc la
+         clé est `note` et la valeur porte la fin du nom de classe. */
+      "formats/notelink": new parchment.ClassAttributor("notelink", "note", {
+        scope: parchment.Scope.INLINE,
+      }),
+    },
+    true,
+  );
+  formatsReady = true;
+}
+
+const QUILL_FORMATS = [
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "code",
+  "background",
+  "link",
+  "script",
+  "header",
+  "list",
+  "indent",
+  "align",
+  "blockquote",
+  FORMAT.blockId,
+  FORMAT.marked,
+  FORMAT.rule,
+  "notelink",
+];
+
+/* ------------------------------------------------------------------ */
+/* Liens de notes                                                      */
+/* ------------------------------------------------------------------ */
+
+const NOTELINK_PATTERN = /\[\[([^[\]\n]{1,160})\]\]/g;
+
+interface LineInfo {
+  start: number;
+  text: string;
+  blockId: string | null;
+}
+
+/** Les lignes du document, avec leur décalage et leur identité. */
+function readLines(quill: Quill): LineInfo[] {
+  const lines: LineInfo[] = [];
+  let index = 0;
+  let current: LineInfo = { start: 0, text: "", blockId: null };
+
+  for (const op of quill.getContents().ops) {
+    if (typeof op.insert !== "string") continue;
+    const parts = op.insert.split("\n");
+    parts.forEach((part, at) => {
+      current.text += part;
+      index += part.length;
+      if (at < parts.length - 1) {
+        lines.push({ ...current, blockId: (op.attributes?.[FORMAT.blockId] as string) ?? null });
+        index += 1;
+        current = { start: index, text: "", blockId: null };
+      }
+    });
+  }
+  if (current.text) lines.push(current);
+  return lines;
+}
+
+/**
+ * Met en forme les `[[renvois]]` d’une ligne.
+ *
+ * Le lien **est du texte** : on ne stocke rien, on ne migre rien, et un export
+ * Markdown le retrouve tel quel. L’attribut n’est qu’un habillage, réappliqué
+ * après chaque frappe, et effacé sans bruit quand les crochets disparaissent.
+ */
+function paintNoteLinks(quill: Quill, exists: (title: string) => boolean, only?: LineInfo) {
+  const targets = only ? [only] : readLines(quill);
+  for (const line of targets) {
+    if (line.text.length === 0) continue;
+    quill.formatText(line.start, line.text.length, { notelink: false }, "silent");
+    NOTELINK_PATTERN.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = NOTELINK_PATTERN.exec(line.text)) !== null) {
+      const title = match[1].trim();
+      if (!title) continue;
+      quill.formatText(
+        line.start + match.index,
+        match[0].length,
+        exists(title) ? { notelink: "link" } : { notelink: "link--broken" },
+        "silent",
+      );
+    }
+  }
+}
 
 /* ------------------------------------------------------------------ */
 
@@ -101,7 +212,7 @@ export function NoteEditor({
   /** la note ouverte — on ne se lie pas à soi-même */
   noteId?: string;
   onOpenNote?: (note: NoteRef) => void;
-  /** crée la note manquante et rend sa référence, pour lier aussitôt */
+  /** le sélecteur de note peut en créer une à la volée */
   onCreateNote?: (title: string) => NoteRef | undefined;
   /** la fiche, ouverte à côté du texte, peut déclencher le sélecteur de note */
   ref?: Ref<NoteEditorHandle>;
@@ -111,30 +222,23 @@ export function NoteEditor({
   const [findMode, setFindMode] = useState<"find" | "replace">("find");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<"run" | "add" | "insert">("run");
-  /* L’état du rangement est partagé : l’écran peut l’ouvrir depuis la fiche,
-     au clavier, sans passer par un appui long de 500 ms. */
   const [linkOpen, setLinkOpen] = useState(false);
   const [rangingLocal, setRangingLocal] = useState(false);
+  const [tick, setTick] = useState(0);
+
   const ranging = rangingProp ?? rangingLocal;
   const setRanging = (open: boolean) => {
     setRangingLocal(open);
     onRangingChangeProp?.(open);
   };
 
-  /* Le registre de notes est lu par des décorations créées une seule fois :
-     une ref évite de reconstruire l’extension à chaque rendu. */
-  const notesRef = useRef(notes);
-  notesRef.current = notes;
-  const onOpenNoteRef = useRef(onOpenNote);
-  onOpenNoteRef.current = onOpenNote;
-  const titleIndex = useMemo(
-    () => new Set(notes.map((note) => normalizeTitle(note.title))),
-    [notes],
-  );
-  const titleIndexRef = useRef(titleIndex);
-  titleIndexRef.current = titleIndex;
+  const holder = useRef<HTMLDivElement>(null);
+  const quillRef = useRef<Quill | null>(null);
+  const [host, setHost] = useState<EditorHost | null>(null);
 
   const saveTimer = useRef<number | null>(null);
+  /** les derniers blocs produits par le moteur, prêts à être écrits */
+  const pendingBlocks = useRef<Block[] | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const markersRef = useRef(markers);
@@ -143,343 +247,251 @@ export function NoteEditor({
   onBadgeClickRef.current = onBadgeClick;
   const onAskRef = useRef(onAsk);
   onAskRef.current = onAsk;
-
-  const editable = !reading;
-
-  const persist = useCallback((doc: PmNode) => {
-    onChangeRef.current(docToBlocks(doc));
-  }, []);
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: false,
-        horizontalRule: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        blockquote: false,
-        link: {
-          openOnClick: false,
-          autolink: true,
-          HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
-        },
-        /* Les raccourcis par défaut de TipTap écraseraient les nôtres sur
-           Ctrl+Maj+7, 8 et 9 : on les désactive, `BlockMeta` les redéfinit. */
-        strike: {},
-      }),
-      BlockMeta,
-      QuestionBadges.configure({
-        markers: () => markersRef.current,
-        onBadgeClick: (blockId) => onBadgeClickRef.current(blockId),
-      }),
-      Highlight.configure({ multicolor: true }),
-      Placeholder.configure({
-        placeholder: "Écrivez… tapez / pour un titre, une liste, une citation",
-        showOnlyWhenEditable: true,
-      }),
-      CharacterCount,
-      Superscript,
-      Subscript,
-      SearchHighlight,
-      NoteLinks.configure({
-        exists: (title) => titleIndexRef.current.has(normalizeTitle(title)),
-        onOpen: (title) => {
-          const target = resolveLink(title, notesRef.current);
-          if (target) onOpenNoteRef.current?.(target);
-          else toast(`Aucune note ne porte « ${title} »`);
-        },
-      }),
-    ],
-    content: blocksToHtml(blocks),
-    autofocus: false,
-    editable,
-    /* En lecture, le curseur ne doit pas apparaître : un texte qu’on peut
-       sélectionner mais pas modifier, comme une page imprimée. */
-    editorProps: {
-      attributes: {
-        class: "note-prose",
-        spellcheck: "true",
-        "aria-label": "Contenu de la note",
-      },
-      /* Une case se coche en cliquant sur sa pastille, comme dans Notion :
-         c’est le seul endroit du bloc où le clic ne place pas le curseur. */
-      handleClick: (view, _pos, event) => {
-        const target = event.target as HTMLElement | null;
-        const block = target?.closest?.("[data-task]") as HTMLElement | null;
-        if (!block) return false;
-        const box = block.getBoundingClientRect();
-        if (event.clientX - box.left > 26) return false;
-        const blockId = block.getAttribute("data-block-id");
-        if (!blockId) return false;
-        event.preventDefault();
-        const tr = view.state.tr;
-        let toggled = false;
-        view.state.doc.descendants((node, pos) => {
-          if (toggled || node.type.name !== "paragraph" && node.type.name !== "heading") {
-            return !toggled;
-          }
-          if (node.attrs.blockId !== blockId) return true;
-          tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            checked: node.attrs.checked !== true,
-          });
-          toggled = true;
-          return false;
-        });
-        if (toggled) {
-          view.dispatch(tr);
-          onChangeRef.current(docToBlocks(view.state.doc.toJSON() as PmNode));
-        }
-        return true;
-      },
-      handleKeyDown: (view, event) => {
-        /* Ctrl/Cmd+F ouvre la recherche de la note, jamais celle du
-           navigateur : la note est un document, pas une page. */
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-          event.preventDefault();
-          setFindOpen(true);
-          return true;
-        }
-
-        /* Coller sans format : du texte, rien que du texte. On lit le
-           presse-papiers nous-mêmes (`readText`), donc aucune balise ne peut
-           entrer — et si le navigateur refuse, on le dit au lieu de ne rien
-           faire. */
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "v") {
-          event.preventDefault();
-          void navigator.clipboard
-            ?.readText()
-            .then((text) => {
-              if (!text) return;
-              view.dispatch(view.state.tr.insertText(text.replace(/\r/g, "")));
-              onChangeRef.current(
-                docToBlocks(view.state.doc.toJSON() as PmNode),
-              );
-            })
-            .catch(() => toast("Collage sans format impossible sur ce navigateur"));
-          return true;
-        }
-
-        return false;
-      },
-    },
-    onUpdate: ({ editor: instance }) => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => {
-        persist(instance.getJSON() as PmNode);
-      }, 350);
-
-      /* « / » dans un paragraphe vide : on retire le caractère et on ouvre la
-         palette sur les gestes d’insertion. Un seul catalogue de commandes
-         pour toutes les surfaces — c’est le point du registre. */
-      const { $from } = instance.state.selection;
-      if (
-        instance.state.selection.empty &&
-        $from.parent.type.name === "paragraph" &&
-        $from.parentOffset === 1 &&
-        $from.parent.textContent === "/"
-      ) {
-        instance.chain().deleteRange({ from: $from.pos - 1, to: $from.pos }).run();
-        setPaletteMode("insert");
-        setPaletteOpen(true);
-      }
-    },
-  });
-
-  /* Les pastilles sont des décorations : elles ne se recalculent qu’au
-     prochain changement du document. On force ce recalcul quand une question
-     est ajoutée ou supprimée pendant l’édition. */
-  const markerKey = useMemo(
-    () =>
-      [...markers.entries()]
-        .map(([blockId, numbers]) => `${blockId}:${numbers.join(",")}`)
-        .sort()
-        .join("|"),
-    [markers],
+  const onOpenNoteRef = useRef(onOpenNote);
+  onOpenNoteRef.current = onOpenNote;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const titleIndex = useMemo(
+    () => new Set(notes.map((note) => normalizeTitle(note.title))),
+    [notes],
   );
+  const titleIndexRef = useRef(titleIndex);
+  titleIndexRef.current = titleIndex;
+
+  /* ---------------------------- MONTAGE -------------------------------- */
 
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    editor.view.dispatch(editor.state.tr.setMeta("addToHistory", false));
-  }, [markerKey, editor]);
+    ensureFormats();
+    const element = holder.current;
+    if (!element) return;
 
-  /* Enregistrement de sécurité : quitter la page ne perd pas la frappe */
-  useEffect(() => {
+    element.innerHTML = "";
+    const quill = new Quill(element, {
+      theme: "snow",
+      modules: { toolbar: false, history: { delay: 600, maxStack: 200 } },
+      formats: QUILL_FORMATS,
+      placeholder: "Écrivez… tapez / pour un titre, une liste, une citation",
+    });
+    quill.root.setAttribute("spellcheck", "true");
+    quill.root.setAttribute("aria-label", "Contenu de la note");
+    quill.setContents(blocksToDelta(blocks), "silent");
+
+    const editor = createQuillHost(quill, (next) => onChangeRef.current(next));
+    quillRef.current = quill;
+    registerEditingEngine(quill);
+    setHost(editor);
+
     return () => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-      if (editor && !editor.isDestroyed) persist(editor.getJSON() as PmNode);
+      /* Le moteur est encore vivant ici : c’est le seul moment où l’on peut
+         relire le document sans le perdre. On met la relecture de côté, et
+         l’effet de sauvegarde la rejouera juste après. */
+      pendingBlocks.current = deltaToBlocks(quill.getContents());
+      quill.off("text-change");
+      quill.off("selection-change");
+      registerEditingEngine(null);
+      quillRef.current = null;
+      element.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Échap ferme la recherche ; le menu « / » s’écoute au clavier. */
-  useEffect(() => {
-    if (!findOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setFindOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [findOpen]);
+  /* --------------------------- LA FRAPPE ------------------------------- */
 
   useEffect(() => {
-    editor?.setEditable(!reading);
-  }, [editor, reading]);
+    const quill = quillRef.current;
+    if (!quill || !host) return;
 
-  const state = useEditorState({
-    editor,
-    selector: ({ editor: instance }) => {
-      if (!instance) {
-        return {
-          empty: true,
-          selection: "",
-          words: 0,
-          marks: {} as Record<string, boolean>,
-          attrs: {} as Record<string, unknown>,
-          kind: "p" as BlockTarget,
-        };
+    const exists = (title: string) => titleIndexRef.current.has(normalizeTitle(title));
+
+    const onText = () => {
+      ensureBlockIds(quill);
+      const lines = readLines(quill);
+      const range = quill.getSelection();
+      const at = range ? range.index : 0;
+      const line =
+        lines.find((candidate) => at >= candidate.start && at <= candidate.start + candidate.text.length) ??
+        lines[lines.length - 1];
+      if (line) paintNoteLinks(quill, exists, line);
+
+      /* « / » seul sur une ligne vide : on retire le caractère et on ouvre la
+         palette sur les gestes d’insertion. Un seul catalogue pour toutes les
+         surfaces — palette, pupitre, fiche. */
+      if (line && line.text === "/" && range && range.length === 0) {
+        quill.deleteText(line.start, 1, "api");
+        setPaletteMode("insert");
+        setPaletteOpen(true);
       }
-      const { from, to } = instance.state.selection;
-      return {
-        empty: from === to,
-        selection: selectedText(instance),
-        words: instance.storage.characterCount.words() as number,
-        marks: {
-          bold: instance.isActive("bold"),
-          italic: instance.isActive("italic"),
-          underline: instance.isActive("underline"),
-          strike: instance.isActive("strike"),
-          code: instance.isActive("code"),
-          highlight: instance.isActive("highlight"),
-          link: instance.isActive("link"),
-          superscript: instance.isActive("superscript"),
-          subscript: instance.isActive("subscript"),
-        } as Record<string, boolean>,
-        attrs: { ...currentBlockAttrs(instance) },
-        kind: blockKindOf(instance),
-      };
-    },
-  });
 
-  const run = useCallback(
-    (action: (instance: NonNullable<typeof editor>) => void) => {
-      if (!editor) return;
-      action(editor);
-      persist(editor.getJSON() as PmNode);
-    },
-    [editor, persist],
-  );
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => {
+        const blocks = host.blocks();
+        pendingBlocks.current = null;
+        onChangeRef.current(blocks);
+      }, 350);
+      setTick((value) => value + 1);
+    };
 
-  const applyHighlight = (color: string) =>
-    run((instance) => instance.chain().focus().toggleHighlight({ color }).run());
+    const onSelection = () => setTick((value) => value + 1);
 
-  const askFromSelection = () => {
-    if (!editor) return;
-    const text = selectedText(editor);
-    const blockId = blockIdAt(editor, editor.state.selection.from);
-    if (!text || !blockId) {
-      toast("Sélectionnez d’abord un passage");
-      return;
-    }
-    onAskRef.current({ blockId, text });
-  };
+    quill.on("text-change", onText);
+    quill.on("selection-change", onSelection);
+    paintNoteLinks(quill, exists);
 
-  const copySelection = async () => {
-    if (!editor) return;
-    const text = selectedText(editor);
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      toast("Copié", "accent");
-    } catch {
-      toast("Copie impossible sur ce navigateur");
-    }
-  };
+    return () => {
+      quill.off("text-change", onText);
+      quill.off("selection-change", onSelection);
+    };
+  }, [host]);
 
-  const setLink = () => {
-    if (!editor) return;
-    const previous = editor.getAttributes("link").href as string | undefined;
-    const href = window.prompt("Adresse du lien", previous ?? "https://");
-    if (href === null) return;
-    run((instance) => {
-      if (href.trim() === "") instance.chain().focus().unsetLink().run();
-      else
-        instance
-          .chain()
-          .focus()
-          .extendMarkRange("link")
-          .setLink({ href: href.trim() })
-          .run();
-    });
-  };
+  /* Enregistrement de sécurité : quitter la page ne perd pas la frappe.
+     On rejoue **les derniers blocs connus**, jamais une relecture du moteur :
+     au démontage, Quill est déjà détruit, et le relire rendrait un document
+     vide — donc une note vidée. */
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      const pending = pendingBlocks.current;
+      pendingBlocks.current = null;
+      if (pending) onChangeRef.current(pending);
+    };
+  }, []);
 
-  const words = state?.words ?? 0;
-  const selection = state?.selection ?? "";
-  const marks = (state?.marks ?? {}) as Record<string, boolean>;
-  const attrs = (state?.attrs ?? {}) as Record<string, unknown>;
-  const kind = (state?.kind ?? "p") as BlockTarget;
+  useEffect(() => {
+    quillRef.current?.enable(!reading);
+  }, [reading]);
 
-  const snapshot: EditorSnapshot = {
-    kind,
-    marks: {
-      bold: Boolean(marks.bold),
-      italic: Boolean(marks.italic),
-      underline: Boolean(marks.underline),
-      strike: Boolean(marks.strike),
-      code: Boolean(marks.code),
-      highlight: Boolean(marks.highlight),
-      link: Boolean(marks.link),
-      superscript: Boolean(marks.superscript),
-      subscript: Boolean(marks.subscript),
-    },
-    bullet: attrs.bullet === true,
-    ordered: attrs.ordered === true,
-    task: attrs.task === true,
-    checked: attrs.checked === true,
-    marked: attrs.marked === true,
-    indent: Number(attrs.indent ?? 0) || 0,
-    align: (attrs.align as Align) ?? "left",
-    words,
-  };
+  /* --------------------------- LA SOURIS ------------------------------- */
 
-  /* Le runner lit toujours l’instantané le plus récent : une commande exécutée
-     depuis la palette ne doit pas décider d’après un état vieux d’un rendu. */
+  useEffect(() => {
+    const quill = quillRef.current;
+    if (!quill || !host) return;
+    const root = quill.root;
+
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      /* Un renvoi : on l’ouvre. Un renvoi mort : on le dit. */
+      const link = target.closest("[class*='note-link']") as HTMLElement | null;
+      if (link) {
+        const raw = link.textContent ?? "";
+        const title = raw.replace(/^\[\[/, "").replace(/\]\]$/, "").trim();
+        const found = resolveLink(title, notesRef.current);
+        event.preventDefault();
+        if (found) onOpenNoteRef.current?.(found);
+        else toast(`Aucune note ne porte « ${title} »`);
+        return;
+      }
+
+      /* Une case se coche en cliquant sur sa pastille, jamais en cliquant
+         dans son texte : le curseur doit rester là où on l’a mis. */
+      const item = target.closest("li[data-list='checked'], li[data-list='unchecked']") as
+        | HTMLElement
+        | null;
+      if (!item) return;
+      const box = item.getBoundingClientRect();
+      if (event.clientX - box.left > 26) return;
+      const blockId = item.getAttribute("data-block-id");
+      if (!blockId) return;
+      event.preventDefault();
+      host.toggleCheckedById(blockId);
+    };
+
+    root.addEventListener("click", onClick);
+    return () => root.removeEventListener("click", onClick);
+  }, [host, toast]);
+
+  /* --------------------------- LE CLAVIER ------------------------------ */
+
+  useEffect(() => {
+    const quill = quillRef.current;
+    if (!quill) return;
+    const root = quill.root;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      /* Ctrl/Cmd+F ouvre la recherche de la note, jamais celle du
+         navigateur : la note est un document, pas une page. */
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setFindOpen(true);
+        return;
+      }
+      /* Coller sans format : on lit le presse-papiers nous-mêmes, donc aucune
+         balise ne peut entrer — et si le navigateur refuse, on le dit. */
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "v") {
+        event.preventDefault();
+        void navigator.clipboard
+          ?.readText()
+          .then((text) => {
+            if (!text) return;
+            const range = quill.getSelection() ?? { index: 0, length: 0 };
+            quill.deleteText(range.index, range.length, "api");
+            quill.insertText(range.index, text.replace(/\r/g, ""), {}, "api");
+          })
+          .catch(() => toast("Collage sans format impossible sur ce navigateur"));
+      }
+    };
+
+    root.addEventListener("keydown", onKeyDown);
+    return () => root.removeEventListener("keydown", onKeyDown);
+  }, [toast]);
+
+  /* --------------------------- L’ÉTAT ---------------------------------- */
+
+  /* L’état est relu à chaque rendu, sans mémo : il ne coûte qu’une poignée de
+     lectures au moteur, et il ne peut donc jamais afficher un format périmé. */
+  const snapshot: EditorSnapshot = (() => {
+    if (!host) return EMPTY_SNAPSHOT;
+    const attrs = host.attrs();
+    return {
+      kind: attrs.kind,
+      marks: {
+        bold: host.isMarkActive("bold"),
+        italic: host.isMarkActive("italic"),
+        underline: host.isMarkActive("underline"),
+        strike: host.isMarkActive("strike"),
+        code: host.isMarkActive("code"),
+        highlight: host.isMarkActive("highlight"),
+        link: host.isMarkActive("link"),
+        superscript: host.isMarkActive("superscript"),
+        subscript: host.isMarkActive("subscript"),
+      },
+      bullet: attrs.bullet,
+      ordered: attrs.ordered,
+      task: attrs.task,
+      checked: attrs.checked,
+      marked: attrs.marked,
+      indent: attrs.indent,
+      align: attrs.align,
+      words: host.words(),
+    };
+  })();
+
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
 
-  /* --------------------------- COMMANDES -------------------------------- */
+  const selection = host ? host.selectedText() : "";
 
-  /* Une seule porte d’exécution : la palette et le pupitre passent par ici,
-     donc l’enregistrement est fait une seule fois, au même endroit. */
+  /* --------------------------- COMMANDES ------------------------------- */
+
   /* Écrire un lien : si `[[` a été tapé, on remplace les deux crochets plutôt
-     que d’en ajouter deux autres. Le curseur reste après le lien, prêt à
-     continuer la phrase. */
+     que d’en ajouter deux autres. Le curseur reste après le lien. */
   const insertLink = useCallback(
     (note: NoteRef) => {
-      if (!editor) return;
-      const { from } = editor.state.selection;
-      if (from >= 2 && editor.state.doc.textBetween(from - 2, from, "\n", "\n") === "[[") {
-        editor.chain().focus().deleteRange({ from: from - 2, to: from }).run();
-      }
-      editor.chain().focus().insertContent(`[[${note.title}]] `).run();
-      persist(editor.getJSON() as PmNode);
+      if (!host) return;
+      host.insertText(`[[${note.title}]] `);
       setLinkOpen(false);
     },
-    [editor, persist],
+    [host],
   );
 
-  /* La fiche vit à côté de l’éditeur : elle ne doit pas connaître TipTap pour
-     proposer « Lier une note ». Deux verbes suffisent, et rien d’autre ne
-     sort de l’éditeur. */
   useImperativeHandle(ref, () => ({ link: () => setLinkOpen(true) }), []);
 
   const runCommand = useCallback(
     (command: Command) => {
-      if (!editor) return;
+      if (!host) return;
       const context: CommandContext = {
-        editor,
+        editor: host,
         snapshot: snapshotRef.current,
         toast,
         find: (mode = "find") => {
@@ -490,32 +502,35 @@ export function NoteEditor({
         reading: () => onToggleReading?.(),
         link: () => setLinkOpen(true),
         openLinkAtCursor: () => {
-          /* Le curseur peut être *dans* les crochets : on regarde le bloc de
-             texte courant, où les décalages sont exacts, et on retient le lien
-             dont l’intervalle contient le curseur. */
-          const { $from } = editor.state.selection;
-          const text = $from.parent.textContent;
-          const offset = $from.parentOffset;
-          const hit = [...text.matchAll(/\[\[([^[\]\n]{1,160})\]\]/g)].find(
-            (match) => {
-              const at = match.index ?? 0;
-              return offset >= at && offset <= at + match[0].length;
-            },
+          const source = quillRef.current;
+          if (!source) return;
+          const offsets = host.selectionOffsets();
+          const lines = readLines(source);
+          const line = lines.find(
+            (candidate) =>
+              offsets.from >= candidate.start &&
+              offsets.from <= candidate.start + candidate.text.length,
           );
-          const raw = hit?.[1]?.trim();
-          if (!raw) {
-            toast("Aucun lien de note sous le curseur");
+          if (!line) return;
+          const local = offsets.from - line.start;
+          NOTELINK_PATTERN.lastIndex = 0;
+          let match: RegExpExecArray | null;
+          while ((match = NOTELINK_PATTERN.exec(line.text)) !== null) {
+            const at = match.index;
+            if (local < at || local > at + match[0].length) continue;
+            const title = match[1].trim();
+            const found = resolveLink(title, notesRef.current);
+            if (found) onOpenNoteRef.current?.(found);
+            else toast(`Aucune note ne porte « ${title} »`);
             return;
           }
-          const target = resolveLink(raw, notesRef.current);
-          if (target) onOpenNoteRef.current?.(target);
-          else toast(`Aucune note ne porte « ${raw} »`);
+          toast("Aucun renvoi sous le curseur");
         },
       };
       command.run(context);
-      persist(editor.getJSON() as PmNode);
+      onChangeRef.current(host.blocks());
     },
-    [editor, onFiche, onToggleReading, persist, toast],
+    [host, onFiche, onToggleReading, toast],
   );
 
   const openPalette = useCallback((mode: "run" | "add" | "insert" = "run") => {
@@ -523,13 +538,10 @@ export function NoteEditor({
     setPaletteOpen(true);
   }, []);
 
-  /* `Ctrl/⌘ K` depuis n’importe où dans la note : une palette qu’il faut
-     atteindre à la souris n’est pas une palette. */
+  /* `Ctrl/⌘ K` depuis n’importe où dans la note. */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
-      /* En lecture, la palette n’a rien à formater : on ne l’ouvre pas. Échap
-         quitte la lecture, c’est le seul raccourci qui y sert. */
       if (reading) return;
       event.preventDefault();
       setPaletteMode("run");
@@ -539,14 +551,84 @@ export function NoteEditor({
     return () => document.removeEventListener("keydown", onKey);
   }, [reading]);
 
+  const askFromSelection = () => {
+    if (!host) return;
+    const text = host.selectedText();
+    const blockId = host.attrs().id;
+    if (!text || !blockId) {
+      toast("Sélectionnez d’abord un passage");
+      return;
+    }
+    onAskRef.current({ blockId, text });
+  };
+
+  const copySelection = async () => {
+    if (!host) return;
+    const text = host.selectedText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Copié", "accent");
+    } catch {
+      toast("Copie impossible sur ce navigateur");
+    }
+  };
+
+  /* Les renvois morts, dits une fois pour les lecteurs d’écran.
+     On ne touche pas au DOM de Quill : chaque écriture y relance son
+     observateur, qui relance la mise en forme, qui relance l’écriture. Le
+     résumé vit donc à côté, en `role="status"`, et il ne bouge que lorsque la
+     liste change. */
+  const deadLinks = useMemo(() => {
+    const quill = quillRef.current;
+    if (!quill) return [] as string[];
+    const titles = new Set<string>();
+    for (const line of readLines(quill)) {
+      NOTELINK_PATTERN.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = NOTELINK_PATTERN.exec(line.text)) !== null) {
+        const title = match[1].trim();
+        if (title && !titleIndexRef.current.has(normalizeTitle(title))) titles.add(title);
+      }
+    }
+    return [...titles];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, titleIndex]);
+
+  /* --------------------------- LES PASTILLES --------------------------- */
+
+  /* Chaque bloc qui porte des questions reçoit une pastille, posée à sa
+     droite. Les positions viennent de l’éditeur, pas du DOM : elles restent
+     justes après un pli de fenêtre ou un changement de largeur. */
+  const badges = useMemo(() => {
+    const quill = quillRef.current;
+    if (!quill || !host) return [] as {
+      blockId: string;
+      numbers: number[];
+      count: number;
+      top: number;
+    }[];
+    if (markersRef.current.size === 0) return [];
+    return readLines(quill)
+      .filter((line) => line.blockId && markersRef.current.has(line.blockId))
+      .map((line) => {
+        const numbers = markersRef.current.get(line.blockId as string) ?? [];
+        return {
+          blockId: line.blockId as string,
+          numbers,
+          count: numbers.length,
+          top: quill.getBounds(line.start).top,
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [host, tick, markers]);
+
+  /* --------------------------- LE RENDU -------------------------------- */
+
   return (
     <div className="note-editor">
-      {/* Compositeur : en haut sur bureau, en bas au-dessus du clavier sur mobile */}
       <div className="composer">
         <NoteDock />
-        {/* Téléphone : le pupitre (quatre gestes choisis). Bureau : la barre
-            complète. Le CSS décide laquelle est visible ; les deux lisent le
-            même état, donc aucune divergence possible. */}
         <NotePicker
           open={linkOpen}
           onClose={() => setLinkOpen(false)}
@@ -571,16 +653,21 @@ export function NoteEditor({
           onRangingChange={setRanging}
         />
         <EditorToolbar
-          editor={editor}
+          editor={host}
           snapshot={snapshot}
-          onRun={run}
+          onRun={(action) => {
+            if (!host) return;
+            action(host);
+            onChangeRef.current(host.blocks());
+          }}
           onFind={() => setFindOpen(true)}
         />
         <FindReplace
-          editor={editor}
+          host={host}
+          version={tick}
           open={findOpen}
           onClose={() => setFindOpen(false)}
-          onDone={() => editor && persist(editor.getJSON() as PmNode)}
+          onDone={() => host && onChangeRef.current(host.blocks())}
           focusField={findMode === "replace" ? "replacement" : "query"}
         />
       </div>
@@ -600,10 +687,39 @@ export function NoteEditor({
         onRun={runCommand}
       />
 
-      <EditorContent editor={editor} />
+      <p className="sr-only" role="status" aria-live="polite">
+        {deadLinks.length === 0
+          ? ""
+          : deadLinks.length === 1
+            ? `Un renvoi mort : « ${deadLinks[0]} » ne correspond à aucune note.`
+            : `${deadLinks.length} renvois morts, dont « ${deadLinks[0]} ».`}
+      </p>
+
+      <div className="relative">
+        <div className="note-prose" ref={holder} />
+        {badges.map((badge) => (
+          <button
+            key={badge.blockId}
+            type="button"
+            onClick={() => onBadgeClickRef.current(badge.blockId)}
+            style={{ top: badge.top }}
+            className="gutter-badge"
+            aria-label={
+              badge.count === 1
+                ? `Question ${badge.numbers[0]} sur ce bloc`
+                : `Questions ${badge.numbers.join(", ")} sur ce bloc`
+            }
+          >
+            Q{badge.numbers[0]}
+            {badge.count > 1 && (
+              <span className="ml-0.5 text-[10px] opacity-80">+{badge.count - 1}</span>
+            )}
+          </button>
+        ))}
+      </div>
 
       {/* Barre contextuelle : n’apparaît que sur une sélection */}
-      {!state?.empty && selection.length > 0 && (
+      {selection.length > 0 && host && (
         <div className="dock dock-above-composer pointer-events-none fixed inset-x-0 z-30 mx-auto px-4">
           <div className="pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-field bg-ink p-1 shadow-lift animate-sheet-up">
             <button
@@ -613,55 +729,30 @@ export function NoteEditor({
             >
               Créer une question
             </button>
-            <button
-              type="button"
-              aria-label="Mettre en gras"
-              aria-pressed={snapshot.marks.bold}
-              onClick={() => run((i) => i.chain().focus().toggleBold().run())}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <TextB size={18} weight={snapshot.marks.bold ? "bold" : "regular"} />
-            </button>
-            <button
-              type="button"
-              aria-label="Mettre en italique"
-              aria-pressed={snapshot.marks.italic}
-              onClick={() => run((i) => i.chain().focus().toggleItalic().run())}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <TextItalic size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Souligner"
-              aria-pressed={snapshot.marks.underline}
-              onClick={() => run((i) => i.chain().focus().toggleUnderline().run())}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <TextUnderline size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Barrer"
-              aria-pressed={snapshot.marks.strike}
-              onClick={() => run((i) => i.chain().focus().toggleStrike().run())}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <TextStrikethrough size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Code en ligne"
-              aria-pressed={snapshot.marks.code}
-              onClick={() => run((i) => i.chain().focus().toggleCode().run())}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <Code size={18} />
-            </button>
+            {(
+              [
+                ["Mettre en gras", "bold", TextB],
+                ["Mettre en italique", "italic", TextItalic],
+                ["Souligner", "underline", TextUnderline],
+                ["Barrer", "strike", TextStrikethrough],
+                ["Code en ligne", "code", Code],
+              ] as const
+            ).map(([label, mark, Icon]) => (
+              <button
+                key={mark}
+                type="button"
+                aria-label={label}
+                aria-pressed={snapshot.marks[mark]}
+                onClick={() => host.toggleMark(mark)}
+                className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
+              >
+                <Icon size={18} weight={snapshot.marks[mark] ? "bold" : "regular"} />
+              </button>
+            ))}
             <button
               type="button"
               aria-label="Surligner la sélection"
-              onClick={() => applyHighlight(HIGHLIGHTS[0].color)}
+              onClick={() => host.highlight(HIGHLIGHTS[0].color)}
               className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
             >
               <Highlighter size={18} />
@@ -669,7 +760,11 @@ export function NoteEditor({
             <button
               type="button"
               aria-label="Lien sur la sélection"
-              onClick={setLink}
+              onClick={() => {
+                const href = window.prompt("Adresse du lien", host.currentHref() ?? "https://");
+                if (href === null) return;
+                host.setLink(href.trim() === "" ? null : href.trim());
+              }}
               className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
             >
               <LinkSimple size={18} />
@@ -685,11 +780,9 @@ export function NoteEditor({
           </div>
         </div>
       )}
-
     </div>
   );
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Barre de personnalisation de la note                                */

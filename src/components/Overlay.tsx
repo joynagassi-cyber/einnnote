@@ -126,6 +126,11 @@ export function Overlay({
   useEffect(() => {
     if (!open) return;
     const onKey = (event: globalThis.KeyboardEvent) => {
+      /* Une couche ouverte **par-dessus** (la palette de commandes) reste
+         maîtresse d’Échap : sans cette exception, fermer la palette fermait
+         aussi la fiche qu’on venait d’ouvrir. */
+      const target = event.target as Element | null;
+      if (target?.closest?.('[data-overlay-top="true"]')) return;
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();

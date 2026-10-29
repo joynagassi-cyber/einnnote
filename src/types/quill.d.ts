@@ -71,6 +71,7 @@ declare module "quill" {
     insertEmbed(index: number, type: string, value: unknown, source?: Source): void;
 
     format(name: string, value: unknown, source?: Source): void;
+    removeFormat(index: number, length: number, source?: Source): Delta;
     formatLine(index: number, length: number, formats: DeltaAttributes, source?: Source): Delta;
     formatLine(index: number, length: number, name: string, value: unknown, source?: Source): Delta;
     formatText(index: number, length: number, formats: DeltaAttributes, source?: Source): Delta;
@@ -99,10 +100,14 @@ declare module "quill" {
     on(event: "selection-change", handler: (range: Range | null, old: Range | null, source: Source) => void): void;
     on(event: "editor-change", handler: (...args: unknown[]) => void): void;
     on(event: string, handler: (...args: never[]) => void): void;
-    off(event: string, handler: (...args: never[]) => void): void;
+    off(event: string, handler?: (...args: never[]) => void): void;
     once(event: string, handler: (...args: never[]) => void): void;
 
     getModule(name: string): unknown;
+
+    /** `Quill.import("parchment")` — la voie officielle pour les formats maison. */
+    static import(path: string): unknown;
+    static register(format: unknown, name?: unknown): void;
   }
 
   /** Parchment vit dans le paquet `parchment`, réexporté par Quill. */
