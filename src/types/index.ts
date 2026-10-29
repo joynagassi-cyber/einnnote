@@ -15,7 +15,22 @@ export type AccentKey =
   | "graphite"
   | "custom";
 
+/**
+ * Le fond d’un **canevas** — une carte mentale, un graphe, un aperçu de style.
+ * Il n’a rien à voir avec le papier d’une note : un motif derrière du texte se
+ * paie en lisibilité, et ne se justifie que sur une surface qu’on déplace.
+ */
 export type CanvasBg = "dots" | "ruled" | "grid" | "blank";
+
+/**
+ * Le fond d’une **note** — deux choix, pas quatre.
+ *
+ * `plain` suit le thème (clair ou sombre) ; `ruled` trace des lignes de
+ * cahier. Ni pointillés ni quadrillage : le motif derrière un texte long
+ * fatigue, et le quadrillage n’aide pas à écrire une phrase. Les motifs
+ * restent au canevas.
+ */
+export type NotePaper = "plain" | "ruled";
 
 /** D’où vient la couleur d’action : le thème, un preset, ou une couleur libre. */
 export type AccentMode = "theme" | "preset" | "custom";
@@ -278,7 +293,10 @@ export interface AppSettings {
   accent: AccentKey;
   /** couleur libre utilisée quand `accent === "custom"` */
   customAccent?: string;
+  /** fond des canevas (cartes, graphes) */
   canvas: CanvasBg;
+  /** papier de la note : uni (suit le thème) ou ligné */
+  notePaper: NotePaper;
   /** fond « verre » : identifiant de `lib/walls.ts`, ou null */
   wallpaper: string | null;
   /** flou du fond, en pixels */

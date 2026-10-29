@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowFatLineRight,
   BookOpen,
+  PencilSimple,
   Check,
   Copy,
   DotsThree,
@@ -63,7 +64,10 @@ export default function Editor() {
   const addQuestion = useContentStore((s) => s.addQuestion);
   const deleteQuestion = useContentStore((s) => s.deleteQuestion);
   const trashNote = useContentStore((s) => s.trashNote);
-  const canvas = useAppStore((s) => s.settings.canvas);
+  /* Une note n’a pas de « canevas » : elle a un papier. Uni (clair ou sombre,
+     selon le thème) ou ligné. Les pointillés appartiennent aux cartes et aux
+     graphes, pas à une page de texte. */
+  const notePaper = useAppStore((s) => s.settings.notePaper);
   const desktop = useIsDesktop();
   const toast = useToast((s) => s.show);
 
@@ -86,8 +90,6 @@ export default function Editor() {
   /* Lecture : le texte seul. Le pupitre, la barre et la personnalisation
      disparaissent — c’est la seule façon de lire sans être sollicité. */
   const [reading, setReading] = useState(false);
-  /* Le pupitre se range depuis la fiche (clavier) comme par appui long. */
-  const [ranging, setRanging] = useState(false);
   const editorRef = useRef<NoteEditorHandle>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<{ blockId: string; text: string } | null>(
@@ -325,14 +327,6 @@ export default function Editor() {
           ? () => editorRef.current?.link()
           : undefined
       }
-      onArrange={
-        desktop
-          ? undefined
-          : () => {
-              setSheet("none");
-              setRanging(true);
-            }
-      }
       onTrash={() => {
         trashNote(note.id);
         setSheet("none");
@@ -406,10 +400,37 @@ export default function Editor() {
 
   const MethodIcon = METHODS[note.method].icon;
 
+  /* **La bascule de mode.** Une icône, tout de suite à gauche du menu de la
+     fiche (le « ⋯ » sur téléphone) : on change de mode sans ouvrir un panneau,
+     parce que lire et écrire sont deux gestes de la même seconde.
+     L’icône montre ce qu’on obtient, pas l’état courant : en écriture elle
+     propose la lecture. */
+  const modeSwitch = (
+    <button
+      type="button"
+      onClick={() => setReading((value) => !value)}
+      aria-label={reading ? "Revenir à l’écriture" : "Passer en lecture"}
+      aria-pressed={reading}
+      title={reading ? "Revenir à l’écriture" : "Lecture, sans barre ni sollicitation"}
+      className={
+        desktop
+          ? "pill-quiet flex h-10 items-center gap-1.5 px-3 text-[14px]"
+          : "icon-btn h-10 w-10"
+      }
+    >
+      {reading ? (
+        <PencilSimple size={desktop ? 17 : 21} weight="duotone" aria-hidden />
+      ) : (
+        <BookOpen size={desktop ? 17 : 21} weight="duotone" aria-hidden />
+      )}
+      {desktop && (reading ? "Écrire" : "Lecture")}
+    </button>
+  );
+
   return (
     <div
       className="paper screen screen-editor"
-      data-canvas={canvas}
+      data-sheet={notePaper}
       data-reading={reading ? "true" : undefined}
     >
       <div className="sticky top-0 z-20 glass">
@@ -418,16 +439,19 @@ export default function Editor() {
           onBack={() => navigate("/")}
           action={
             desktop ? (
-              <button
-                type="button"
-                onClick={() => setSheet("menu")}
-                aria-label="Fiche de la note (Ctrl + .)"
-                className="pill-quiet flex h-10 items-center gap-1.5 px-3.5 text-[14px]"
-              >
-                <IdentificationCard size={17} weight="duotone" aria-hidden />
-                Fiche
-                <kbd className="kbd-shortcut" aria-hidden>Ctrl .</kbd>
-              </button>
+              <>
+                {modeSwitch}
+                <button
+                  type="button"
+                  onClick={() => setSheet("menu")}
+                  aria-label="Fiche de la note (Ctrl + .)"
+                  className="pill-quiet flex h-10 items-center gap-1.5 px-3.5 text-[14px]"
+                >
+                  <IdentificationCard size={17} weight="duotone" aria-hidden />
+                  Fiche
+                  <kbd className="kbd-shortcut" aria-hidden>Ctrl .</kbd>
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -442,8 +466,8 @@ export default function Editor() {
       </div>
 
       <div className="flex min-h-0 flex-1 items-start">
-      <main className="min-w-0 flex-1 px-5 pt-1 lg:px-10">
-        <div className="pr-1">
+      <main className="min-w-0 flex-1">
+        <div className="px-5 pt-1 lg:px-10">
           <input
             ref={titleRef}
             value={note.title}
@@ -461,14 +485,17 @@ export default function Editor() {
                 ` · ${questions.length} question${questions.length > 1 ? "s" : ""}`}
             </span>
             {!desktop && (
-              <button
-                type="button"
-                className="icon-btn -mr-2 h-9 w-9"
-                aria-label="Fiche de la note"
-                onClick={() => setSheet("menu")}
-              >
-                <DotsThree size={22} weight="bold" />
-              </button>
+              <span className="flex items-center gap-0.5">
+                {modeSwitch}
+                <button
+                  type="button"
+                  className="icon-btn -mr-2 h-10 w-10"
+                  aria-label="Fiche de la note"
+                  onClick={() => setSheet("menu")}
+                >
+                  <DotsThree size={22} weight="bold" />
+                </button>
+              </span>
             )}
           </div>
         </div>
@@ -493,8 +520,6 @@ export default function Editor() {
           }}
           onFiche={() => setSheet("menu")}
           onToggleReading={() => setReading((value) => !value)}
-          ranging={ranging}
-          onRangingChange={setRanging}
           onChange={(blocks: Block[]) => replaceBlocks(note.id, blocks)}
           markers={markers}
           onBadgeClick={(blockId) => {

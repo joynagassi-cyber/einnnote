@@ -115,11 +115,16 @@ Toute la logique est pure et testée à part dans `src/lib/libraryFilters.ts`.
   une commande inapplicable est **grisée avec son motif**, jamais absente.
 - **Menu « / »** sur une ligne vide : la même palette, ouverte sur les gestes
   d’insertion.
-- **Pupitre mobile** : quatre gestes choisis, rangés au doigt **et** au clavier,
-  contenu stable — les commandes restent les mêmes que sur bureau.
+- **Une seule barre d’édition** : en haut sur bureau, collée au-dessus du
+  clavier sur téléphone, et seulement en mode écriture. Une icône à côté du
+  menu bascule écriture ↔ lecture. Décrit dans
+  [`docs/EDITOR-LAYOUT.md`](docs/EDITOR-LAYOUT.md).
 - **Fiche de note** (`Ctrl/⌘ .`) : fenêtre flottante sur bureau, feuille sur
   téléphone ; rangement, lecture, recherche, export, renvois entrants et
   sortants, corbeille.
+- **Fonds séparés** : la note n’a que deux papiers — uni (clair ou sombre,
+  selon le thème) ou ligné. Les pointillés et le quadrillage restent aux cartes
+  mentales et aux graphes.
 - **Gouttière** : les pastilles `Q1`, `Q2` sont posées **à côté** du texte
   (`quill.getBounds`) ; elles ne polluent ni le copier-coller ni l’export.
 - **Continuité garantie** : un bloc = une ligne, avec son `data-block-id`.

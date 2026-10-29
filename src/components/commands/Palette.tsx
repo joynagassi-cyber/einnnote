@@ -110,6 +110,21 @@ export function Palette({
     active?.scrollIntoView({ block: "nearest" });
   }, [index, ordered.length]);
 
+  /* Échap ferme la palette **où que soit le focus**. Le gestionnaire du
+     dialogue ne suffit pas : si le champ n’a pas encore pris le focus (ou si
+     le focus est resté sur la note), la touche n’arriverait jamais jusqu’ici —
+     et une palette qu’on ne peut pas fermer au clavier est un piège. */
+  useEffect(() => {
+    if (!open) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const run = (command: Command) => {

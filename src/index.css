@@ -117,7 +117,6 @@
     --canvas-strength: 1;
     --pad-screen: 20px;
     --pad-card: 14px;
-    --composer-h: 100px;
     --elev-card: none;
 
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -594,6 +593,27 @@
   }
   .paper[data-canvas="blank"] {
     background-image: none;
+  }
+
+  /* ---------- Papier d’une note : deux choix, pas quatre ----------
+     `data-sheet` est le seul attribut que lit une note. Uni : le fond
+     du thème, clair ou sombre, rien d’autre. Ligné : des lignes de
+     cahier. Les pointillés et le quadrillage restent au canevas — un
+     motif derrière une page de texte se paie en lisibilité. */
+  .paper[data-sheet="plain"],
+  .paper[data-sheet="ruled"] {
+    background-color: var(--bg);
+  }
+  .paper[data-sheet="plain"] {
+    background-image: none;
+  }
+  .paper[data-sheet="ruled"] {
+    background-image: repeating-linear-gradient(
+      transparent 0 calc(var(--note-leading) - 1px),
+      color-mix(in srgb, var(--line) 70%, transparent) calc(var(--note-leading) - 1px)
+        var(--note-leading)
+    );
+    background-position: 0 var(--note-leading);
   }
 
   .note-text {
@@ -1310,34 +1330,58 @@
    Éditeur TipTap — feuille de style « papier calme »
    ============================================================ */
 
+/* La note occupe toute la largeur : c’est la **barre** qui doit aller d’un
+   bord à l’autre, le texte garde sa marge de lecture. Les 34 px de gauche
+   sont la gouttière des pastilles de question. */
 .note-editor {
   position: relative;
-  padding-left: 34px;
+}
+
+.note-sheet {
+  position: relative;
+  padding-left: 54px;
+  padding-right: 20px;
+}
+
+@media (min-width: 768px) {
+  .note-sheet {
+    padding-left: 74px;
+    padding-right: 40px;
+  }
 }
 
 /* ------------------------------------------------------------
-   Compositeur : sur mobile, la barre de mise en forme et la barre
-   de personnalisation de la note vivent en bas, collées au-dessus
-   du clavier ; sur bureau, elles remontent en haut.
+   La barre d’édition — **une seule**, sur toute la largeur.
+
+   Téléphone : collée en bas, juste au-dessus du clavier (la hauteur
+   du clavier est mesurée et posée dans `--kb`), et seulement en
+   mode écriture. Bureau : en haut, sous l’en-tête, d’un bord à
+   l’autre de la colonne — c’est la même barre, pas une variante.
+
+   Les deux groupes de gestes se répartissent gauche et droite :
+   on écrit à gauche (histoire, type de bloc, marques) et l’on
+   structure à droite (listes, retrait, alignement, question, ⋯).
    ------------------------------------------------------------ */
 
-.composer {
+.editor-bar {
   position: fixed;
   inset-inline: 0;
   bottom: calc(var(--kb, 0px) + var(--safe-bottom));
   z-index: 30;
   display: flex;
-  flex-direction: column-reverse;
+  align-items: center;
   max-width: var(--screen-max);
   margin-inline: auto;
+  padding: 4px 6px;
   border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(16px) saturate(1.05);
   -webkit-backdrop-filter: blur(16px) saturate(1.05);
   transition: bottom 120ms ease-out;
 }
-[data-transparency="reduced"] .composer,
-[data-contrast="high"] .composer {
+
+[data-transparency="reduced"] .editor-bar,
+[data-contrast="high"] .editor-bar {
   background: var(--bg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1347,21 +1391,20 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 0;
   background: transparent;
 }
 
 /* ------------------------------------------------------------
    La lecture — le texte seul.
 
-   Le compositeur, la colonne de questions et le pupitre
+   La barre d’édition et la colonne de questions
    disparaissent : plus rien à portée de pouce, rien à fermer.
    La mesure tombe à 68 signes, la largeur confortable de
    lecture, et le bouton de sortie est le seul élément flottant.
    ------------------------------------------------------------ */
-.screen-editor[data-reading="true"] .composer,
-.screen-editor[data-reading="true"] .editor-aside,
-.screen-editor[data-reading="true"] .note-dock {
+.screen-editor[data-reading="true"] .editor-bar,
+.screen-editor[data-reading="true"] .editor-aside {
   display: none;
 }
 
@@ -1452,92 +1495,26 @@
   }
 }
 
-/* ------------------------------------------------------------
-   Le pupitre — barre d’écriture du téléphone.
-   Quatre gestes choisis, un bouton « Tout ». Il remplace la
-   barre complète en dessous de 768 px : sur un écran de
-   téléphone, six boutons plus une barre de réglages ne
-   laissent plus de place au texte.
-   ------------------------------------------------------------ */
-
-.pupitre {
-  display: none;
-  border-top: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg) 97%, transparent);
-}
-
-@media (max-width: 767.98px) {
-  .pupitre {
-    display: block;
-  }
-  .editor-toolbar {
-    display: none;
-  }
-}
-
-/* Barre de personnalisation de la note (2e rangée du compositeur) */
-.note-dock {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow-x: auto;
-  padding: 5px 6px;
-  border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
-}
-.note-dock::-webkit-scrollbar {
-  display: none;
-}
-.note-dock-btn {
-  display: inline-flex;
-  height: 34px;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 4px;
-  border-radius: 10px;
-  padding: 0 9px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-.note-dock-btn:active {
-  background: var(--surface-2);
-}
-
-/* Le contenu respire au-dessus du compositeur */
+/* Le texte respire au-dessus de la barre, qui est fixe sur téléphone. */
 .note-editor {
-  padding-bottom: var(--composer-h);
+  padding-bottom: calc(56px + var(--safe-bottom));
 }
 
-/* Barres flottantes : au-dessus du compositeur, jamais dessous */
-.dock-above-composer {
-  bottom: calc(var(--composer-h) + var(--kb, 0px) + 16px + var(--safe-bottom));
-}
-
-@media (min-width: 1024px) {
-  .composer {
+/* Bureau : la barre remonte en haut, sous l’en-tête, d’un bord à l’autre. */
+@media (min-width: 768px) {
+  .editor-bar {
     position: sticky;
-    top: 58px;
+    top: 56px;
     bottom: auto;
     z-index: 15;
-    flex-direction: column;
     max-width: none;
     margin-inline: 0;
-    margin-left: -34px;
+    padding: 5px 10px;
     border-top: 0;
     border-bottom: 1px solid var(--line);
   }
-  .note-dock {
-    border-bottom: 0;
-  }
   .note-editor {
-    padding-bottom: 0;
-    --composer-h: 0px;
-  }
-  .dock-above-composer {
-    bottom: calc(16px + var(--safe-bottom));
+    padding-bottom: 80px;
   }
 }
 
@@ -1591,6 +1568,35 @@
 }
 .editor-menu-wide {
   min-width: 18rem;
+}
+
+/* Téléphone : la barre est en bas, donc les menus **montent** depuis elle.
+   Un menu qui s’ouvre vers le bas sortirait de l’écran — ou passerait sous le
+   clavier. On le colle à la barre, d’un bord à l’autre : plus de calcul de
+   position, et aucune découpe au bord droit. */
+@media (max-width: 767.98px) {
+  .editor-menu,
+  .editor-menu-wide {
+    position: fixed;
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: calc(56px + var(--kb, 0px) + var(--safe-bottom) + 8px);
+    min-width: 0;
+    max-height: min(52vh, 24rem);
+    animation: menu-up 120ms ease-out;
+  }
+
+  @keyframes menu-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 .editor-menu-item {
@@ -2815,7 +2821,7 @@
 }
 
 /* La barre d’outils et les info-bulles de Quill ne sont jamais affichées :
-   le pupitre et la barre de mise en forme les remplacent. */
+   la barre d’édition les remplace. */
 .note-prose .ql-toolbar,
 .note-prose .ql-tooltip,
 .ql-editor .ql-ui {

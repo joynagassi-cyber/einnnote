@@ -528,15 +528,15 @@ export const outilsLessons: Lesson[] = [
     track: 1,
     index: 7,
     title: "Écrire sans lever les mains",
-    subtitle: "La palette, le pupitre, la fiche — et la lecture",
+    subtitle: "La palette, la barre, la fiche — et la lecture",
     minutes: 6,
     outcome:
       "Mettre en forme sans quitter le clavier, garder quatre gestes sous le pouce sur téléphone, régler une note sans la réécrire, étiqueter un passage en un caractère, et lire sans être sollicité.",
-    phases: ["Un seul registre", "Pupitre et fiche", "Étiquettes"],
+    phases: ["Un seul registre", "La barre et la fiche", "Étiquettes"],
     steps: [
       st(
         "Une commande, une seule porte",
-        "Tout ce que l’éditeur sait faire existe dans un registre unique. La palette (Ctrl ou ⌘ + K) n’est qu’une façon de l’ouvrir : la barre de mise en forme, le menu de sélection et le pupitre y puisent les mêmes commandes. La conséquence pratique, c’est qu’aucune commande ne peut exister à un endroit et manquer à un autre — et qu’une commande inapplicable s’y affiche grisée, avec sa raison, au lieu de disparaître.",
+        "Tout ce que l’éditeur sait faire existe dans un registre unique. La palette (Ctrl ou ⌘ + K) n’est qu’une façon de l’ouvrir : la barre d’édition y puise les mêmes commandes, et son bouton « Tout » ouvre la palette pour le reste. La conséquence pratique, c’est qu’aucune commande ne peut exister à un endroit et manquer à un autre — et qu’une commande inapplicable s’y affiche grisée, avec sa raison, au lieu de disparaître.",
         "book",
         {
           points: [
@@ -551,29 +551,33 @@ export const outilsLessons: Lesson[] = [
         },
       ),
       st(
-        "Le pupitre : quatre gestes, pas plus",
-        "Sur téléphone, une barre de vingt boutons ne tient pas sous le pouce. Le pupitre en garde quatre, que vous choisissez, plus un bouton « Tout » qui ouvre la palette. Une barre courte n’est pas une barre pauvre : elle est stable, donc vous savez où est chaque geste sans regarder.",
+        "Une seule barre, et elle va d’un bord à l’autre",
+        "Tout ce qui agit sur la note tient dans une barre unique : la mise en forme à gauche, la structure à droite, la question ancrée au milieu du groupe de droite, le menu « ⋯ » et le bouton « Tout » à l’extrême droite. Pas de deuxième rangée de boutons, pas de barre flottante qui double les mêmes gestes au-dessus d’une sélection : une barre, donc un seul endroit où chercher.",
         "cards",
         {
           points: [
-            "Quatre gestes au maximum, choisis par vous.",
-            "Le contenu ne change jamais selon le contexte : même place, même ordre.",
-            "« Tout » ouvre la palette pour les jours où il faut autre chose.",
+            "Bureau : la barre est en haut, sous le titre, collée sous l’en-tête.",
+            "Téléphone : elle est en bas, juste au-dessus du clavier quand il s’ouvre.",
+            "« Tout » ouvre la palette, pour les commandes qu’on n’utilise pas tous les jours.",
+            "Les réglages de lecture de la note (taille, interligne, largeur, papier) sont dans « ⋯ ».",
+          ],
+          mistakes: [
+            "Chercher une deuxième barre : il n’y en a plus qu’une.",
           ],
         },
       ),
       st(
-        "Ranger le pupitre, au doigt comme au clavier",
-        "Un appui long de 500 ms sur n’importe quel bouton du pupitre ouvre le rangement : une croix retire un geste, une poignée le déplace (flèches haut et bas au clavier), « Ajouter un geste » en propose un de plus, « Réinitialiser » revient aux quatre d’origine. Rien ne se règle dans un écran de configuration séparé : on range là où l’on écrit.",
+        "Écrire ou lire : une icône, à côté du menu",
+        "À gauche du menu de la fiche (le « ⋯ » sur téléphone), une icône bascule entre écriture et lecture. En lecture, la barre disparaît, la colonne de questions aussi : il ne reste que le texte, à 68 signes de large. L’icône montre toujours ce qu’on obtient, pas l’état où l’on est : en écriture, elle propose la lecture.",
         "map",
         {
           points: [
-            "Appui long sur le pupitre, ou « Ranger le pupitre » depuis la fiche.",
-            "La poignée se déplace au clavier, avec les flèches.",
-            "Le réglage suit l’appareil : un téléphone n’impose rien au bureau.",
+            "L’icône est visible en permanence, sans ouvrir de panneau.",
+            "En lecture, Échap suffit à revenir à l’écriture.",
+            "La barre ne s’affiche qu’en écriture — c’est le sens du mode.",
           ],
           mistakes: [
-            "Ranger le pupitre depuis le bureau : la barre n’y existe pas, la palette suffit.",
+            "Chercher le mode lecture dans la fiche : il y reste, mais le geste rapide est dans l’en-tête.",
           ],
         },
       ),
@@ -612,7 +616,7 @@ export const outilsLessons: Lesson[] = [
       ),
       st(
         "La lecture : le texte, et rien d’autre",
-        "Le mode lecture retire le compositeur, la colonne de questions et le pupitre. Il reste le texte, à 68 signes de large, et un seul bouton discret pour sortir — ou Échap. C’est le seul mode de l’application qui ne propose rien : c’est pour cela qu’il sert.",
+        "Le mode lecture retire la barre d’édition et la colonne de questions. Il reste le texte, à 68 signes de large, et un seul bouton discret pour sortir — ou Échap. C’est le seul mode de l’application qui ne propose rien : c’est pour cela qu’il sert.",
         "review",
         {
           check:

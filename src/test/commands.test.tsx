@@ -7,14 +7,14 @@ import { useAppStore, DEFAULT_SETTINGS } from "@/stores/useAppStore";
 import { useContentStore } from "@/stores/useContentStore";
 import { useDisplayStore } from "@/stores/useDisplayStore";
 import { useSessionStore } from "@/stores/useSessionStore";
-import { DEFAULT_PUPITRE, readPupitre } from "@/lib/commands/pupitre";
 
 /**
- * La palette et le pupitre, vus depuis l’écran.
+ * La palette et la barre d’édition, vues depuis l’écran.
  *
- * On ne teste pas TipTap : on teste qu’un geste **atteint le document** (une
- * puce devient une puce), qu’une commande inapplicable **dit pourquoi**, et que
- * le pupitre garde ce qu’on y range — y compris après un rechargement.
+ * On ne teste pas Quill : on teste qu’un geste **atteint le document** (une
+ * puce devient une puce), qu’une commande inapplicable **dit pourquoi**, et
+ * qu’il n’existe **qu’une** barre : celle qui tient la mise en forme, la
+ * question ancrée, les réglages de la note et la palette.
  */
 
 function open(path: string) {
@@ -101,21 +101,18 @@ describe("Palette de commandes", () => {
   });
 });
 
-describe("Pupitre", () => {
-  it("affiche les quatre gestes par défaut et le bouton Tout", () => {
+describe("Barre d’édition", () => {
+  it("n’existe qu’une fois, quelle que soit la largeur", () => {
     open("/note/n-plan");
-    const pupitre = screen.getByRole("toolbar", { name: "Gestes d’écriture" });
-    for (const command of DEFAULT_PUPITRE) {
-      expect(pupitre.querySelector(`[data-command="${command}"]`)).toBeTruthy();
-    }
-    expect(within(pupitre).getByRole("button", { name: /Tout/ })).toBeTruthy();
+    expect(screen.getAllByRole("toolbar", { name: "Mise en forme" })).toHaveLength(1);
+    /* Rien d’autre ne fait office de barre de gestes. */
+    expect(screen.queryByRole("toolbar", { name: "Gestes d’écriture" })).toBeNull();
   });
 
   it("ouvre la palette depuis « Tout »", async () => {
     const user = userEvent.setup();
     open("/note/n-plan");
-    const pupitre = screen.getByRole("toolbar", { name: "Gestes d’écriture" });
-    await user.click(within(pupitre).getByRole("button", { name: /Tout/ }));
+    await user.click(screen.getByRole("button", { name: "Toutes les commandes" }));
     expect(await screen.findByRole("dialog", { name: "Palette de commandes" })).toBeTruthy();
   });
 
@@ -123,66 +120,45 @@ describe("Pupitre", () => {
     const user = userEvent.setup();
     open("/note/n-plan");
     await user.click(screen.getByLabelText("Contenu de la note"));
-
-    const pupitre = screen.getByRole("toolbar", { name: "Gestes d’écriture" });
-    await user.click(within(pupitre).getByRole("button", { name: "Liste à puces" }));
+    await user.click(screen.getByRole("button", { name: "Liste à puces" }));
 
     await waitFor(() => {
       expect(blocksOf("n-plan").some((block) => block.bullet)).toBe(true);
     });
   });
 
-  it("se range par appui long, et le rangement survit au rechargement", async () => {
+  it("grise « Créer une question » sans sélection, en disant pourquoi", () => {
     open("/note/n-plan");
-    const pupitre = screen.getByRole("toolbar", { name: "Gestes d’écriture" });
-    const tout = within(pupitre).getByRole("button", { name: /Tout/ });
-
-    fireEvent.pointerDown(tout);
-    await sleep(600);
-    fireEvent.pointerUp(tout);
-
-    const ranger = await screen.findByText("Ranger le pupitre");
-    expect(ranger).toBeTruthy();
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Retirer Liste à puces" }));
-
-    await waitFor(() => expect(readPupitre()).not.toContain("bullet"));
-    expect(screen.queryByRole("button", { name: "Retirer Liste à puces" })).toBeNull();
-
-    /* Recharger la note relit le stockage : le geste retiré ne revient pas. */
-    cleanup();
-    open("/note/n-plan");
-    const after = screen.getByRole("toolbar", { name: "Gestes d’écriture" });
-    expect(after.querySelector('[data-command="bullet"]')).toBeNull();
+    const question = screen.getByRole("button", { name: "Créer une question" });
+    expect(question).toHaveProperty("disabled", true);
+    expect(question.getAttribute("title")).toContain("Sélectionnez un passage");
   });
 
-  it("déplace un geste au clavier, depuis sa poignée", async () => {
+  it("garde les réglages de la note dans le menu « ⋯ »", async () => {
     const user = userEvent.setup();
     open("/note/n-plan");
-    fireEvent.pointerDown(within(screen.getByRole("toolbar", { name: "Gestes d’écriture" })).getByRole("button", { name: /Tout/ }));
-    await sleep(600);
-    await screen.findByText("Ranger le pupitre");
+    await user.click(screen.getByRole("button", { name: "Plus d’options de mise en forme" }));
 
-    const handle = screen.getByRole("button", { name: "Déplacer Surligner · jaune" });
-    handle.focus();
-    await user.keyboard("{ArrowUp}");
-
-    await waitFor(() => expect(readPupitre()[0]).toBe("highlight-jaune"));
+    const papier = await screen.findByRole("menuitem", { name: /Papier de la note/ });
+    await user.click(papier);
+    await waitFor(() =>
+      expect(useAppStore.getState().settings.notePaper).toBe("ruled"),
+    );
   });
 
-  it("revient aux quatre gestes par défaut", async () => {
+  it("disparaît en lecture, et revient avec la bascule de mode", async () => {
     const user = userEvent.setup();
     open("/note/n-plan");
-    const pupitre = screen.getByRole("toolbar", { name: "Gestes d’écriture" });
-    fireEvent.pointerDown(within(pupitre).getByRole("button", { name: /Tout/ }));
-    await sleep(600);
-    await screen.findByText("Ranger le pupitre");
+    expect(screen.getByRole("toolbar", { name: "Mise en forme" })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Retirer Liste à puces" }));
-    await screen.findByRole("button", { name: "Réinitialiser" });
-    await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
+    await user.click(screen.getByRole("button", { name: "Passer en lecture" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("toolbar", { name: "Mise en forme" })).toBeNull(),
+    );
 
-    await waitFor(() => expect(readPupitre()).toEqual(DEFAULT_PUPITRE));
+    await user.click(screen.getByRole("button", { name: "Revenir à l’écriture" }));
+    await waitFor(() =>
+      expect(screen.getByRole("toolbar", { name: "Mise en forme" })).toBeTruthy(),
+    );
   });
 });

@@ -55,7 +55,6 @@ export interface FicheProps {
   onCopyLink: () => void;
   onTemplate?: () => void;
   /** absent sur bureau : le pupitre est un geste de téléphone */
-  onArrange?: () => void;
   onTrash: () => void;
   /** qui cite cette note */
   backlinks?: { id: string; title: string; excerpt: string }[];
@@ -81,7 +80,6 @@ export function Fiche({
   onCopyText,
   onCopyLink,
   onTemplate,
-  onArrange,
   onTrash,
   backlinks = [],
   outgoing = [],
@@ -132,27 +130,6 @@ export function Fiche({
           </select>
         </Row>
 
-        {onArrange ? (
-          <Action
-            icon={DotsSixVertical}
-            label="Ranger le pupitre"
-            hint="Quatre gestes, pas plus"
-            onClick={onArrange}
-          />
-        ) : (
-          <div
-            className="flex min-h-[44px] items-center gap-2.5 px-2.5 py-1.5 opacity-55"
-            aria-disabled="true"
-          >
-            <DotsSixVertical size={18} weight="duotone" className="shrink-0 text-muted" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px]">Ranger le pupitre</span>
-              <span className="block text-[11.5px] text-muted">
-                Réservé au téléphone — ici, la palette suffit
-              </span>
-            </span>
-          </div>
-        )}
       </Section>
 
       {/* -------------------------------------------------------- Liens */}

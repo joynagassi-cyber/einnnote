@@ -33,7 +33,7 @@ import {
   paletteByKey,
   tokensFor,
 } from "@/lib/themes";
-import type { AccentKey, CanvasBg, Personalization, ThemeMode } from "@/types";
+import type { AccentKey, CanvasBg, NotePaper, Personalization, ThemeMode } from "@/types";
 import { SIGNATURES, WALLS, wallById, wallUrl, wallsBySeries } from "@/lib/walls";
 import { veilFromTone, veilTint } from "@/lib/palette";
 import { useWallColors } from "@/stores/useWallColors";
@@ -77,11 +77,26 @@ const FONT_OPTIONS: { value: "literata" | "inter"; label: string }[] = [
   { value: "inter", label: "Inter" },
 ];
 
+/**
+ * Le fond d’un **canevas** : la carte mentale, le graphe d’un vault, l’aperçu
+ * de style. Le motif y aide — on déplace des nœuds sur une grille.
+ */
 const CANVASES: { key: CanvasBg; label: string }[] = [
   { key: "dots", label: "Pointillé" },
-  { key: "ruled", label: "Ligné" },
   { key: "grid", label: "Quadrillé" },
-  { key: "blank", label: "Blanc" },
+  { key: "blank", label: "Uni" },
+];
+
+/**
+ * Le fond d’une **note** : deux choix.
+ *
+ * Uni suit le thème, clair ou sombre ; ligné trace des lignes de cahier. Les
+ * pointillés et le quadrillage n’y figurent pas : derrière une page de texte,
+ * un motif ne guide pas la lecture, il la brouille.
+ */
+const SHEETS: { key: NotePaper; label: string; hint: string }[] = [
+  { key: "plain", label: "Uni", hint: "Clair ou sombre, selon le thème" },
+  { key: "ruled", label: "Ligné", hint: "Des lignes de cahier" },
 ];
 
 /** La couche « Formes » vient du registre de `lib/presentation.ts`. */
@@ -475,8 +490,47 @@ export default function Appearance() {
         </div>
 
         <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-muted">
+          Fond de la note
+        </h3>
+        <div className="flex items-start gap-4">
+          {SHEETS.map((sheet) => {
+            const active = settings.notePaper === sheet.key;
+            return (
+              <button
+                key={sheet.key}
+                type="button"
+                onClick={() => useAppStore.getState().setNotePaper(sheet.key)}
+                aria-pressed={active}
+                className="flex flex-1 flex-col items-start"
+              >
+                <span
+                  className={cn(
+                    "paper h-[76px] w-full rounded-field border",
+                    active ? "border-2 border-accent" : "border-line",
+                  )}
+                  data-sheet={sheet.key}
+                  aria-hidden="true"
+                />
+                <span
+                  className={cn(
+                    "mt-1.5 text-[14px]",
+                    active ? "font-semibold text-ink" : "text-muted",
+                  )}
+                >
+                  {sheet.label}
+                </span>
+                <span className="text-[12px] leading-[16px] text-muted">{sheet.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-muted">
           Fond du canevas
         </h3>
+        <p className="mb-2 text-[12.5px] leading-[18px] text-muted">
+          Les cartes mentales et les graphes. Jamais les notes.
+        </p>
         <div className="flex items-start justify-between">
           {CANVASES.map((canvas) => {
             const active = settings.canvas === canvas.key;

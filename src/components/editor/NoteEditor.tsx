@@ -9,20 +9,8 @@ import {
 } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
-import {
-  Code,
-  Copy,
-  Hash,
-  Highlighter,
-  LinkSimple,
-  TextB,
-  TextItalic,
-  TextStrikethrough,
-  TextUnderline,
-} from "@phosphor-icons/react";
+import { Hash } from "@phosphor-icons/react";
 import { useToast } from "@/stores/useToast";
-import { useAppStore } from "@/stores/useAppStore";
-import { HIGHLIGHTS } from "@/lib/editor/highlights";
 import type { Block } from "@/types";
 import type { EditorHost } from "@/lib/editor/host";
 import { EMPTY_SNAPSHOT, type EditorSnapshot } from "@/lib/editor/snapshot";
@@ -36,7 +24,6 @@ import {
 } from "@/lib/editor/quill/adapt";
 import { registerEditingEngine } from "@/lib/editor/quill/bridge";
 import { Palette } from "@/components/commands/Palette";
-import { Pupitre } from "@/components/commands/Pupitre";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
 import { FindReplace } from "@/components/editor/FindReplace";
 import { NotePicker } from "@/components/note/NotePicker";
@@ -162,8 +149,6 @@ export function NoteEditor({
   onFiche,
   onToggleReading,
   reading = false,
-  ranging: rangingProp,
-  onRangingChange: onRangingChangeProp,
   notes = [],
   noteId,
   tags = [],
@@ -182,9 +167,6 @@ export function NoteEditor({
   onToggleReading?: () => void;
   /** lecture seule : le compositeur disparaît, le texte respire */
   reading?: boolean;
-  /** état du rangement du pupitre, quand l’écran le pilote aussi (fiche) */
-  ranging?: boolean;
-  onRangingChange?: (open: boolean) => void;
   /** toutes les notes : c’est ce qui rend `[[Titre]]` cliquable */
   notes?: NoteRef[];
   /** la note ouverte — on ne se lie pas à soi-même */
@@ -203,17 +185,10 @@ export function NoteEditor({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<"run" | "add" | "insert">("run");
   const [linkOpen, setLinkOpen] = useState(false);
-  const [rangingLocal, setRangingLocal] = useState(false);
   const [tick, setTick] = useState(0);
   /* `#` en cours de frappe : où il commence, et ce qui suit. */
   const [tagMenu, setTagMenu] = useState<{ start: number; query: string } | null>(null);
   const [tagCursor, setTagCursor] = useState(0);
-
-  const ranging = rangingProp ?? rangingLocal;
-  const setRanging = (open: boolean) => {
-    setRangingLocal(open);
-    onRangingChangeProp?.(open);
-  };
 
   const holder = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
@@ -676,18 +651,6 @@ export function NoteEditor({
     onAskRef.current({ blockId, text });
   };
 
-  const copySelection = async () => {
-    if (!host) return;
-    const text = host.selectedText();
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      toast("Copié", "accent");
-    } catch {
-      toast("Copie impossible sur ce navigateur");
-    }
-  };
-
   /* Les renvois morts, dits une fois pour les lecteurs d’écran.
      On ne touche pas au DOM de Quill : chaque écriture y relance son
      observateur, qui relance la mise en forme, qui relance l’écriture. Le
@@ -751,50 +714,53 @@ export function NoteEditor({
 
   return (
     <div className="note-editor">
-      <div className="composer">
-        <NoteDock />
-        <NotePicker
-          open={linkOpen}
-          onClose={() => setLinkOpen(false)}
-          notes={notes}
-          currentId={noteId}
-          onPick={insertLink}
-          onCreate={
-            onCreateNote
-              ? (title) => {
-                  const created = onCreateNote(title);
-                  if (created) insertLink(created);
-                  else setLinkOpen(false);
-                }
-              : undefined
-          }
-        />
-        <Pupitre
-          snapshot={snapshot}
-          onRun={runCommand}
-          onOpenPalette={() => openPalette(ranging ? "add" : "run")}
-          ranging={ranging}
-          onRangingChange={setRanging}
-        />
-        <EditorToolbar
-          editor={host}
-          snapshot={snapshot}
-          onRun={(action) => {
-            if (!host) return;
-            action(host);
-            onChangeRef.current(host.blocks());
-          }}
-          onFind={() => setFindOpen(true)}
-        />
-        <FindReplace
-          host={host}
-          version={tick}
-          open={findOpen}
-          onClose={() => setFindOpen(false)}
-          onDone={() => host && onChangeRef.current(host.blocks())}
-          focusField={findMode === "replace" ? "replacement" : "query"}
-        />
-      </div>
+      {/* **Une seule barre.** Elle tient à la fois la mise en forme, la
+          question ancrée, les réglages de lecture de la note et la palette.
+          Deux rangées empilées en bas d’un téléphone, c’est deux fois moins de
+          texte visible — et deux endroits où chercher le même bouton. */}
+      {!reading && (
+        <div className="editor-bar">
+          <EditorToolbar
+            editor={host}
+            snapshot={snapshot}
+            selection={selection}
+            onAsk={askFromSelection}
+            onOpenPalette={() => openPalette("run")}
+            onRun={(action) => {
+              if (!host) return;
+              action(host);
+              onChangeRef.current(host.blocks());
+            }}
+            onFind={() => setFindOpen(true)}
+          />
+        </div>
+      )}
+
+      <NotePicker
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        notes={notes}
+        currentId={noteId}
+        onPick={insertLink}
+        onCreate={
+          onCreateNote
+            ? (title) => {
+                const created = onCreateNote(title);
+                if (created) insertLink(created);
+                else setLinkOpen(false);
+              }
+            : undefined
+        }
+      />
+
+      <FindReplace
+        host={host}
+        version={tick}
+        open={findOpen}
+        onClose={() => setFindOpen(false)}
+        onDone={() => host && onChangeRef.current(host.blocks())}
+        focusField={findMode === "replace" ? "replacement" : "query"}
+      />
 
       <Palette
         open={paletteOpen}
@@ -819,7 +785,9 @@ export function NoteEditor({
             : `${deadLinks.length} renvois morts, dont « ${deadLinks[0]} ».`}
       </p>
 
-      <div className="relative">
+      {/* La marge de lecture vit ici, pas sur `.note-editor` : c’est ce qui
+          permet à la barre, sa sœur, d’aller d’un bord à l’autre. */}
+      <div className="note-sheet">
         <div className="note-prose" ref={holder} />
         {badges.map((badge) => (
           <button
@@ -879,162 +847,6 @@ export function NoteEditor({
         )}
       </div>
 
-      {/* Barre contextuelle : n’apparaît que sur une sélection */}
-      {selection.length > 0 && host && (
-        <div className="dock dock-above-composer pointer-events-none fixed inset-x-0 z-30 mx-auto px-4">
-          <div className="pointer-events-auto flex items-center gap-0.5 overflow-x-auto rounded-field bg-ink p-1 shadow-lift animate-sheet-up">
-            <button
-              type="button"
-              onClick={askFromSelection}
-              className="h-11 shrink-0 rounded-[10px] bg-accent px-3 text-[14px] font-semibold text-on-accent"
-            >
-              Créer une question
-            </button>
-            {(
-              [
-                ["Mettre en gras", "bold", TextB],
-                ["Mettre en italique", "italic", TextItalic],
-                ["Souligner", "underline", TextUnderline],
-                ["Barrer", "strike", TextStrikethrough],
-                ["Code en ligne", "code", Code],
-              ] as const
-            ).map(([label, mark, Icon]) => (
-              <button
-                key={mark}
-                type="button"
-                aria-label={label}
-                aria-pressed={snapshot.marks[mark]}
-                onClick={() => host.toggleMark(mark)}
-                className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-              >
-                <Icon size={18} weight={snapshot.marks[mark] ? "bold" : "regular"} />
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-label="Surligner la sélection"
-              onClick={() => host.highlight(HIGHLIGHTS[0].color)}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <Highlighter size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Lien sur la sélection"
-              onClick={() => {
-                const href = window.prompt("Adresse du lien", host.currentHref() ?? "https://");
-                if (href === null) return;
-                host.setLink(href.trim() === "" ? null : href.trim());
-              }}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <LinkSimple size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Copier la sélection"
-              onClick={copySelection}
-              className="flex h-11 w-10 shrink-0 items-center justify-center rounded-[10px] text-bg"
-            >
-              <Copy size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Barre de personnalisation de la note                                */
-/* ------------------------------------------------------------------ */
-
-const WIDTHS = [560, 640, 720, 840, 920];
-const PAPERS = [
-  { value: "sand", label: "Sable" },
-  { value: "ivory", label: "Ivoire" },
-  { value: "grey", label: "Gris" },
-  { value: "mist", label: "Brume" },
-] as const;
-
-/**
- * Quatre réglages qui agissent sur la note ouverte : taille du texte,
- * interligne, largeur de lecture, teinte du papier. Les mêmes valeurs que
- * l’écran Personnalisation — une seule source, donc pas de dérive.
- */
-function NoteDock() {
-  const settings = useAppStore((s) => s.settings);
-  const setFontSize = useAppStore((s) => s.setFontSize);
-  const setPersonalization = useAppStore((s) => s.setPersonalization);
-  const ui = settings.personalization;
-
-  const widthIndex = WIDTHS.indexOf(ui.readingWidth);
-  const paperIndex = Math.max(
-    0,
-    PAPERS.findIndex((paper) => paper.value === ui.paper),
-  );
-
-  return (
-    <div className="note-dock" role="toolbar" aria-label="Personnalisation de la note">
-      <span className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          className="note-dock-btn"
-          aria-label="Réduire la taille du texte"
-          onClick={() => setFontSize(settings.fontSize - 1)}
-          disabled={settings.fontSize <= 14}
-        >
-          A−
-        </button>
-        <button
-          type="button"
-          className="note-dock-btn"
-          aria-label="Agrandir la taille du texte"
-          onClick={() => setFontSize(settings.fontSize + 1)}
-          disabled={settings.fontSize >= 22}
-        >
-          A+
-        </button>
-      </span>
-
-      <button
-        type="button"
-        className="note-dock-btn"
-        aria-label={`Interligne ${ui.noteLeading} pixels`}
-        onClick={() =>
-          setPersonalization({
-            noteLeading: ui.noteLeading >= 36 ? 20 : ui.noteLeading + 2,
-          })
-        }
-      >
-        Interligne {ui.noteLeading}
-      </button>
-
-      <button
-        type="button"
-        className="note-dock-btn"
-        aria-label={`Largeur de lecture ${ui.readingWidth} pixels`}
-        onClick={() =>
-          setPersonalization({
-            readingWidth: WIDTHS[(widthIndex + 1) % WIDTHS.length] ?? 720,
-          })
-        }
-      >
-        Largeur {ui.readingWidth}
-      </button>
-
-      <button
-        type="button"
-        className="note-dock-btn"
-        aria-label={`Teinte du papier : ${PAPERS[paperIndex]?.label}`}
-        onClick={() =>
-          setPersonalization({
-            paper: PAPERS[(paperIndex + 1) % PAPERS.length].value,
-          })
-        }
-      >
-        Papier {PAPERS[paperIndex]?.label}
-      </button>
     </div>
   );
 }

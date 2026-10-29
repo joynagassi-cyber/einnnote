@@ -1,5 +1,11 @@
 # Le pupitre et la fiche — barre d’outils mobile et menu de document
 
+> **Périmé sur un point (29 octobre 2026).** Le pupitre à quatre gestes et le
+> rangement par appui long ont été **retirés** : la note n’a plus qu’une seule
+> barre, avec tous les gestes, qui défile sur téléphone. Voir
+> [`docs/EDITOR-LAYOUT.md`](EDITOR-LAYOUT.md). Ce document reste la référence
+> pour la **fiche** (menu du document) et pour la carte des 96 commandes.
+
 > **Statut : spécification livrée.** Les cinq lots sont codés, testés et
 > poussés (§14). Ce document reste le contrat : ce qui est écrit ici est ce
 > qui tourne, et les deux écarts assumés sont listés au §14.3.

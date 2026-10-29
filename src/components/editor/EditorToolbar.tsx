@@ -26,7 +26,10 @@ import {
   MagnifyingGlass,
   Minus,
   Plus,
+  Question,
   Quotes,
+  Ruler,
+  ArrowsHorizontal,
   TextAlignCenter,
   TextAlignLeft,
   TextAlignRight,
@@ -49,6 +52,7 @@ import type { BlockTarget, EditorHost } from "@/lib/editor/host";
 import { HIGHLIGHTS } from "@/lib/editor/highlights";
 import { CASE_MODES } from "@/lib/editor/host";
 import { todayLabel } from "@/lib/editor/transform";
+import { useAppStore } from "@/stores/useAppStore";
 
 /**
  * La barre d’outils de la note — **toute la mise en forme, à un endroit**.
@@ -237,15 +241,85 @@ function MenuPanel({
 export function EditorToolbar({
   editor,
   snapshot,
+  selection,
   onRun,
   onFind,
+  onAsk,
+  onOpenPalette,
 }: {
   editor: EditorHost | null;
   snapshot: EditorSnapshot;
+  /** le passage sélectionné, vide s’il n’y en a pas */
+  selection: string;
   /** exécute une action puis enregistre (l’appelant décide comment) */
   onRun: (action: (instance: EditorHost) => void) => void;
   onFind: () => void;
+  /** crée une question ancrée sur la sélection */
+  onAsk: () => void;
+  /** ouvre la palette : tout le reste du registre, loin du pouce */
+  onOpenPalette: () => void;
 }) {
+  const personalization = useAppStore((s) => s.settings.personalization);
+  const settings = useAppStore((s) => s.settings);
+  const setPersonalization = useAppStore((s) => s.setPersonalization);
+  const setFontSize = useAppStore((s) => s.setFontSize);
+  const setNotePaper = useAppStore((s) => s.setNotePaper);
+
+  /* Les quatre réglages de la note vivaient sur une deuxième barre. Ils sont
+     maintenant **dans** la barre, sous « ⋯ » : une barre qui empile deux
+     rangées de boutons ne laisse plus de place au texte. */
+  const noteSettings: {
+    icon: ComponentType<IconProps>;
+    label: string;
+    hint: string;
+    disabled?: boolean;
+    run: () => void;
+  }[] = [
+    {
+      icon: Plus,
+      label: "Texte plus grand",
+      hint: `${settings.fontSize} px`,
+      disabled: settings.fontSize >= 22,
+      run: () => setFontSize(settings.fontSize + 1),
+    },
+    {
+      icon: Minus,
+      label: "Texte plus petit",
+      hint: `${settings.fontSize} px`,
+      disabled: settings.fontSize <= 14,
+      run: () => setFontSize(settings.fontSize - 1),
+    },
+    {
+      icon: TextAa,
+      label: "Interligne",
+      hint:
+        personalization.noteLeading >= 36
+          ? "revenir au serré"
+          : `${personalization.noteLeading} px`,
+      run: () =>
+        setPersonalization({
+          noteLeading: personalization.noteLeading >= 36 ? 20 : personalization.noteLeading + 2,
+        }),
+    },
+    {
+      icon: ArrowsHorizontal,
+      label: "Largeur de lecture",
+      hint: `${personalization.readingWidth} px`,
+      run: () =>
+        setPersonalization({
+          readingWidth:
+            [560, 640, 720, 840, 920][
+              ([560, 640, 720, 840, 920].indexOf(personalization.readingWidth) + 1) % 5
+            ] ?? 720,
+        }),
+    },
+    {
+      icon: Ruler,
+      label: "Papier de la note",
+      hint: settings.notePaper === "ruled" ? "Ligné" : "Uni",
+      run: () => setNotePaper(settings.notePaper === "ruled" ? "plain" : "ruled"),
+    },
+  ];
   const [menu, setMenu] = useState<null | "block" | "more" | "highlight">(null);
   const close = () => setMenu(null);
   const run = (action: (instance: EditorHost) => void) => {
@@ -372,6 +446,9 @@ export function EditorToolbar({
             <LinkSimple size={18} />
           </ToolButton>
         </div>
+        {/* À partir d’ici, les gestes de structure vont à **droite** quand la
+            largeur le permet : la barre se lit en deux groupes, et la main
+            n’a pas à traverser tout l’écran pour trouver le bouton « ⋯ ». */}
         <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
 
         {/* ------------------------------------------------- listes */}
@@ -406,6 +483,19 @@ export function EditorToolbar({
             <TextAlignRight size={18} />
           </ToolButton>
         </div>
+
+        {/* ------------------------------------------------- question */}
+        <ToolButton
+          label="Créer une question"
+          hint={selection ? "Sur le passage sélectionné" : "Sélectionnez un passage"}
+          disabled={!selection || !editor}
+          onClick={() => {
+            setMenu(null);
+            onAsk();
+          }}
+        >
+          <Question size={18} />
+        </ToolButton>
 
         {/* ------------------------------------------------- plus */}
         <span className="relative shrink-0">
@@ -494,8 +584,28 @@ export function EditorToolbar({
 
             <MenuItem icon={MagnifyingGlass} label="Rechercher dans la note" shortcut="Ctrl+F" onSelect={() => { setMenu(null); onFind(); }} />
             <MenuItem icon={Eraser} label="Effacer la mise en forme" hint="Marques et type de bloc" onSelect={() => run((i) => i.clearFormatting())} />
+
+            <span className="editor-menu-sep" role="separator" />
+            <p className="px-2 pb-1 pt-1 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+              Affichage de la note
+            </p>
+            {noteSettings.map((item) => (
+              <MenuItem
+                key={item.label}
+                icon={item.icon}
+                label={item.label}
+                hint={item.hint}
+                disabled={item.disabled}
+                onSelect={() => {
+                  setMenu(null);
+                  item.run();
+                }}
+              />
+            ))}
           </MenuPanel>
         </span>
+
+        <span className="ml-auto" aria-hidden="true" />
 
         <button
           type="button"
@@ -510,6 +620,21 @@ export function EditorToolbar({
           className="editor-tool shrink-0 text-accent"
         >
           <Plus size={19} weight="bold" />
+        </button>
+
+        <button
+          type="button"
+          aria-label="Toutes les commandes"
+          title="Toutes les commandes (Ctrl+K)"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setMenu(null);
+            onOpenPalette();
+          }}
+          className="editor-tool shrink-0 px-2.5 text-[12.5px] font-semibold text-muted"
+          style={{ width: "auto" }}
+        >
+          Tout
         </button>
       </div>
 

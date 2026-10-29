@@ -6,6 +6,7 @@ import type {
   AppSettings,
   CanvasBg,
   NoteFont,
+  NotePaper,
   Personalization,
   ReviewSettings,
   ThemeMode,
@@ -43,6 +44,8 @@ interface AppState {
   setAccent: (accent: AccentKey, customHex?: string) => void;
   setCustomAccent: (hex: string) => void;
   setCanvas: (canvas: CanvasBg) => void;
+  /** papier de la note : uni (clair ou sombre selon le thème) ou ligné */
+  setNotePaper: (notePaper: NotePaper) => void;
   setWallpaper: (wallpaper: string | null) => void;
   /** accent tiré du fond, ou accent du thème */
   setDynamicAccent: (on: boolean) => void;
@@ -91,6 +94,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accentMode: "theme",
   accent: "teal",
   canvas: "dots",
+  notePaper: "plain",
   wallpaper: null,
   wallBlur: 8,
   wallDim: 28,
@@ -332,6 +336,9 @@ export const useAppStore = create<AppState>()(
         })),
       setCanvas: (canvas) =>
         set((s) => ({ settings: { ...s.settings, canvas } })),
+
+      setNotePaper: (notePaper) =>
+        set((s) => ({ settings: { ...s.settings, notePaper } })),
       setWallpaper: (wallpaper) =>
         set((s) => ({ settings: { ...s.settings, wallpaper } })),
       setDynamicAccent: (dynamicAccent) =>

@@ -126,19 +126,6 @@ describe("Fiche de la note", () => {
     });
   });
 
-  it("grise le rangement du pupitre sur bureau, en disant pourquoi", async () => {
-    const user = userEvent.setup();
-    await withDesktop(async () => {
-      open("/note/n-plan");
-      await user.click(screen.getByRole("button", { name: /Fiche de la note/ }));
-      const fiche = await screen.findByRole("dialog", { name: "Fiche de la note" });
-
-      const ligne = within(fiche).getByText("Ranger le pupitre").closest("[aria-disabled]");
-      expect(ligne?.getAttribute("aria-disabled")).toBe("true");
-      expect(ligne?.textContent).toContain("téléphone");
-    });
-  });
-
   it("demande confirmation avant la corbeille", async () => {
     const user = userEvent.setup();
     await withDesktop(async () => {
@@ -162,8 +149,7 @@ describe("Fiche de la note", () => {
 
     const feuille = await screen.findByRole("dialog", { name: /Cette note/ });
     expect(within(feuille).getByRole("heading", { name: "Ranger" })).toBeTruthy();
-    /* Ici le rangement du pupitre est disponible : c’est un geste de pouce. */
-    expect(within(feuille).getByRole("button", { name: /Ranger le pupitre/ })).toBeTruthy();
+    expect(within(feuille).getByRole("button", { name: /corbeille/ })).toBeTruthy();
   });
 });
 

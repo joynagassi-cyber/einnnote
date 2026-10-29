@@ -212,8 +212,8 @@ import de thème tiendrait en une fonction `importTheme(css)` qui lirait
 │ │ à revoir  │ │                                                          │
 │ └───────────┘ │                                                          │
 └───────────────┴───────────────────────────────────────────────────────────┘
-   Mobile : mêmes écrans, une colonne 440 px, onglets bas, compositeur
-   d’édition collé au-dessus du clavier (voir §7).
+   Mobile : mêmes écrans, une colonne 440 px, onglets bas, barre d’édition
+   collée au-dessus du clavier (voir §7).
 ```
 
 La page `/preview` sert cette maquette **vivante** : deux iframes réelles côte
@@ -226,19 +226,20 @@ l’application.
 
 ## 7. Éditeur : grammaire visuelle
 
-- **Compositeur** : sous 1024 px, la barre d’outils et la barre de
-  personnalisation de note sont fixées en bas, au-dessus du clavier ; au-delà,
-  le compositeur remonte et devient collant sous l’en-tête. Ordre visuel :
-  barre de note au-dessus de la barre d’outils sur mobile, l’inverse sur
-  bureau (`flex-direction: column-reverse` / `column`).
+- **Une seule barre** (voir `docs/EDITOR-LAYOUT.md`) : sous 768 px elle est
+  fixée en bas, juste au-dessus du clavier ; à partir de 768 px elle est en
+  haut, collante sous l’en-tête, et va d’un bord à l’autre. Les gestes
+  d’écriture sont à gauche, la structure et la palette à droite. Elle n’existe
+  qu’en mode écriture.
 - Le clavier est mesuré par `visualViewport` (`--kb`), pas supposé : les barres
   restent collées au-dessus, y compris sur iOS où la fenêtre ne se redimensionne
   pas.
-- Groupes de la barre d’outils, dans cet ordre : historique · structure ·
-  marques · retrait.
+- Groupes de la barre, dans cet ordre (gauche → droite) : historique · type de
+  bloc · marques · listes · retrait · alignement · **Créer une question** ·
+  **⋯** · **+** · **Tout** · compteur de mots.
 - État actif : fond `--accent-soft`, texte `--accent-ink`, icône `bold`.
-- Sur sélection : barre contextuelle sombre en bas, une action principale
-  (« Créer une question ») + trois raccourcis.
+- Pas de barre contextuelle : les gestes de sélection sont sur la barre, où le
+  bouton « Créer une question » s’active dès qu’un passage est sélectionné.
 - Gouttière : les questions sont des pastilles rondes alignées à gauche de
   leur bloc, jamais dans le flux du texte.
 - Le menu « / » n’apparaît que dans un paragraphe vide commençant par « / ».
