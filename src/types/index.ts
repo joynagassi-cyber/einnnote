@@ -1,6 +1,12 @@
 /* Modèle de données du prototype (miroir du schéma SQLite du cahier des charges v3.0) */
 
-export type Method = "outline" | "cornell" | "mindmap" | "zettelkasten";
+export type Method =
+  | "outline"
+  | "cornell"
+  | "mindmap"
+  | "zettelkasten"
+  /** Le tableau blanc : le texte **et** la planche, dans la même surface. */
+  | "whiteboard";
 
 export type ThemeMode = "light" | "dark" | "system";
 

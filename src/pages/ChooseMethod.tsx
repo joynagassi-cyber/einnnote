@@ -55,7 +55,11 @@ export default function ChooseMethod() {
     vault?.projectId ?? params.get("project") ?? activeProjectId;
 
   const openWith = (note: { id: string; method: Method; mindmapId?: string; vaultId?: string }) => {
-    if (note.mindmapId) navigate(`/mindmap/${note.mindmapId}`, { replace: true });
+    /* Le tableau blanc a une planche **et** du texte : il s’ouvre donc sur la
+       note, pas sur la carte. La carte d’une carte mentale reste son ouverture
+       naturelle. */
+    if (note.method === "mindmap" && note.mindmapId)
+      navigate(`/mindmap/${note.mindmapId}`, { replace: true });
     else if (note.method === "zettelkasten" && note.vaultId)
       navigate(`/vault/${note.vaultId}/fiches`, { replace: true });
     else navigate(`/note/${note.id}`, { replace: true });
@@ -119,8 +123,13 @@ export default function ChooseMethod() {
     openWith(note);
   };
 
+  /* Le tableau blanc écrit comme un plan : il propose donc les mêmes modèles
+     de texte. Sa planche, elle, naît vierge — remplir un canevas à la main est
+     justement le geste qu’on vient y faire. */
   const noteTemplates =
-    method === "outline" || method === "cornell" ? noteTemplatesFor(method) : [];
+    method === "outline" || method === "cornell" || method === "whiteboard"
+      ? noteTemplatesFor(method === "whiteboard" ? "outline" : method)
+      : [];
 
   return (
     <Screen className="screen-wide px-5 lg:px-8">
@@ -211,7 +220,9 @@ export default function ChooseMethod() {
                     ? `${MINDMAP_TEMPLATES.length} modèles de carte`
                     : id === "zettelkasten"
                       ? `${ZETTEL_TEMPLATES.length} modèles de fiche`
-                      : "6 modèles prêts à l’emploi"}
+                      : id === "whiteboard"
+                        ? "Texte et planche, sans modèle imposé"
+                        : "6 modèles prêts à l’emploi"}
                 </span>
               </span>
             </button>
@@ -243,7 +254,10 @@ export default function ChooseMethod() {
         size="wide"
         title={
           method
-            ? `${METHODS[method].label} — ${noteTemplates.length || (method === "mindmap" ? MINDMAP_TEMPLATES.length : ZETTEL_TEMPLATES.length)} modèles`
+            ? `${METHODS[method].label} — ${
+                noteTemplates.length ||
+                (method === "mindmap" ? MINDMAP_TEMPLATES.length : ZETTEL_TEMPLATES.length)
+              } modèles`
             : "Modèles"
         }
       >
@@ -266,7 +280,9 @@ export default function ChooseMethod() {
           />
         )}
 
-        {(method === "outline" || method === "cornell") && (
+        {(method === "outline" ||
+          method === "cornell" ||
+          method === "whiteboard") && (
           <NoteTemplateGallery templates={noteTemplates} onPick={fromNoteTemplate} />
         )}
 

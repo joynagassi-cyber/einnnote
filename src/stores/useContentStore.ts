@@ -187,6 +187,9 @@ function blockHtmlToText(html: string): string {
 }
 
 const starterBlocks = (method: Method): Block[] => {
+  /* Une carte mentale et un zettelkasten n’ont pas de texte : leur surface est
+     le graphe. Le tableau blanc, lui, a **les deux** — il naît donc avec une
+     première ligne à écrire. */
   if (method === "mindmap" || method === "zettelkasten") return [];
   return [
     {
@@ -366,7 +369,7 @@ export const useContentStore = create<ContentState>()(
           updatedAt: now,
         };
 
-        if (method === "mindmap") {
+        if (method === "mindmap" || method === "whiteboard") {
           const mapId = uid("m");
           note.mindmapId = mapId;
           /* Une carte vide n’apprend rien : on part du modèle par défaut,

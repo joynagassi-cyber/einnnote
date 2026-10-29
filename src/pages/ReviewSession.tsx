@@ -467,6 +467,7 @@ const METHOD_LABELS: Record<string, string> = {
   outline: "Plan",
   mindmap: "Carte mentale",
   zettelkasten: "Zettelkasten",
+  whiteboard: "Tableau blanc",
   free: "Note libre",
 };
 

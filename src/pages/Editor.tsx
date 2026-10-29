@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  ArrowFatLineRight,
   BookOpen,
+  CaretRight,
+  ChatsCircle,
   PencilSimple,
   Check,
   Copy,
@@ -16,6 +17,7 @@ import {
 import { AppBar, EmptyState, Screen, Sheet } from "@/components/Layout";
 import { NoteEditor, type NoteEditorHandle } from "@/components/editor/NoteEditor";
 import { Fiche } from "@/components/note/Fiche";
+import { MindCanvas } from "@/components/canvas/MindCanvas";
 import { FicheWindow } from "@/components/note/FicheWindow";
 import { DisplayMenu } from "@/components/DisplayMenu";
 import { NoteTemplateGallery } from "@/components/TemplateGallery";
@@ -25,6 +27,7 @@ import { useIsDesktop } from "@/lib/useMediaQuery";
 import { useContentStore } from "@/stores/useContentStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { useToast } from "@/stores/useToast";
+import { cn } from "@/lib/utils";
 import { METHODS } from "@/lib/methods";
 import { blocksToMarkdown } from "@/lib/editor/blocks";
 import { backlinksTo, outgoingFrom } from "@/lib/links/notes";
@@ -46,6 +49,15 @@ export default function Editor() {
   const allNotes = useContentStore((s) => s.notes);
   const createNote = useContentStore((s) => s.createNote);
   const allTags = useContentStore((s) => s.tags);
+  /* La planche d’un tableau blanc est la carte mentale de la note : une seule
+     table, donc, et un seul état — la planche du texte et la page Carte mentale
+     montrent la même chose. */
+  const allMaps = useContentStore((s) => s.mindmaps);
+  const boardMap = useMemo(
+    () =>
+      allMaps.find((m) => m.id === note?.mindmapId || m.noteId === note?.id),
+    [allMaps, note?.id, note?.mindmapId],
+  );
   /* Les notes qu’on peut lier : pas soi-même, pas la corbeille. */
   /* Le texte d’une note, sans balises : c’est ce que lisent les liens. */
   const plainText = (blocks: Block[]) =>
@@ -78,9 +90,20 @@ export default function Editor() {
     [allVaults, note?.projectId],
   );
 
-  const [sheet, setSheet] = useState<
-    "none" | "ask" | "questions" | "menu" | "templates"
-  >("none");
+  const [sheet, setSheet] = useState<"none" | "ask" | "menu" | "templates">("none");
+  /* Le panneau des questions n’est pas une fenêtre : c’est un **côté** de la
+     feuille. Sur bureau il est ouvert d’emblée (la colonne Cornell) ; sur
+     téléphone il s’ouvre d’un glissement depuis le bord droit, et il ne recouvre
+     jamais le texte d’un voile — on doit sentir le texte derrière. */
+  const [questionsOpen, setQuestionsOpen] = useState(desktop);
+  /* Tableau blanc : le texte et la planche sont **deux vues du même travail**.
+     Sur téléphone on passe de l’une à l’autre ; en bureau on peut les tenir
+     côte à côte, parce que c’est là qu’on relie une phrase à une forme. */
+  const [boardMode, setBoardMode] = useState<"text" | "board" | "split">(
+    desktop ? "split" : "text",
+  );
+  const [panelDrag, setPanelDrag] = useState(0);
+  const swipeFrom = useRef<number | null>(null);
   const [draft, setDraft] = useState("");
   /* L’éditeur ne relit pas les blocs de l’extérieur : quand un modèle ajoute
      des sections, on le remonte explicitement (et seulement dans ce cas). */
@@ -173,7 +196,7 @@ export default function Editor() {
     if (!targetQuestion) return;
     const link = allLinks.find((l) => l.questionId === targetQuestion);
     if (!link) return;
-    setSheet("questions");
+    setQuestionsOpen(true);
     const timer = window.setTimeout(() => flashBlock(link.blockId), 340);
     return () => window.clearTimeout(timer);
   }, [targetQuestion, allLinks, flashBlock]);
@@ -370,6 +393,19 @@ export default function Editor() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  /* Échap replie le panneau des questions — sauf si un menu ou une fenêtre est
+     ouvert devant : Échap appartient alors à ce qui est devant. */
+  useEffect(() => {
+    if (!questionsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (document.querySelector('[role="menu"],[role="dialog"]')) return;
+      setQuestionsOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [questionsOpen]);
+
   /* Échap quitte la lecture : c’est le seul geste de sortie dont on se
      souvienne sans lire une consigne. */
   useEffect(() => {
@@ -399,12 +435,47 @@ export default function Editor() {
   }
 
   const MethodIcon = METHODS[note.method].icon;
+  const isBoard = note.method === "whiteboard";
+  const showText = !isBoard || boardMode !== "board";
+  const showBoard = isBoard && boardMode !== "text" && Boolean(boardMap);
 
   /* **La bascule de mode.** Une icône, tout de suite à gauche du menu de la
      fiche (le « ⋯ » sur téléphone) : on change de mode sans ouvrir un panneau,
      parce que lire et écrire sont deux gestes de la même seconde.
      L’icône montre ce qu’on obtient, pas l’état courant : en écriture elle
      propose la lecture. */
+  /* La bascule texte / planche du tableau blanc. Elle vit dans l’en-tête et non
+     dans la colonne de texte : en vue « Planche », elle disparaîtrait avec le
+     texte qu’elle sert justement à retrouver. */
+  const boardToggle = isBoard ? (
+    <span
+      role="group"
+      aria-label="Vue du tableau blanc"
+      className="flex shrink-0 items-center gap-0.5 rounded-full border border-line p-0.5"
+    >
+      {(
+        [
+          { value: "text", label: "Texte" },
+          { value: "board", label: "Planche" },
+          ...(desktop ? [{ value: "split", label: "Les deux" }] : []),
+        ] as { value: "text" | "board" | "split"; label: string }[]
+      ).map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => setBoardMode(option.value)}
+          aria-pressed={boardMode === option.value}
+          className={cn(
+            "h-7 rounded-full px-2.5 text-[12px] font-semibold",
+            boardMode === option.value ? "bg-accent-soft text-accent-ink" : "text-muted",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </span>
+  ) : null;
+
   const modeSwitch = (
     <button
       type="button"
@@ -440,6 +511,7 @@ export default function Editor() {
           action={
             desktop ? (
               <>
+                {boardToggle}
                 {modeSwitch}
                 <button
                   type="button"
@@ -453,20 +525,15 @@ export default function Editor() {
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => setSheet("questions")}
-                className="pill-accent h-10 px-3.5 text-[14px]"
-              >
-                Questions {questions.length}
-              </button>
+              boardToggle ?? undefined
             )
           }
         />
       </div>
 
       <div className="flex min-h-0 flex-1 items-start">
-      <main className="min-w-0 flex-1">
+      <main className={cn("min-w-0 flex-1", showBoard && boardMode === "split" && "flex items-stretch")}>
+        <div className={cn("min-w-0", showBoard && boardMode === "split" && "flex-1")}>
         <div className="px-5 pt-1 lg:px-10">
           <input
             ref={titleRef}
@@ -478,11 +545,32 @@ export default function Editor() {
           />
 
           <div className="mb-1 mt-1 flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-muted">
+            <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium text-muted">
+              {/* Le côté des questions s’ouvre d’ici : une icône fine, collée au
+                  coin haut-gauche du texte. Pas de bande, pas de flèche de
+                  20 px qui vole la moitié de la marge. */}
+              <button
+                type="button"
+                onClick={() => setQuestionsOpen((value) => !value)}
+                aria-expanded={questionsOpen}
+                aria-label={
+                  questionsOpen
+                    ? "Replier le panneau des questions"
+                    : "Ouvrir le panneau des questions"
+                }
+                title={questionsOpen ? "Replier les questions" : "Questions de la note"}
+                className={cn(
+                  "-ml-1 flex h-7 shrink-0 items-center gap-1 rounded-full px-1.5",
+                  questionsOpen ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-surface-2",
+                )}
+              >
+                <ChatsCircle size={16} weight={questionsOpen ? "fill" : "regular"} aria-hidden />
+                {questions.length > 0 && (
+                  <span className="tabnum text-[11.5px] font-bold">{questions.length}</span>
+                )}
+              </button>
               <MethodIcon size={16} aria-hidden />
               {METHODS[note.method].label}
-              {questions.length > 0 &&
-                ` · ${questions.length} question${questions.length > 1 ? "s" : ""}`}
             </span>
             {!desktop && (
               <span className="flex items-center gap-0.5">
@@ -500,6 +588,7 @@ export default function Editor() {
           </div>
         </div>
 
+        {showText && (
         <NoteEditor
           key={`${note.id}:${editorEpoch}`}
           ref={editorRef}
@@ -523,7 +612,7 @@ export default function Editor() {
           onChange={(blocks: Block[]) => replaceBlocks(note.id, blocks)}
           markers={markers}
           onBadgeClick={(blockId) => {
-            setSheet("questions");
+            setQuestionsOpen(true);
             window.setTimeout(() => jumpTo(blockId), 150);
           }}
           onAsk={(payload) => {
@@ -532,41 +621,103 @@ export default function Editor() {
             setSheet("ask");
           }}
         />
+        )}
+        </div>
+
+        {showBoard && (
+          <div className={cn("board-pane relative min-w-0", boardMode === "split" ? "w-[46%] shrink-0 border-l border-line" : "flex-1")}>
+            <MindCanvas
+              mapId={boardMap?.id ?? ""}
+              onOpenFull={() => navigate(`/mindmap/${boardMap?.id ?? ""}`)}
+            />
+          </div>
+        )}
       </main>
 
-      {/* Bureau : les questions vivent à côté du texte, pas derrière un bouton.
-          C’est le geste Cornell — la colonne d’indices est visible. */}
-      {desktop && (
-        <aside className="editor-aside" aria-label="Questions de la note">
-          <QuestionsPanel
-            questions={questions}
-            groups={questionGroups}
-            display={display}
-            onJump={jumpTo}
-            onDelete={(question) => {
-              deleteQuestion(question.id);
-              toast("Question supprimée, carte archivée");
-            }}
-            showMenu
-          />
-        </aside>
-      )}
-      </div>
-
-      {/* Ouverture du panneau des questions (mobile) */}
-      {!desktop && (
-      <button
-        type="button"
-        aria-label="Ouvrir le panneau des questions"
-        onClick={() => setSheet("questions")}
-        className="fixed top-[46%] z-20 flex h-20 w-[26px] items-center justify-center rounded-l-[14px] border border-r-0 border-line bg-surface text-accent"
-        style={{
-          right:
-            "max(0px, calc((100vw - var(--rail) - var(--screen-max)) / 2))",
+      {/* Les questions vivent **à côté** du texte, jamais devant.
+          C’est le geste Cornell : la colonne d’indices reste visible pendant
+          qu’on écrit, et sur téléphone elle arrive par le bord, sans voile. */}
+      <aside
+        className="editor-aside"
+        role="complementary"
+        aria-label="Questions de la note"
+        data-open={questionsOpen ? "true" : "false"}
+        aria-hidden={!questionsOpen}
+        /* Replié, le panneau est hors champ **et** hors du parcours clavier :
+           un élément qu’on ne voit pas ne doit pas attraper le focus. */
+        inert={!questionsOpen}
+        style={{ ["--panel-drag" as string]: `${panelDrag}px` }}
+        onPointerDown={(event) => {
+          if (desktop) return;
+          swipeFrom.current = event.clientX;
+        }}
+        onPointerMove={(event) => {
+          if (desktop || swipeFrom.current === null) return;
+          const dx = event.clientX - swipeFrom.current;
+          if (dx > 0) setPanelDrag(dx);
+        }}
+        onPointerUp={() => {
+          if (desktop) return;
+          if (panelDrag > 64) setQuestionsOpen(false);
+          setPanelDrag(0);
+          swipeFrom.current = null;
+        }}
+        onPointerCancel={() => {
+          setPanelDrag(0);
+          swipeFrom.current = null;
         }}
       >
-        <ArrowFatLineRight size={18} weight="bold" />
-      </button>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="flex-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-muted">
+            Questions
+          </span>
+          <button
+            type="button"
+            onClick={() => setQuestionsOpen(false)}
+            aria-label="Replier le panneau des questions"
+            title="Replier (Échap)"
+            className="icon-btn h-8 w-8"
+          >
+            <CaretRight size={17} weight="bold" />
+          </button>
+        </div>
+        <QuestionsPanel
+          questions={questions}
+          groups={questionGroups}
+          display={display}
+          onJump={(blockId) => {
+            jumpTo(blockId);
+            if (!desktop) setQuestionsOpen(false);
+          }}
+          onDelete={(question) => {
+            deleteQuestion(question.id);
+            toast("Question supprimée, carte archivée");
+          }}
+          showMenu
+        />
+      </aside>
+      </div>
+
+      {/* Sur téléphone, le bord droit est la poignée du panneau : on glisse
+          vers la gauche pour l’ouvrir. Aucune flèche dessinée. */}
+      {!desktop && !questionsOpen && (
+        <div
+          aria-hidden="true"
+          onPointerDown={(event) => {
+            swipeFrom.current = event.clientX;
+          }}
+          onPointerMove={(event) => {
+            if (swipeFrom.current === null) return;
+            if (event.clientX - swipeFrom.current < -36) {
+              setQuestionsOpen(true);
+              swipeFrom.current = null;
+            }
+          }}
+          onPointerUp={() => {
+            swipeFrom.current = null;
+          }}
+          className="fixed inset-y-1/4 right-0 z-[24] w-2.5 touch-pan-y"
+        />
       )}
 
       {/* Feuille : ajouter une question */}
@@ -622,27 +773,6 @@ export default function Editor() {
           </>
         )}
       </Sheet>
-
-      {/* Mobile : la feuille. Bureau : la colonne de droite. */}
-      {!desktop && (
-        <Sheet
-          open={sheet === "questions"}
-          onClose={() => setSheet("none")}
-          title={`Questions · ${questions.length}`}
-        >
-          <QuestionsPanel
-            questions={questions}
-            groups={questionGroups}
-            display={display}
-            onJump={jumpTo}
-            onDelete={(question) => {
-              deleteQuestion(question.id);
-              toast("Question supprimée, carte archivée");
-            }}
-            showMenu
-          />
-        </Sheet>
-      )}
 
       {/* La fiche : fenêtre flottante sur bureau, feuille sur téléphone.
           C’est le même composant — un seul contenu à maintenir, deux cadres. */}

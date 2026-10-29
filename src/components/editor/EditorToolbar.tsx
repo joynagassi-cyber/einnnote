@@ -14,8 +14,9 @@ import {
   CalendarBlank,
   CaretDown,
   Code,
+  Copy,
   CopySimple,
-  DotsThree,
+  SlidersHorizontal,
   TextAa,
   Eraser,
   Highlighter,
@@ -45,6 +46,7 @@ import {
   TextSuperscript,
   TextUnderline,
   Trash,
+  X,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { Align, EditorSnapshot } from "@/lib/editor/snapshot";
@@ -87,19 +89,29 @@ const KIND_LABELS: Record<BlockTarget, string> = {
   rule: "Filet",
 };
 
+/**
+ * Les types de bloc.
+ *
+ * Deux d’entre eux portent un **glyphe typographique** plutôt qu’une icône :
+ * le paragraphe (`¶`) et le filet (`—`). C’est délibéré — `TextAlignLeft`
+ * servait aussi à « Aligner à gauche » et `Minus` à « Texte plus petit » : une
+ * même image pour deux gestes oblige à lire l’infobulle. Le glyphe, lui, est
+ * unique par nature.
+ */
 const BLOCK_CHOICES: {
   target: BlockTarget;
   label: string;
   hint: string;
   shortcut?: string;
-  icon: ComponentType<IconProps>;
+  icon?: ComponentType<IconProps>;
+  glyph?: string;
 }[] = [
-  { target: "p", label: "Texte", hint: "Paragraphe normal", shortcut: "Ctrl+Alt+0", icon: TextAlignLeft },
+  { target: "p", label: "Texte", hint: "Paragraphe normal", shortcut: "Ctrl+Alt+0", glyph: "¶" },
   { target: "h1", label: "Titre 1", hint: "Section principale", shortcut: "Ctrl+Alt+1", icon: TextHOne },
   { target: "h2", label: "Titre 2", hint: "Sous-section", shortcut: "Ctrl+Alt+2", icon: TextHTwo },
   { target: "h3", label: "Titre 3", hint: "Détail", shortcut: "Ctrl+Alt+3", icon: TextHThree },
   { target: "quote", label: "Citation", hint: "Passage mis en avant", shortcut: "Ctrl+Maj+9", icon: Quotes },
-  { target: "rule", label: "Filet", hint: "Séparateur horizontal", icon: Minus },
+  { target: "rule", label: "Filet", hint: "Séparateur horizontal", glyph: "—" },
 ];
 
 interface IconProps {
@@ -145,6 +157,7 @@ function ToolButton({
 
 function MenuItem({
   icon: Icon,
+  glyph,
   label,
   hint,
   shortcut,
@@ -153,6 +166,8 @@ function MenuItem({
   onSelect,
 }: {
   icon?: ComponentType<IconProps>;
+  /** un signe typographique, quand une icône ferait doublon */
+  glyph?: string;
   label: string;
   hint?: string;
   shortcut?: string;
@@ -171,8 +186,14 @@ function MenuItem({
       onClick={onSelect}
       className={cn("editor-menu-item", checked && "is-active", disabled && "opacity-40")}
     >
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-        {Icon ? <Icon size={16} weight={checked ? "bold" : "regular"} /> : null}
+      <span
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center",
+          glyph && "font-serif text-[15px] leading-none",
+        )}
+        aria-hidden
+      >
+        {glyph ?? (Icon ? <Icon size={16} weight={checked ? "bold" : "regular"} /> : null)}
       </span>
       <span className="min-w-0 flex-1 text-left">
         <span className="block truncate">{label}</span>
@@ -269,21 +290,22 @@ export function EditorToolbar({
      maintenant **dans** la barre, sous « ⋯ » : une barre qui empile deux
      rangées de boutons ne laisse plus de place au texte. */
   const noteSettings: {
-    icon: ComponentType<IconProps>;
+    icon?: ComponentType<IconProps>;
+    glyph?: string;
     label: string;
     hint: string;
     disabled?: boolean;
     run: () => void;
   }[] = [
     {
-      icon: Plus,
+      glyph: "A+",
       label: "Texte plus grand",
       hint: `${settings.fontSize} px`,
       disabled: settings.fontSize >= 22,
       run: () => setFontSize(settings.fontSize + 1),
     },
     {
-      icon: Minus,
+      glyph: "A−",
       label: "Texte plus petit",
       hint: `${settings.fontSize} px`,
       disabled: settings.fontSize <= 14,
@@ -377,6 +399,7 @@ export function EditorToolbar({
               <MenuItem
                 key={choice.target}
                 icon={choice.icon}
+                glyph={choice.glyph}
                 label={choice.label}
                 hint={choice.hint}
                 shortcut={choice.shortcut}
@@ -436,7 +459,7 @@ export function EditorToolbar({
                   onClick={() => run((i) => i.highlight(null))}
                   className="flex h-7 w-7 items-center justify-center rounded-full border border-line text-muted"
                 >
-                  <Eraser size={14} />
+                  <X size={14} weight="bold" />
                 </button>
               </div>
             </MenuPanel>
@@ -473,13 +496,13 @@ export function EditorToolbar({
 
         {/* ------------------------------------------------- alignement */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <ToolButton label="Aligner à gauche" active={snapshot.align === "left"} onClick={chain((i) => i.setAlign("left"))}>
+          <ToolButton label="Aligner à gauche" hint="Ctrl+Maj+L" active={snapshot.align === "left"} onClick={chain((i) => i.setAlign("left"))}>
             <TextAlignLeft size={18} />
           </ToolButton>
-          <ToolButton label="Centrer" active={snapshot.align === "center"} onClick={chain((i) => i.setAlign("center"))}>
+          <ToolButton label="Centrer" hint="Ctrl+Maj+E" active={snapshot.align === "center"} onClick={chain((i) => i.setAlign("center"))}>
             <TextAlignCenter size={18} />
           </ToolButton>
-          <ToolButton label="Aligner à droite" active={snapshot.align === "right"} onClick={chain((i) => i.setAlign("right"))}>
+          <ToolButton label="Aligner à droite" hint="Ctrl+Maj+R" active={snapshot.align === "right"} onClick={chain((i) => i.setAlign("right"))}>
             <TextAlignRight size={18} />
           </ToolButton>
         </div>
@@ -504,12 +527,12 @@ export function EditorToolbar({
             aria-label="Plus d’options de mise en forme"
             aria-haspopup="menu"
             aria-expanded={menu === "more"}
-            title="Plus d’options"
+            title="Mise en forme, blocs et affichage"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => setMenu(menu === "more" ? null : "more")}
             className={cn("editor-tool", menu === "more" && "editor-tool-active")}
           >
-            <DotsThree size={20} weight="bold" />
+            <SlidersHorizontal size={19} />
           </button>
           <MenuPanel label="Plus d’options de mise en forme" open={menu === "more"} onClose={close} wide>
             <MenuItem
@@ -550,7 +573,7 @@ export function EditorToolbar({
             <span className="editor-menu-sep" role="separator" />
 
             <MenuItem
-              icon={CopySimple}
+              icon={Copy}
               label="Copier le bloc"
               hint="Texte du bloc courant"
               onSelect={() => {
@@ -573,7 +596,7 @@ export function EditorToolbar({
             {CASE_MODES.map((item) => (
               <MenuItem
                 key={item.mode}
-                icon={TextAa}
+                glyph={item.hint.split("→")[1]?.trim() ?? "Aa"}
                 label={`Casse : ${item.label}`}
                 hint={item.hint}
                 onSelect={() => run((i) => i.changeCase(item.mode))}
@@ -593,6 +616,7 @@ export function EditorToolbar({
               <MenuItem
                 key={item.label}
                 icon={item.icon}
+                glyph={item.glyph}
                 label={item.label}
                 hint={item.hint}
                 disabled={item.disabled}

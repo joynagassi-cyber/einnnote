@@ -3,6 +3,7 @@ import {
   Cards,
   ListBullets,
   Notebook,
+  SquaresFour,
   TreeStructure,
 } from "@phosphor-icons/react";
 import type { Method } from "@/types";
@@ -58,12 +59,22 @@ export const METHODS: Record<Method, MethodMeta> = {
     effortLabel: "Effort très élevé",
     icon: Cards,
   },
+  whiteboard: {
+    id: "whiteboard",
+    label: "Tableau blanc",
+    tagline: "Texte et planche, sur la même feuille",
+    effort: 3,
+    effortLabel: "Effort élevé",
+    icon: SquaresFour,
+    recommended: "Quand la pensée passe du texte au schéma",
+  },
 };
 
 export const METHOD_ORDER: Method[] = [
   "outline",
   "cornell",
   "mindmap",
+  "whiteboard",
   "zettelkasten",
 ];
 

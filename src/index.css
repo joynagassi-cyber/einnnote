@@ -1191,7 +1191,8 @@
      n’en a pas — c’est ce qui donne le sentiment qu’il continue au-delà de
      l’écran. Le sélecteur est doublé pour passer devant les règles de `.screen`
      en bureau, sans `!important`. */
-  .screen.screen-canvas {
+  .screen.screen-canvas,
+  .screen.screen-editor {
     max-width: none;
     border-inline: 0;
     box-shadow: none;
@@ -1248,18 +1249,87 @@
   .screen-editor {
     --screen-max: 1180px;
   }
+  /* ------------------------------------------------------------
+     Le côté des questions.
+
+     Ce n’est **pas** une fenêtre : ni voile, ni fond plein écran, ni
+     bouton « fermer » centré. Téléphone : le panneau arrive par le
+     bord droit, qu’on peut tirer au doigt. Bureau : il fait partie de
+     la colonne, se replie en largeur et laisse le texte respirer.
+     ------------------------------------------------------------ */
+
+  /* La planche du tableau blanc. Elle a une hauteur propre parce que React
+     Flow refuse de mesurer un parent indéfini : sans cela, la planche
+     s’effondre à zéro et l’on croit qu’elle n’a pas été créée. */
+  .board-pane {
+    height: calc(100dvh - 58px);
+    min-height: 300px;
+    background: var(--bg);
+  }
+
+  @media (min-width: 768px) {
+    .board-pane {
+      position: sticky;
+      top: 56px;
+      align-self: flex-start;
+      height: calc(100dvh - 56px);
+    }
+  }
+
   .editor-aside {
-    width: 340px;
-    flex: none;
-    align-self: stretch;
-    position: sticky;
-    top: 72px;
-    max-height: calc(100dvh - 96px);
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    width: min(88vw, 356px);
     overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 14px 16px calc(18px + var(--safe-bottom));
     border-left: 1px solid var(--line);
-    background: color-mix(in srgb, var(--surface) 70%, var(--bg));
-    padding: 18px 18px 28px;
+    background: color-mix(in srgb, var(--surface) 94%, var(--bg));
+    backdrop-filter: blur(18px) saturate(1.04);
+    -webkit-backdrop-filter: blur(18px) saturate(1.04);
+    box-shadow: -22px 0 54px -28px rgb(0 0 0 / 0.34);
     scrollbar-width: thin;
+    touch-action: pan-y;
+    transform: translateX(calc(100% + var(--panel-drag, 0px)));
+    transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .editor-aside[data-open="true"] {
+    transform: translateX(var(--panel-drag, 0px));
+  }
+
+  @media (min-width: 768px) {
+    .editor-aside {
+      position: sticky;
+      top: 56px;
+      height: calc(100dvh - 56px);
+      width: 340px;
+      flex: none;
+      align-self: stretch;
+      padding: 18px 18px 28px;
+      background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      transform: none;
+      transition:
+        width 200ms ease,
+        padding 200ms ease,
+        opacity 160ms ease;
+    }
+    .editor-aside[data-open="false"] {
+      width: 0;
+      padding-inline: 0;
+      border-left: 0;
+      opacity: 0;
+      overflow: hidden;
+      transform: none;
+    }
   }
 
   /* Colonne de filtres (bibliothèque bureau) */
@@ -1511,7 +1581,10 @@
   padding-bottom: calc(56px + var(--safe-bottom));
 }
 
-/* Bureau : la barre remonte en haut, sous l’en-tête, d’un bord à l’autre. */
+/* Bureau : la barre remonte en haut, sous l’en-tête, mais elle s’arrête où
+   s’arrête le texte. Une barre qui traverse toute la fenêtre pendant que le
+   paragraphe s’arrête à 720 px laisse une marge vide qu’on voit — et c’est
+   cette marge-là qui fait « formulaire » plutôt que « feuille ». */
 @media (min-width: 768px) {
   .editor-bar {
     position: sticky;
@@ -1519,10 +1592,14 @@
     bottom: auto;
     z-index: 15;
     max-width: none;
-    margin-inline: 0;
-    padding: 5px 10px;
+    margin-left: 74px;
+    margin-right: 40px;
+    padding: 5px 0;
     border-top: 0;
     border-bottom: 1px solid var(--line);
+  }
+  .editor-bar > .editor-toolbar {
+    max-width: var(--reading-width);
   }
   .note-editor {
     padding-bottom: 80px;

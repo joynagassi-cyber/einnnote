@@ -43,6 +43,7 @@ const METHOD_LABELS: Record<Note["method"], string> = {
   cornell: "Cornell",
   mindmap: "Carte mentale",
   zettelkasten: "Zettelkasten",
+  whiteboard: "Tableau blanc",
 };
 
 function slug(value: string): string {
@@ -88,7 +89,7 @@ function noteToMarkdown(source: MarkdownSource, note: Note): string {
     `# ${note.title}\n`,
   ];
 
-  if (note.method === "mindmap") {
+  if (note.method === "mindmap" || note.method === "whiteboard") {
     const map = source.mindmaps.find(
       (item) => item.id === note.mindmapId || item.noteId === note.id,
     );
@@ -104,6 +105,12 @@ function noteToMarkdown(source: MarkdownSource, note: Note): string {
       const roots = map.nodes.filter((node) => !node.parentId);
       parts.push(roots.flatMap((root) => [`- ${root.text}`, ...render(root.id, 1)]).join("\n"));
       parts.push("");
+    }
+    /* Le tableau blanc emporte **les deux** : le schéma et le texte. Un export
+       qui perdrait l’un des deux ne serait pas une sauvegarde. */
+    if (note.method === "whiteboard") {
+      const body = blocksToMarkdown(note.blocks);
+      if (body.trim()) parts.push(`${body}\n`);
     }
   } else if (note.method === "zettelkasten") {
     const cards = source.zettel.filter((card) => card.vaultId === note.vaultId);

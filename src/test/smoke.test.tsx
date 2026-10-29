@@ -142,23 +142,38 @@ describe("Einnote — écrans", () => {
     expect(screen.getByText("Contrats commerciaux")).toBeTruthy();
   });
 
-  it("propose les quatre méthodes", () => {
+  it("propose les cinq méthodes", () => {
     open("/new");
     expect(screen.getByText("Que voulez-vous faire ?")).toBeTruthy();
     expect(screen.getByText("Outline")).toBeTruthy();
     expect(screen.getByText("Cornell")).toBeTruthy();
     expect(screen.getByText("Carte mentale")).toBeTruthy();
     expect(screen.getByText("Zettelkasten")).toBeTruthy();
+    // la cinquième : le texte **et** la planche
+    expect(screen.getByText("Tableau blanc")).toBeTruthy();
     expect(screen.getByText("Conseillé pour un cours")).toBeTruthy();
   });
 
-  it("affiche l’éditeur Cornell avec ses questions", () => {
+  it("affiche l’éditeur Cornell et ouvre le côté des questions", async () => {
+    const user = userEvent.setup();
     open("/note/n-contrats");
-    expect(screen.getByText("Questions 3")).toBeTruthy();
+    /* Le côté des questions s’ouvre par une icône fine, en haut à gauche du
+       texte — plus de pastille « Questions 3 » dans l’en-tête, plus de fenêtre. */
+    await user.click(
+      screen.getByRole("button", { name: "Ouvrir le panneau des questions" }),
+    );
+    const aside = screen.getByRole("complementary", {
+      name: "Questions de la note",
+    });
+    expect(within(aside).getByText(/Conditions de validité/)).toBeTruthy();
+    expect(within(aside).getByText("Q1")).toBeTruthy();
+    // replié à nouveau par l’en-tête du panneau
+    await user.click(
+      within(aside).getByRole("button", { name: "Replier le panneau des questions" }),
+    );
     expect(
-      screen.getByText(/Conditions de validité/),
-    ).toBeTruthy();
-    expect(screen.getByText("Q1")).toBeTruthy();
+      screen.queryByRole("complementary", { name: "Questions de la note" }),
+    ).toBeNull();
   });
 
   it("affiche la carte mentale", async () => {
